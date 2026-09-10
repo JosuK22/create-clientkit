@@ -90,11 +90,15 @@ describe('planning astro-tailwind', () => {
       'src/components/Footer.astro',
       'src/components/Header.astro',
       'src/components/LaunchNotice.astro',
+      'src/components/Seo.astro',
       'src/components/SocialLinks.astro',
+      'src/components/StructuredData.astro',
       'src/config/site.config.ts',
       'src/layouts/BaseLayout.astro',
+      'src/lib/seo.ts',
       'src/pages/404.astro',
       'src/pages/index.astro',
+      'src/pages/robots.txt.ts',
       'src/styles/global.css',
       'tsconfig.json',
     ]);
@@ -219,7 +223,7 @@ describe('generation through the CLI', () => {
     expect(out.text).toContain('DRY RUN');
     expect(out.text).toContain('astro-tailwind');
     expect(out.text).toContain('src/pages/index.astro');
-    expect(out.text).toContain('Total: 18 files');
+    expect(out.text).toContain('Total: 22 files');
     expect(readdirSync(cwd)).toEqual([]);
   });
 
@@ -420,8 +424,9 @@ describe('M3 structure in both modes', () => {
     }
   });
 
-  it('adds no runtime dependencies to the generated project', () => {
+  it('keeps the generated runtime dependencies minimal and deliberate', () => {
     const pkg = JSON.parse(read('coming-soon', 'package.json'));
-    expect(Object.keys(pkg.dependencies)).toEqual(['astro']);
+    // Astro plus the official sitemap integration, and nothing else.
+    expect(Object.keys(pkg.dependencies).sort()).toEqual(['@astrojs/sitemap', 'astro']);
   });
 });

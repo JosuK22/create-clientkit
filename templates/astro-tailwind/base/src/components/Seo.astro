@@ -1,0 +1,74 @@
+---
+import { SEO, SITE } from '../config/site.config.ts';
+import { absoluteUrl, assetUrl, siteOrigin } from '../lib/seo.ts';
+
+/**
+ * Every <head> tag that describes the page lives here, so there is exactly one
+ * place that decides titles, canonical URLs and social metadata - and exactly
+ * one of each tag in the output.
+ *
+ * Everything defaults from src/config/site.config.ts. A page only passes what
+ * it genuinely needs to override.
+ */
+interface Props {
+  /** Page name. Omit on the home page so the title is just the site name. */
+  title?: string;
+  /** Overrides SITE.description for this page. */
+  description?: string;
+  /** Force this page out of the index regardless of the site setting. */
+  noindex?: boolean;
+  /** Open Graph type. 'website' suits every page this template ships. */
+  type?: 'website' | 'article';
+  /** Overrides SEO.image for this page. */
+  image?: string;
+}
+
+const { title, description, noindex = false, type = 'website', image } = Astro.props;
+
+// '' means no production URL is configured. Every absolute tag below is then
+// skipped rather than pointed at a domain nobody has bought yet.
+const origin = siteOrigin(SITE.url);
+
+const pageTitle = title ? `${title} - ${SITE.name}` : SITE.name;
+
+// page description -> site description -> no tag at all. Nothing invented.
+const metaDescription = (description ?? SITE.description).trim();
+
+// A page may opt out on its own (the 404 does); the site setting covers the rest.
+const blocked = noindex || SEO.noindex;
+const robots = blocked ? 'noindex, nofollow' : 'index, follow';
+
+// A canonical tag says "this is the definitive URL for this content" while
+// noindex says "do not index it". Emitting both is contradictory, so a blocked
+// page gets no canonical at all.
+const canonical =
+  origin === '' || blocked ? '' : absoluteUrl(origin, Astro.url.pathname);
+
+const socialImage = assetUrl(origin, image ?? SEO.image);
+
+// og:locale wants language_TERRITORY. A bare 'en' is not valid, so it is
+// omitted rather than emitted in a form crawlers will discard.
+const ogLocale = /^[a-z]{2,3}-[A-Za-z0-9]{2,8}$/.test(SITE.locale)
+  ? SITE.locale.replace('-', '_')
+  : '';
+---
+
+<title>{pageTitle}</title>
+{metaDescription !== '' && <meta name="description" content={metaDescription} />}
+<meta name="robots" content={robots} />
+{canonical !== '' && <link rel="canonical" href={canonical} />}
+
+{/* Open Graph. Only tags whose value actually exists are emitted. */}
+<meta property="og:type" content={type} />
+<meta property="og:title" content={pageTitle} />
+<meta property="og:site_name" content={SITE.name} />
+{metaDescription !== '' && <meta property="og:description" content={metaDescription} />}
+{canonical !== '' && <meta property="og:url" content={canonical} />}
+{ogLocale !== '' && <meta property="og:locale" content={ogLocale} />}
+{socialImage !== '' && <meta property="og:image" content={socialImage} />}
+
+{/* Twitter/X. No handle is required and none is invented. */}
+<meta name="twitter:card" content={socialImage !== '' ? SEO.twitterCard : 'summary'} />
+<meta name="twitter:title" content={pageTitle} />
+{metaDescription !== '' && <meta name="twitter:description" content={metaDescription} />}
+{socialImage !== '' && <meta name="twitter:image" content={socialImage} />}

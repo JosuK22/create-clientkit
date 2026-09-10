@@ -29,7 +29,8 @@
     "git-init"
   ],
   "nextSteps": [
-    "Edit src/config/site.config.ts - name, description, navigation, social, contact and launch date all live there.",
+    "Edit src/config/site.config.ts - name, description, navigation, social, contact, launch date and SEO all live there.",
+    "Set SITE.url once the domain is known; canonical tags, Open Graph and the sitemap switch on with it.",
     "Set theme.accent to the client brand colour, or leave it for the neutral ink palette.",
     "Replace public/favicon.svg with the client mark."
   ]

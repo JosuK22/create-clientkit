@@ -1,6 +1,8 @@
 ---
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
+import Seo from '../components/Seo.astro';
+import StructuredData from '../components/StructuredData.astro';
 import { NAV, SITE, THEME, type NavItem } from '../config/site.config.ts';
 import '../styles/global.css';
 
@@ -8,6 +10,10 @@ interface Props {
   /** Page title. The site name is appended automatically. */
   title?: string;
   description?: string;
+  /** Keep this page out of search results regardless of the site setting. */
+  noindex?: boolean;
+  /** Emit Organization structured data. On for content pages, off for the 404. */
+  structuredData?: boolean;
   /** Overrides the navigation from site.config.ts for this page. */
   nav?: NavItem[];
   /** Hide the header entirely - used by pages that carry their own branding. */
@@ -21,13 +27,13 @@ interface Props {
 
 const {
   title,
-  description = SITE.description,
+  description,
+  noindex = false,
+  structuredData = true,
   nav = NAV,
   showHeader = true,
   measure = 'wide',
 } = Astro.props;
-
-const pageTitle = title ? `${title} - ${SITE.name}` : SITE.name;
 
 // 'system' means no attribute at all, so the CSS media query decides.
 const appearance = THEME.appearance === 'system' ? undefined : THEME.appearance;
@@ -61,10 +67,17 @@ const accentCss = accent
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{pageTitle}</title>
-    <meta name="description" content={description} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
+
+    {/* Every descriptive tag lives in one component, so there is exactly one
+        title, description, canonical and social tag per page. */}
+    <Seo title={title} description={description} noindex={noindex} />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d10" />
+
+    {structuredData && <StructuredData />}
     {accentCss && <style is:global set:html={accentCss} />}
   </head>
 

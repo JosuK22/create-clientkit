@@ -1,0 +1,39 @@
+---
+import { CONTACT, SITE, SOCIAL } from '../config/site.config.ts';
+import { jsonLdScript, siteOrigin } from '../lib/seo.ts';
+
+/**
+ * schema.org Organization data, built only from values the developer has
+ * actually configured.
+ *
+ * Search engines consume structured data automatically, so a fabricated field
+ * here is worse than a missing one: every property below is omitted unless it
+ * has a real value. No logo, address, rating, review or founding date is
+ * invented, and none is emitted at all until the config carries one.
+ */
+const origin = siteOrigin(SITE.url);
+
+const sameAs = SOCIAL.filter((link) => link.href.trim() !== '').map((link) => link.href.trim());
+
+const organization: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: SITE.name,
+};
+
+if (origin !== '') organization['url'] = origin;
+if (SITE.description.trim() !== '') organization['description'] = SITE.description.trim();
+if (CONTACT.email.trim() !== '') organization['email'] = CONTACT.email.trim();
+if (CONTACT.phone.trim() !== '') organization['telephone'] = CONTACT.phone.trim();
+if (sameAs.length > 0) organization['sameAs'] = sameAs;
+
+// `location` is free text, so it maps to a plain Place name rather than a
+// PostalAddress - claiming a structured address we do not have would be wrong.
+if (CONTACT.location.trim() !== '') {
+  organization['location'] = { '@type': 'Place', name: CONTACT.location.trim() };
+}
+
+const payload = jsonLdScript(organization);
+---
+
+<script type="application/ld+json" is:inline set:html={payload} />

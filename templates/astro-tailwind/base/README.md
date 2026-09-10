@@ -29,6 +29,7 @@ npm run dev
    - `CONTACT` - email, phone, location; each is optional
    - `LAUNCH` - optional launch date and countdown
    - `THEME` - `appearance` (`system`/`light`/`dark`) and a brand `accent` hex
+   - `SEO` - social preview `image`, `twitterCard`, and `noindex`
 
    An empty string or empty array means "not set", and the UI omits that piece
    rather than showing a placeholder. Nothing is ever invented for you.
@@ -44,6 +45,60 @@ npm run dev
    radii, shadows and spacing all live here, and light/dark are one block of
    custom properties rather than duplicated components.
 7. **`public/favicon.svg`** - replace with the client's mark.
+
+## SEO
+
+Metadata is generated into the static HTML at build time - nothing depends on
+JavaScript, so crawlers and social platforms get the full picture from the
+source.
+
+`src/components/Seo.astro` is the single place that emits `<title>`,
+description, canonical, robots, Open Graph and Twitter tags, and
+`src/layouts/BaseLayout.astro` renders it for every page. A page only passes
+what it needs to override:
+
+```astro
+<BaseLayout title="About" description="Something specific to this page." />
+```
+
+**Everything derives from `SITE`.** You never repeat the site name,
+description or URL.
+
+### Before you have a domain
+
+`SITE.url` starts empty and that is a supported state, not a broken one. While
+it is empty the site omits every absolute tag - canonical, `og:url`, the
+sitemap and the sitemap line in `robots.txt` - rather than pointing them at a
+domain nobody owns yet. Fill `SITE.url` in and they all appear. Only the
+origin is used; a subpath deployment also needs Astro's `base` option.
+
+### Indexing
+
+`SEO.noindex` controls it, and it is `false` by default so a launched site is
+findable. Set it to `true` while a holding page is up if you would rather it
+stayed out of search - and remember to switch it back at launch.
+
+| `SITE.url` | `SEO.noindex` | Result |
+| --- | --- | --- |
+| set | `false` | Canonical, `og:url`, sitemap, `Sitemap:` line in robots.txt |
+| set | `true` | `noindex, nofollow`, no canonical, no sitemap, `Disallow: /` |
+| empty | `false` | No absolute tags, no sitemap, permissive robots.txt |
+| empty | `true` | No absolute tags, no sitemap, `Disallow: /` |
+
+The 404 page is always `noindex, nofollow` and carries no structured data,
+whatever the site setting says.
+
+### Social preview image
+
+`SEO.image` is empty by default, so no `og:image` is emitted at all - better
+than pointing Facebook and X at a file that isn't there. Drop a 1200x630 PNG
+into `public/` and set `image: '/og.png'`.
+
+### Structured data
+
+`src/components/StructuredData.astro` emits a schema.org `Organization` block
+built only from values you have actually configured. No logo, address, rating
+or review is invented - fields you leave empty simply do not appear.
 
 ## Design notes
 

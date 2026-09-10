@@ -25,7 +25,14 @@ export interface SocialLink {
 export interface SiteIdentity {
   name: string;
   description: string;
-  /** Production URL. Empty until the domain is decided - nothing is invented. */
+  /**
+   * Production URL, as an origin: 'https://example.com'.
+   *
+   * Empty until the domain is decided - nothing is invented, and every
+   * absolute tag (canonical, og:url, sitemap) is simply omitted until it is
+   * set. Only the origin is used; to deploy under a subpath such as
+   * example.com/client, also set `base` in astro.config.mjs.
+   */
   url: string;
   /** BCP-47 language tag, used for <html lang> and date formatting. */
   locale: string;
@@ -54,6 +61,36 @@ export interface ThemeSettings {
   appearance: Appearance;
   /** Brand colour as a hex value, e.g. '#1d4ed8'. Empty keeps the neutral ink. */
   accent: string;
+}
+
+export type TwitterCard = 'summary' | 'summary_large_image';
+
+export interface SeoSettings {
+  /**
+   * Social preview image, 1200x630 works everywhere. Either a path in
+   * `public/` ('/og.png') or an absolute URL.
+   *
+   * Empty by default and empty is safe: no `og:image` tag is emitted at all,
+   * which is better than pointing social platforms at a file that isn't there.
+   * Drop a real image in `public/` and name it here when you have one.
+   */
+  image: string;
+
+  /** 'summary_large_image' shows a wide preview; 'summary' shows a thumbnail. */
+  twitterCard: TwitterCard;
+
+  /**
+   * Ask search engines to stay away. Also suppresses the sitemap and its
+   * reference in robots.txt, so the site never advertises pages it has asked
+   * not to have indexed.
+   *
+   * Left `false` on purpose, including for coming-soon sites: a placeholder
+   * page that gets indexed is replaced at the next crawl, whereas a `noindex`
+   * left switched on after launch keeps the real site invisible for weeks.
+   * If you would rather the holding page stayed out of search, set this to
+   * true now and remember to turn it off when the real site goes live.
+   */
+  noindex: boolean;
 }
 
 /** Identity. These values are filled in from your answers at scaffold time. */
@@ -95,4 +132,10 @@ export const LAUNCH: LaunchSettings = {
 export const THEME: ThemeSettings = {
   appearance: 'system',
   accent: '',
+};
+
+export const SEO: SeoSettings = {
+  image: '',
+  twitterCard: 'summary_large_image',
+  noindex: false,
 };

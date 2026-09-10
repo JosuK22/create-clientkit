@@ -6,7 +6,13 @@ const hasEmail = CONTACT.email !== '';
 const links = NAV.filter((item) => item.label !== '' && item.href !== '');
 ---
 
-<BaseLayout title="Page not found" description="This page does not exist." measure="narrow">
+<BaseLayout
+  title="Page not found"
+  description="This page could not be found."
+  noindex={true}
+  structuredData={false}
+  measure="narrow"
+>
   <div class="wrap">
     <div class="container-page inner">
       <p class="code rise" aria-hidden="true">404</p>
