@@ -69,8 +69,31 @@ const ESC = String.fromCharCode(27);
 const ANSI = new RegExp(ESC + String.raw`[[0-9;?]*[a-zA-Z]`, 'g');
 const stripAnsi = (text) => text.replace(ANSI, String.fromCharCode(32));
 
-// The CLI records its own exit code, because BSD `script` will not.
-const inner = `"${process.execPath}" "${cli}" my-site; echo $? > "${codeFile}"`;
+/**
+ * Collapses ANSI and all whitespace away before matching.
+ *
+ * A pty rewrites and wraps as it draws, so a label can arrive split across
+ * lines. Comparing without whitespace makes the assertion depend on the text
+ * the CLI printed, not on how the terminal happened to lay it out.
+ */
+const squash = (text) => stripAnsi(text).replace(/\s+/g, '');
+
+/**
+ * `stty` sizes the pty from the inside.
+ *
+ * `script`'s own stdout is a pipe on a CI runner, so it cannot inherit a
+ * terminal size and the pty ends up one column wide - which wraps after every
+ * single character and stops the prompt ever rendering normally. Setting a
+ * realistic size first is what makes this behave like a real terminal.
+ *
+ * The CLI then records its own exit code, because BSD `script` does not
+ * propagate it.
+ */
+const inner = [
+  'stty columns 120 rows 40 2>/dev/null',
+  `"${process.execPath}" "${cli}" my-site`,
+  `echo $? > "${codeFile}"`,
+].join('; ');
 
 /**
  * `script` differs between GNU and BSD:
@@ -97,7 +120,7 @@ try {
 
   const onData = (chunk) => {
     output += String(chunk);
-    if (PROMPT_LABELS.some((label) => stripAnsi(output).includes(label))) interrupt();
+    if (PROMPT_LABELS.some((label) => squash(output).includes(squash(label)))) interrupt();
   };
   child.stdout.on('data', onData);
   child.stderr.on('data', onData);
@@ -111,7 +134,7 @@ try {
   clearTimeout(hardStop);
 
   const clean = stripAnsi(output);
-  const reached = PROMPT_LABELS.find((label) => clean.includes(label));
+  const reached = PROMPT_LABELS.find((label) => squash(output).includes(squash(label)));
   const noTty = /not an interactive terminal/i.test(clean);
   const code = existsSync(codeFile) ? Number(readFileSync(codeFile, 'utf8').trim()) : null;
   const staging = readdirSync(workspace).filter((entry) => entry.includes('.tmp-'));
