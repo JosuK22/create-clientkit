@@ -1,17 +1,53 @@
 # Releasing
 
-`create-clientkit` has **not been published**. This document records how it
-will be, so the first release is a decision rather than an improvisation.
+This document records how `create-clientkit` is released, so each release is a
+decision rather than an improvisation.
 
 ## Before anything else
 
-Three things are still outstanding and block a first publish:
-
 - [x] Author and repository metadata resolved (`JosuK22`, `josephkanoj@gmail.com`).
 - [x] `create-clientkit` confirmed unclaimed on npm.
-- [ ] Create the npm account and enable 2FA.
-- [ ] Configure trusted publishing (OIDC) for the package on npmjs.com.
-- [ ] Run CI on GitHub-hosted runners at least once.
+- [x] npm account created with 2FA enabled.
+- [x] CI green on GitHub-hosted runners (17/17, three platforms).
+- [ ] Bootstrap publish of `0.1.0` — see below.
+- [ ] Configure trusted publishing (OIDC) on npmjs.com, which is only possible
+      after that first publish.
+- [ ] A generated site deployed and validated against a real domain.
+
+## The bootstrap publish
+
+npm's trusted publishing cannot be configured until the package exists: the
+setting lives on the package's own settings page, which does not exist until
+something has been published. The first release therefore has to be published
+locally, and only later releases can carry provenance.
+
+See <https://github.com/npm/cli/issues/8544>.
+
+That constraint decides the release order. `0.1.0` is published locally to
+claim the name and create the settings page; trusted publishing is configured;
+then `1.0.0` — the release that matters — is published from CI **with
+provenance**.
+
+```sh
+npm login          # interactive, with your 2FA code
+npm run preflight  # must pass 11/11
+npm publish --access public
+```
+
+A local `npm publish` authenticates interactively against your 2FA. That is not
+a long-lived token and nothing is written to the repository. Do **not** create a
+granular access token for this; it is not needed, and a stored token is exactly
+what trusted publishing exists to avoid.
+
+Then, on npmjs.com → the package → Settings → **Trusted Publisher** →
+GitHub Actions:
+
+| Field                | Value              |
+| -------------------- | ------------------ |
+| Organization or user | `JosuK22`          |
+| Repository           | `create-clientkit` |
+| Workflow filename    | `release.yml`      |
+| Environment          | leave empty        |
 
 ## Versioning
 
@@ -26,8 +62,8 @@ surface:
 | Removing a flag, renaming a config export, changing a default that alters existing behaviour | major |
 | Raising the Node floor for the CLI or the template                                           | major |
 
-The first public release is `1.0.0`. The version stays at `0.1.0` until then;
-nothing is gained by bumping it while the package is unpublished.
+The first _stable_ release is `1.0.0`. `0.1.0` is published first only to
+bootstrap trusted publishing, and is labelled a pre-release in the changelog.
 
 Changesets is **not** used. For a single package with one maintainer it adds a
 workflow without removing one — the version is edited in `package.json` and the
