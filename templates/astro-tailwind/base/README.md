@@ -12,12 +12,12 @@ npm install
 npm run dev
 ```
 
-| Script            | What it does                          |
-| ----------------- | ------------------------------------- |
-| `npm run dev`     | Start the dev server                  |
+| Script            | What it does                           |
+| ----------------- | -------------------------------------- |
+| `npm run dev`     | Start the dev server                   |
 | `npm run check`   | Type-check `.astro` files and the site |
 | `npm run build`   | Build the production site to `dist/`   |
-| `npm run preview` | Preview the production build          |
+| `npm run preview` | Preview the production build           |
 
 ## Where to start
 
@@ -78,12 +78,12 @@ origin is used; a subpath deployment also needs Astro's `base` option.
 findable. Set it to `true` while a holding page is up if you would rather it
 stayed out of search - and remember to switch it back at launch.
 
-| `SITE.url` | `SEO.noindex` | Result |
-| --- | --- | --- |
-| set | `false` | Canonical, `og:url`, sitemap, `Sitemap:` line in robots.txt |
-| set | `true` | `noindex, nofollow`, no canonical, no sitemap, `Disallow: /` |
-| empty | `false` | No absolute tags, no sitemap, permissive robots.txt |
-| empty | `true` | No absolute tags, no sitemap, `Disallow: /` |
+| `SITE.url` | `SEO.noindex` | Result                                                       |
+| ---------- | ------------- | ------------------------------------------------------------ |
+| set        | `false`       | Canonical, `og:url`, sitemap, `Sitemap:` line in robots.txt  |
+| set        | `true`        | `noindex, nofollow`, no canonical, no sitemap, `Disallow: /` |
+| empty      | `false`       | No absolute tags, no sitemap, permissive robots.txt          |
+| empty      | `true`        | No absolute tags, no sitemap, `Disallow: /`                  |
 
 The 404 page is always `noindex, nofollow` and carries no structured data,
 whatever the site setting says.

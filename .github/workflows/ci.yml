@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Only the audit job needs a browser. Every other job skips the ~150MB
+  # download that puppeteer would otherwise perform on install.
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+jobs:
+  # Style and consistency gates. Deterministic, so one platform is enough.
+  quality:
+    name: lint, format, notices
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      # Fails if THIRD-PARTY.md has drifted from the dependency graph.
+      - run: npm run third-party:check
+
+  # The CLI itself, across every supported OS and Node version. 20.19 is the
+  # declared floor and is tested deliberately.
+  cli:
+    name: cli ${{ matrix.os }} node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['20.19', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Environment
+        run: node -e "console.log(process.version, process.platform, process.arch)"
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run check:package
+
+  # The real product path: pack, install the tarball into a clean directory,
+  # generate, then install/check/build the generated project.
+  #
+  # The generated Astro template requires Node >= 22.12, so 20.19 is excluded
+  # here even though the CLI supports it. Windows and macOS run one Node
+  # version each; the full Node spread runs on Linux where jobs are cheapest.
+  smoke:
+    name: smoke ${{ matrix.os }} node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: '22'
+          - os: ubuntu-latest
+            node: '24'
+          - os: windows-latest
+            node: '22'
+          - os: macos-latest
+            node: '22'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Environment
+        run: |
+          node -e "console.log('node', process.version, process.platform)"
+          npm --version
+      - name: Clean-room generate, check and build
+        run: npm run smoke
+      - name: Upload tarball on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarball-${{ matrix.os }}-node${{ matrix.node }}
+          path: '*.tgz'
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Accessibility and performance auditing needs a browser, so it runs once on
+  # a single stable configuration rather than across the matrix.
+  audit:
+    name: axe + lighthouse
+    runs-on: ubuntu-latest
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Generate, build and audit every scenario
+        run: npm run smoke:audit
+
+  # Ctrl+C handling. Skips itself on Windows, so it is not in the matrix there.
+  cancellation:
+    name: cancel ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/cancel-check.mjs

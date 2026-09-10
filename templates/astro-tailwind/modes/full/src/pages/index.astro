@@ -9,11 +9,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
  * proper pages, move the navigation into NAV in src/config/site.config.ts and
  * delete this override.
  */
-const pageNav: NavItem[] = NAV.length > 0 ? NAV : [
-  { label: 'About', href: '#about' },
-  { label: 'Work', href: '#work' },
-  { label: 'Contact', href: '#contact' },
-];
+const pageNav: NavItem[] =
+  NAV.length > 0
+    ? NAV
+    : [
+        { label: 'About', href: '#about' },
+        { label: 'Work', href: '#work' },
+        { label: 'Contact', href: '#contact' },
+      ];
 
 const hasEmail = CONTACT.email !== '';
 const hasSocial = SOCIAL.some((link) => link.label !== '' && link.href !== '');

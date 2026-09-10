@@ -32,10 +32,30 @@ const iso = launchDate === null ? '' : launchDate.toISOString();
         already says.
       */}
       <div class="countdown" data-launch={iso} hidden aria-hidden="true">
-        <span class="unit"><b data-unit="days">0</b><small>days</small></span>
-        <span class="unit"><b data-unit="hours">0</b><small>hrs</small></span>
-        <span class="unit"><b data-unit="minutes">0</b><small>min</small></span>
-        <span class="unit"><b data-unit="seconds">0</b><small>sec</small></span>
+        <span class="unit">
+          <>
+            <b data-unit="days">0</b>
+            <small>days</small>
+          </>
+        </span>
+        <span class="unit">
+          <>
+            <b data-unit="hours">0</b>
+            <small>hrs</small>
+          </>
+        </span>
+        <span class="unit">
+          <>
+            <b data-unit="minutes">0</b>
+            <small>min</small>
+          </>
+        </span>
+        <span class="unit">
+          <>
+            <b data-unit="seconds">0</b>
+            <small>sec</small>
+          </>
+        </span>
       </div>
 
       {LAUNCH.note !== '' && <p class="note">{LAUNCH.note}</p>}

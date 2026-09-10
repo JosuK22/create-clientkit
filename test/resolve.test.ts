@@ -252,10 +252,22 @@ describe('invalid configuration', () => {
     await expect(run({ argv: ['Acme Website'] })).rejects.toThrow(/Invalid target directory/);
   });
 
-  it('rejects a non-empty target directory', async () => {
-    await expect(
-      run({ argv: ['acme-website', '--yes'], interactive: false, fs: occupiedFs(['index.html']) }),
-    ).rejects.toThrow(/not empty/);
+  it('resolves a non-empty target directory instead of refusing it', async () => {
+    // Directory policy belongs to the command layer, which knows whether it can
+    // ask the developer to confirm a merge. The resolver only produces the
+    // context. The refusal itself is covered in test/generate.test.ts.
+    const { context } = await run({
+      argv: ['acme-website', '--yes'],
+      interactive: false,
+      fs: occupiedFs(['index.html']),
+    });
+    expect(context.projectName).toBe('acme-website');
+  });
+
+  it('still refuses a filesystem root outright', async () => {
+    await expect(run({ argv: ['/'], interactive: false })).rejects.toThrow(
+      /Refusing to scaffold into a filesystem root/,
+    );
   });
 
   it('rejects a malformed URL from the config file', async () => {

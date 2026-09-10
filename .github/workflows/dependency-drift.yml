@@ -1,0 +1,87 @@
+name: Dependency drift
+
+# The generated template pins Astro, Tailwind, TypeScript and the sitemap
+# integration to exact versions, which is what makes generation reproducible.
+# This job answers a different question: would the template still work if those
+# pins were moved to today's latest?
+#
+# It never modifies the pins. It probes, and reports.
+
+on:
+  schedule:
+    # Mondays, 06:00 UTC.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+jobs:
+  probe:
+    name: probe latest ecosystem versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Report currently pinned versions
+        run: node scripts/drift-probe.mjs --report
+
+      - name: Generate a project and upgrade it to the latest versions
+        id: probe
+        run: node scripts/drift-probe.mjs
+
+      - name: Open an issue when the probe fails
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Dependency drift: the template no longer builds on latest';
+            const runUrl =
+              `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+              `/actions/runs/${context.runId}`;
+
+            // Reuse an existing open report rather than filing a new one weekly.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'dependency-drift',
+            });
+
+            const body = [
+              'The scheduled dependency-drift probe failed.',
+              '',
+              'The template still builds with its pinned versions - this job does',
+              'not change them. It reports that upgrading to the latest compatible',
+              'versions would currently break generation, `astro check` or the build.',
+              '',
+              `Run: ${runUrl}`,
+            ].join('\n');
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['dependency-drift'],
+              });
+            }

@@ -24,10 +24,7 @@ const hasNav = items.length > 0;
           <ul>
             {items.map((item) => (
               <li>
-                <a
-                  href={item.href}
-                  aria-current={item.href === currentPath ? 'page' : undefined}
-                >
+                <a href={item.href} aria-current={item.href === currentPath ? 'page' : undefined}>
                   {item.label}
                 </a>
               </li>

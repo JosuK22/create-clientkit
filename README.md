@@ -2,13 +2,14 @@
 
 **Create the boring foundation of your next client website in seconds.**
 
-A scaffolding CLI for the developers who build client websites over and over:
+A scaffolding CLI for developers who build client websites over and over:
 freelancers, agencies and frontend teams. It generates the foundation you
 rebuild every time — layout, Coming Soon page, 404, SEO, robots, sitemap,
-favicons, accessibility baseline, build config — and then gets out of the way.
+structured data, favicon, accessibility baseline, build config — and then gets
+out of the way.
 
-It is **not** a website builder. You own the generated source from the moment it
-lands on disk.
+It is **not** a website builder. You own the generated source from the moment
+it lands on disk.
 
 ```sh
 npm create clientkit@latest acme-website
@@ -16,13 +17,31 @@ npm create clientkit@latest acme-website
 
 ---
 
-> ### Status: early build (milestone M1)
->
-> The CLI resolves and validates configuration and prints the plan it _would_
-> execute. **No files are generated yet** — the template engine and the
-> Astro + TypeScript + Tailwind template land in M2 and M3.
+> **Status: pre-release (0.1.0).** Feature-complete for V1 and verified in CI
+> across Windows, macOS and Linux, but not yet published to npm.
 
 ---
+
+## Requirements
+
+|                | Node.js            | Why                                |
+| -------------- | ------------------ | ---------------------------------- |
+| The CLI        | **20.19** or newer | Enforced before anything else runs |
+| Generated site | **22.12** or newer | Astro 7's own floor                |
+
+The CLI deliberately supports an older Node than the site it generates, so it
+can host future templates with lower floors. Running the CLI on Node 20 works
+and warns before generating that the project itself will need 22.12+.
+
+### Supported platforms
+
+Every row is verified by CI on every push, not assumed:
+
+|         | CLI | Generated site | Verified on                       |
+| ------- | --- | -------------- | --------------------------------- |
+| Linux   | yes | yes            | Node 20.19, 22, 24 (site: 22, 24) |
+| Windows | yes | yes            | Node 20.19, 22, 24 (site: 22)     |
+| macOS   | yes | yes            | Node 20.19, 22, 24 (site: 22)     |
 
 ## Usage
 
@@ -35,14 +54,14 @@ npx create-clientkit@latest [directory] [options]
 | --------------------- | ----------------------------------------- |
 | `-t, --template <id>` | Template to scaffold from                 |
 | `--list-templates`    | List available templates and exit         |
+| `--name <name>`       | Client / site name                        |
+| `--url <url>`         | Production URL (omit if not decided yet)  |
+| `-m, --mode <mode>`   | `coming-soon` or `full`                   |
 | `-y, --yes`           | Accept all defaults; never prompt         |
 | `--from <file>`       | Read answers from a JSON config file      |
 | `--dry-run`           | Resolve and print the plan; write nothing |
 | `--no-git`            | Skip git initialisation                   |
 | `--no-install`        | Skip dependency installation              |
-| `--name <name>`       | Client / site name                        |
-| `--url <url>`         | Production URL (omit if not decided yet)  |
-| `-m, --mode <mode>`   | `coming-soon` or `full`                   |
 | `--pm <manager>`      | Force `npm`, `pnpm`, `yarn` or `bun`      |
 | `--debug`             | Print diagnostics and full stack traces   |
 | `-h, --help`          | Show help                                 |
@@ -63,38 +82,19 @@ about. Override it with `--pm`.
 
 ### Non-interactive use
 
-Every run is scriptable. `--yes` never prompts, and a non-TTY stdin without
-`--yes` fails immediately rather than hanging:
+Every prompt has a matching flag, so a scripted run needs no config file:
 
 ```sh
-npm create clientkit@latest acme-website --yes --no-install
 npm create clientkit@latest acme-website --yes --name "Acme Ltd" --mode full
-npm create clientkit@latest --from ./agency-preset.json --dry-run
 ```
 
-Every prompt has a matching flag, so a fully scripted run needs no config file.
+`--yes` never prompts, and a non-TTY stdin without `--yes` fails immediately
+rather than hanging.
 
 ### Config file (`--from`)
 
 Strictly JSON — never executed, and never a way around validation. Unknown keys
 and wrong types are errors. See [`example.preset.json`](./example.preset.json).
-
-```json
-{
-  "dir": "acme-website",
-  "site": {
-    "name": "Acme Ltd",
-    "url": "https://acme.example",
-    "description": "Bespoke widgets since 1994.",
-    "locale": "en-GB",
-    "author": null
-  },
-  "template": { "id": "astro-tailwind", "version": null, "mode": "coming-soon" },
-  "packageManager": "pnpm",
-  "git": true,
-  "install": false
-}
-```
 
 ### Configuration precedence
 
@@ -102,94 +102,123 @@ and wrong types are errors. See [`example.preset.json`](./example.preset.json).
 CLI flags  >  --from file  >  interactive answers  >  template defaults  >  built-in defaults
 ```
 
-Prompts are only issued for values that no higher-precedence source supplied, so
-the ordering is enforced structurally rather than by a final overwrite pass.
-Everything resolves into one frozen `ProjectContext`, and nothing downstream
-reads flags, prompts or environment variables directly.
+Prompts are only issued for values no higher-precedence source supplied.
 
-## Architecture
+## Templates and modes
 
-```
-bin/cli.js        Node version gate, then loads the bundle
-  |
-src/cli.ts        argv parsing, error boundary, exit codes
-  |
-src/commands/     create, list
-  |
-src/context/      resolve, prompts, defaults, validate, fromFile
-  |
-ProjectContext    frozen; the contract for every later stage
-```
+One template ships in V1:
 
-Generation itself is split into a pure planner and a separate apply step:
+| Template         | Stack                                   | Modes                 |
+| ---------------- | --------------------------------------- | --------------------- |
+| `astro-tailwind` | Astro 7, Tailwind CSS 4, TypeScript 5.9 | `coming-soon`, `full` |
 
-```
-ProjectContext
-  -> registry      discovers templates/ inside the package (never downloaded)
-  -> compose       base/ then modes/<mode>/; later layers win
-  -> tokens        {{siteName}} and friends; unknown tokens are an error
-  -> plan()        FileOperation[] in memory - reads only, writes nothing
-  -> apply()       stages in a sibling temp dir, then moves into place
+- **`coming-soon`** — a single polished launch page you can put live today.
+- **`full`** — a small home page with sections, on the same design system.
+
+Both include the custom 404, the design system and the full SEO layer.
+
+## The generated project
+
+```sh
+cd acme-website
+npm install
+npm run dev
 ```
 
-`plan()` never mutates anything, which is what makes `--dry-run` exact rather
-than a promise. `apply()` materialises the whole tree in a temporary sibling
-directory first, so a failure part-way through leaves the target untouched.
+| Script            | What it does                           |
+| ----------------- | -------------------------------------- |
+| `npm run dev`     | Start the dev server                   |
+| `npm run check`   | Type-check `.astro` files and the site |
+| `npm run build`   | Build the production site to `dist/`   |
+| `npm run preview` | Preview the production build           |
 
-### What gets generated
+Everything client-specific lives in **`src/config/site.config.ts`**: identity,
+navigation, social links, contact details, launch date, theme accent and SEO.
+Empty means "not set", and the UI omits that piece rather than inventing one.
 
-```
-.client-site.json      how this project was scaffolded (no secrets)
-.gitattributes
-.gitignore
-README.md
-astro.config.mjs
-package.json
-public/favicon.svg
-src/config/site.config.ts
-src/layouts/BaseLayout.astro
-src/pages/index.astro
-src/styles/global.css
-tsconfig.json
-```
+The generated project is `"private": true` and `"license": "UNLICENSED"`,
+because client work is normally proprietary. Change that if the site is meant
+to be open source.
 
-Pinned exactly: Astro 7.3.2, Tailwind CSS 4.3.3 via `@tailwindcss/vite`,
-TypeScript 5.9.3. Tailwind v4 is configured in CSS (`@theme`) - there is no
-`tailwind.config.js`. The generated project requires Node 22.12+, which is
-Astro 7's own floor; the CLI itself still runs on Node 20.19.
+### SEO and the production URL
 
-### Writing into a directory that already has files
+`SITE.url` starts empty and that is a supported state. While it is empty the
+site omits every absolute tag — canonical, `og:url`, the sitemap and the
+sitemap line in `robots.txt` — rather than pointing them at a domain nobody
+owns. Fill it in and they all appear.
 
-A missing or empty directory is generated straight into. A directory with
-content is never overwritten silently: the CLI lists exactly which files would
-be replaced and asks first, defaulting to no. Files the template does not name
-are never touched or deleted. In non-interactive mode (`--yes`) a non-empty
-directory is refused outright, because there is no way to confirm.
+| `SITE.url` | `SEO.noindex` | Result                                                       |
+| ---------- | ------------- | ------------------------------------------------------------ |
+| set        | `false`       | Canonical, `og:url`, sitemap, `Sitemap:` line in robots.txt  |
+| set        | `true`        | `noindex, nofollow`, no canonical, no sitemap, `Disallow: /` |
+| empty      | `false`       | No absolute tags, no sitemap, permissive robots.txt          |
+| empty      | `true`        | No absolute tags, no sitemap, `Disallow: /`                  |
+
+`SEO.noindex` defaults to `false`, including for coming-soon pages: a holding
+page that gets indexed is replaced at the next crawl, whereas a `noindex` left
+on after launch keeps the real site invisible.
+
+### Before you deploy
+
+1. Set `SITE.url` in `src/config/site.config.ts` — canonical URLs and the
+   sitemap depend on it.
+2. Replace `public/favicon.svg` with the client's mark.
+3. Add a 1200×630 image to `public/` and set `SEO.image` if you want social
+   previews. No `og:image` is emitted until you do.
+4. Fill in `CONTACT` and `SOCIAL` — anything left empty is not rendered, and
+   not claimed in the structured data.
+5. `npm run check && npm run build`, then deploy `dist/` as a static site.
+
+Only the origin of `SITE.url` is used. To deploy under a subpath, also set
+`base` in `astro.config.mjs`.
+
+## Troubleshooting
+
+**`npm create clientkit@latest` runs an old version.** npm caches initializers.
+Clear the npx cache, or run `npm cache clean --force`. The banner prints the
+version actually running.
+
+**"requires Node.js 20.19 or newer".** The CLI refuses to run on older Node.
+Upgrade, or use `nvm`/`fnm`.
+
+**The generated project fails to install on Node 20.** Expected: Astro 7
+requires Node 22.12+. The CLI warns about this before generating.
+
+**"Directory … already exists and is not empty".** The CLI never writes into a
+non-empty directory without asking. Run it interactively to confirm a merge,
+or choose an empty directory. Files the template does not name are never
+touched.
+
+**Nothing was written after an error.** By design — generation stages into a
+temporary sibling directory and only moves into place once every file
+succeeds.
 
 ## Development
 
 ```sh
-npm install
+npm ci
 npm run typecheck
+npm run lint
+npm run format:check
 npm test
 npm run build
-node bin/cli.js --help
 ```
 
-`npm run verify` runs all three and is wired to `prepublishOnly`.
+| Script                  | What it does                                                |
+| ----------------------- | ----------------------------------------------------------- |
+| `npm run smoke`         | Pack, install into a clean dir, generate, check and build   |
+| `npm run smoke:audit`   | The above, plus axe and Lighthouse on each generated site   |
+| `npm run check:package` | Validate tarball contents and dependency guards             |
+| `npm run third-party`   | Regenerate `THIRD-PARTY.md` from the dependency graph       |
+| `npm run drift:report`  | Compare template pins against the latest published versions |
+| `npm run preflight`     | Every release gate, in order                                |
 
-## Design commitments
-
-- **Zero runtime dependencies.** `@clack/prompts` and `picocolors` are bundled
-  into a single ESM file at build time, so `npm create` is one tarball and no
-  dependency resolution. See [THIRD-PARTY.md](./THIRD-PARTY.md).
-- **Node >= 20.19**, checked in plain ES5 before the bundle is even loaded.
-- **Nothing is invented.** An omitted production URL stays `null`; the author
-  field stays empty until it can be read from your git config.
-- **Generated projects will not be MIT-licensed.** They ship `"private": true`
-  and `"license": "UNLICENSED"`, because a client site is normally proprietary
-  work-for-hire. This CLI itself is MIT.
+The CLI publishes with `dependencies: {}` — its dependencies are bundled into
+`dist/cli.js` at build time, so `npm create` is one tarball and no dependency
+resolution. See [THIRD-PARTY.md](./THIRD-PARTY.md) and
+[RELEASING.md](./RELEASING.md).
 
 ## Licence
 
-MIT — see [LICENSE](./LICENSE).
+MIT — see [LICENSE](./LICENSE). Generated client projects are **not** MIT; they
+ship private and unlicensed.

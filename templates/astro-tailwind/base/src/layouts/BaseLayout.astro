@@ -45,10 +45,7 @@ const accent = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(THEME.accent) ? THEME
 // Pick readable text for the accent using its perceived luminance, so a brand
 // colour can be dropped in without also hand-picking a foreground.
 function accentForeground(hex: string): string {
-  const full =
-    hex.length === 4
-      ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-      : hex;
+  const full = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
   const value = Number.parseInt(full.slice(1), 16);
   const r = (value >> 16) & 255;
   const g = (value >> 8) & 255;
@@ -69,8 +66,10 @@ const accentCss = accent
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
 
-    {/* Every descriptive tag lives in one component, so there is exactly one
-        title, description, canonical and social tag per page. */}
+    {
+      /* Every descriptive tag lives in one component, so there is exactly one
+        title, description, canonical and social tag per page. */
+    }
     <Seo title={title} description={description} noindex={noindex} />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

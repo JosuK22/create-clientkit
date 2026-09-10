@@ -135,7 +135,11 @@ export function parseManifest(raw: unknown, source: string): TemplateManifest {
     }
   }
 
-  const availableFeatures = expectStringArray(raw['availableFeatures'], 'availableFeatures', source);
+  const availableFeatures = expectStringArray(
+    raw['availableFeatures'],
+    'availableFeatures',
+    source,
+  );
   if (availableFeatures.length > 0) {
     fail(source, 'feature overlays are not supported in V1; "availableFeatures" must be empty.');
   }

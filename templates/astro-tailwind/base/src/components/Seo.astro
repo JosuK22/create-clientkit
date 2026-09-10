@@ -41,8 +41,7 @@ const robots = blocked ? 'noindex, nofollow' : 'index, follow';
 // A canonical tag says "this is the definitive URL for this content" while
 // noindex says "do not index it". Emitting both is contradictory, so a blocked
 // page gets no canonical at all.
-const canonical =
-  origin === '' || blocked ? '' : absoluteUrl(origin, Astro.url.pathname);
+const canonical = origin === '' || blocked ? '' : absoluteUrl(origin, Astro.url.pathname);
 
 const socialImage = assetUrl(origin, image ?? SEO.image);
 

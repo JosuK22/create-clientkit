@@ -32,21 +32,49 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "npm run typecheck && npm run test && npm run build",
-    "prepublishOnly": "npm run verify"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "third-party": "node scripts/generate-third-party.mjs",
+    "third-party:check": "node scripts/generate-third-party.mjs --check",
+    "check:package": "node scripts/check-package.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:quick": "node scripts/smoke.mjs --quick",
+    "smoke:audit": "node scripts/smoke.mjs --audit",
+    "audit": "node scripts/audit-site.mjs",
+    "preflight": "node scripts/preflight.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build",
+    "prepublishOnly": "npm run preflight",
+    "cancel-check": "node scripts/cancel-check.mjs",
+    "drift": "node scripts/drift-probe.mjs",
+    "drift:report": "node scripts/drift-probe.mjs --report"
   },
-  "dependencies": {},
   "devDependencies": {
     "@clack/prompts": "^0.11.0",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.15.0",
+    "axe-core": "^4.13.0",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "lighthouse": "^13.4.1",
     "picocolors": "^1.1.1",
     "prettier": "^3.5.3",
+    "prettier-plugin-astro": "^0.14.1",
+    "puppeteer": "^25.10.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.70.0",
     "vitest": "^3.1.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/{{GITHUB_HANDLE}}/create-clientkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/{{GITHUB_HANDLE}}/create-clientkit/issues"
+  },
+  "homepage": "https://github.com/{{GITHUB_HANDLE}}/create-clientkit#readme"
 }

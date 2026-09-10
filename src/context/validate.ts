@@ -103,9 +103,20 @@ export function inspectTargetDir(absolutePath: string, fs: TargetDirFs = realFs)
   }
 }
 
+/**
+ * Why a target directory was rejected.
+ *
+ * `non-empty` is deliberately distinct from the others: it is a policy
+ * decision, not a hard error. The resolver lets it through so the command
+ * layer - which knows whether it can ask the developer - can offer to merge.
+ * Everything else is refused outright wherever it is checked.
+ */
+export type TargetDirRejection = 'ok' | 'too-long' | 'root' | 'home' | 'non-empty';
+
 export interface TargetDirCheck {
   readonly absolutePath: string;
   readonly state: TargetDirState;
+  readonly reason: TargetDirRejection;
   readonly error: Validation;
 }
 
@@ -117,23 +128,29 @@ export function validateTargetDir(
   const absolutePath = path.resolve(options.cwd, dirInput);
   const state = inspectTargetDir(absolutePath, options.fs);
 
-  const fail = (error: string): TargetDirCheck => ({ absolutePath, state, error });
+  const fail = (reason: TargetDirRejection, error: string): TargetDirCheck => ({
+    absolutePath,
+    state,
+    reason,
+    error,
+  });
 
   if (absolutePath.length > MAX_TARGET_PATH_LENGTH) {
     return fail(
+      'too-long',
       `Target path is ${absolutePath.length} characters long; keep it under ${MAX_TARGET_PATH_LENGTH} to stay clear of path-length limits.`,
     );
   }
   if (absolutePath === path.parse(absolutePath).root) {
-    return fail('Refusing to scaffold into a filesystem root.');
+    return fail('root', 'Refusing to scaffold into a filesystem root.');
   }
   if (path.resolve(home) === absolutePath) {
-    return fail('Refusing to scaffold directly into your home directory.');
+    return fail('home', 'Refusing to scaffold directly into your home directory.');
   }
   if (state === 'non-empty') {
-    return fail(`Directory "${absolutePath}" already exists and is not empty.`);
+    return fail('non-empty', `Directory "${absolutePath}" already exists and is not empty.`);
   }
-  return { absolutePath, state, error: null };
+  return { absolutePath, state, reason: 'ok', error: null };
 }
 
 export function validateSiteName(name: string): Validation {

@@ -12,7 +12,7 @@ import {
 } from '../src/generate/files.js';
 import { plan } from '../src/generate/plan.js';
 import { buildTokenValues, findTokens, substituteTokens } from '../src/generate/tokens.js';
-import { CliError } from '../src/errors.js';
+import { type CliError } from '../src/errors.js';
 import { parseManifest } from '../src/templates/manifest.js';
 import { FAKE_MANIFEST, fakeRegistry, makeContext, memoryPlanFs } from './helpers.js';
 

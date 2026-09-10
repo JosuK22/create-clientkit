@@ -6,28 +6,14 @@
   "framework": "astro",
   "frameworkVersion": "7.3.2",
   "minNode": ">=22.12.0",
-  "supportedModes": [
-    "coming-soon",
-    "full"
-  ],
+  "supportedModes": ["coming-soon", "full"],
   "defaults": {
     "mode": "coming-soon",
     "locale": "en"
   },
   "availableFeatures": [],
-  "tokens": [
-    "siteName",
-    "siteUrl",
-    "description",
-    "projectName",
-    "author",
-    "locale",
-    "mode"
-  ],
-  "postSteps": [
-    "install",
-    "git-init"
-  ],
+  "tokens": ["siteName", "siteUrl", "description", "projectName", "author", "locale", "mode"],
+  "postSteps": ["install", "git-init"],
   "nextSteps": [
     "Edit src/config/site.config.ts - name, description, navigation, social, contact, launch date and SEO all live there.",
     "Set SITE.url once the domain is known; canonical tags, Open Graph and the sitemap switch on with it.",

@@ -22,6 +22,12 @@ export interface CreateOptions {
   readonly env: NodeJS.ProcessEnv;
   readonly isTTY: boolean;
   readonly nodeVersion: string;
+  /**
+   * Overrides how unanswered values are collected. Production always uses
+   * {@link selectPrompter}; tests inject a fake so the interactive
+   * confirmation branch can be exercised without a terminal.
+   */
+  readonly prompter?: Prompter;
 }
 
 /**
@@ -52,7 +58,7 @@ function hasContent(targetDir: string): boolean {
 export async function runCreate(options: CreateOptions): Promise<number> {
   const { flags, logger, registry, cliVersion, cwd, env, isTTY, nodeVersion } = options;
 
-  const prompter = selectPrompter(flags, isTTY);
+  const prompter = options.prompter ?? selectPrompter(flags, isTTY);
   logger.debug(`prompter=${prompter.interactive ? 'interactive' : 'non-interactive'} tty=${isTTY}`);
 
   if (prompter instanceof ClackPrompter) prompter.intro(cliVersion);

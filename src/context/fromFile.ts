@@ -4,6 +4,7 @@ import path from 'node:path';
 import { CliError } from '../errors.js';
 import type { ContextInput } from '../types.js';
 import {
+  deriveProjectName,
   isPackageManagerId,
   isTemplateMode,
   validateLocale,
@@ -98,7 +99,10 @@ export function loadConfigFile(
 
   if (parsed['dir'] !== undefined) {
     const dir = expectString(parsed['dir'], 'dir');
-    const nameError = validateProjectName(path.basename(dir.replace(/[\/]+$/, '')));
+    // Reuses the resolver's own derivation rather than repeating the
+    // separator handling, so a Windows-style path is trimmed identically here
+    // and in the flag layer.
+    const nameError = validateProjectName(deriveProjectName(dir, options.cwd));
     if (nameError) fail(`Config file field "dir" is invalid: ${nameError}`);
     input.dir = dir;
   }

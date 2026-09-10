@@ -179,7 +179,13 @@ export async function resolveContext(options: ResolveOptions): Promise<Resolutio
   }
 
   const targetCheck = validateTargetDir(dirInput, dirOptions);
-  if (targetCheck.error) throw new CliError(targetCheck.error);
+  // A non-empty directory is not resolved away here: the command layer decides
+  // whether to offer a merge, because only it knows whether it can ask. Every
+  // other rejection - a filesystem root, the home directory, an over-long path
+  // - is refused outright.
+  if (targetCheck.error && targetCheck.reason !== 'non-empty') {
+    throw new CliError(targetCheck.error);
+  }
 
   const projectName = deriveProjectName(dirInput, cwd);
   const projectNameError = validateProjectName(projectName);
