@@ -15,10 +15,10 @@
  *
  * Two portability details, both learned from CI rather than guessed:
  *
- *   1. BSD `script` (macOS) does not propagate the child's exit status - it
- *      returned 1 where GNU `script -e` returned 130. The command therefore
- *      records its own exit code to a file inside the pty session, and that
- *      file is the source of truth on both platforms.
+ *   1. The child records its own exit code to a file inside the pty session,
+ *      because BSD `script` does not propagate it and Python's pty.spawn
+ *      reports a wait status rather than an exit code. That file is the source
+ *      of truth on both platforms.
  *
  *   2. The first prompt is "Client / site name", not "Project directory",
  *      because the directory is supplied on the command line and that question
@@ -96,17 +96,25 @@ const inner = [
 ].join('; ');
 
 /**
- * `script` differs between GNU and BSD:
- *   GNU  script -qec "<command>" /dev/null
- *   BSD  script -q /dev/null <command> [args...]
+ * How the pty gets allocated, which differs by platform.
+ *
+ * Linux uses GNU `script`, which handles a non-tty stdin without complaint.
+ *
+ * macOS cannot: BSD `script` calls tcgetattr on its own stdin to clone the
+ * terminal settings, and a CI step's stdin is a socket, so it aborts with
+ * "tcgetattr/ioctl: Operation not supported on socket" before allocating
+ * anything. Python's pty module has no such requirement - it creates the pty
+ * and pumps bytes between it and whatever stdin happens to be - so macOS uses
+ * that instead. Python 3 is preinstalled on the runners.
  */
-const args =
+const PY = 'import pty, sys; pty.spawn(["sh", "-c", sys.argv[1]])';
+const [bin, args] =
   process.platform === 'darwin'
-    ? ['-q', '/dev/null', 'sh', '-c', inner]
-    : ['-qec', inner, '/dev/null'];
+    ? ['python3', ['-c', PY, inner]]
+    : ['script', ['-qec', inner, '/dev/null']];
 
 try {
-  const child = spawn('script', args, { cwd: workspace, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(bin, args, { cwd: workspace, stdio: ['pipe', 'pipe', 'pipe'] });
 
   let output = '';
   let interrupted = false;
