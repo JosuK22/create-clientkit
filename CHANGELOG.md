@@ -3,6 +3,17 @@
 Notable changes to `create-clientkit`. Versioning policy is documented in
 [RELEASING.md](./RELEASING.md).
 
+## 0.1.0 — 2026-09-10
+
+Pre-release, published to bootstrap npm trusted publishing: an OIDC trusted
+publisher cannot be configured until a package exists. Functionally this is the
+1.0.0 candidate, published locally and therefore **without provenance**. See
+[npm/cli#8544](https://github.com/npm/cli/issues/8544).
+
+Verified after publishing: `npm create clientkit@latest` resolves 0.1.0 from
+the public registry, generates 22 files, and the generated project passes
+`astro check` (0 errors) and builds with zero client-side JavaScript.
+
 ## 1.0.0 — prepared, not yet released
 
 > **Status: prepared.** These notes are written and reviewed, but 1.0.0 has not
