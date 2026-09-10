@@ -86,8 +86,14 @@ describe('planning astro-tailwind', () => {
       'astro.config.mjs',
       'package.json',
       'public/favicon.svg',
+      'src/components/Brand.astro',
+      'src/components/Footer.astro',
+      'src/components/Header.astro',
+      'src/components/LaunchNotice.astro',
+      'src/components/SocialLinks.astro',
       'src/config/site.config.ts',
       'src/layouts/BaseLayout.astro',
+      'src/pages/404.astro',
       'src/pages/index.astro',
       'src/styles/global.css',
       'tsconfig.json',
@@ -105,7 +111,7 @@ describe('planning astro-tailwind', () => {
       (op) => op.path === 'src/pages/index.astro',
     );
     const content = page && page.type === 'write' ? page.content : '';
-    expect(content).toContain('Services');
+    expect(content).toContain('Work');
     expect(content).not.toContain('This page comes from the template');
   });
 
@@ -132,6 +138,8 @@ describe('planning astro-tailwind', () => {
     expect(parsed.devDependencies.tailwindcss).toBe('4.3.3');
     expect(parsed.devDependencies['@tailwindcss/vite']).toBe('4.3.3');
     expect(parsed.devDependencies.typescript).toBe('5.9.3');
+    expect(parsed.devDependencies['@astrojs/check']).toBe('0.9.10');
+    expect(parsed.scripts.check).toBe('astro check');
 
     // Exact pins only - no ranges anywhere in the generated manifest.
     for (const version of Object.values({
@@ -172,9 +180,10 @@ describe('planning astro-tailwind', () => {
     );
     const content = config && config.type === 'write' ? config.content : '';
     expect(content).toContain("url: ''");
-    // The doc comment above the field mentions example.com; the value must not.
-    const urlLine = content.split('\n').find((line) => line.trim().startsWith('url:'));
-    expect(urlLine?.trim()).toBe("url: '',");
+    // The interface declares `url: string` and the doc comment mentions
+    // example.com; only the assigned value matters here.
+    const urlValue = content.split('\n').find((line) => /^\s*url: '/.test(line));
+    expect(urlValue?.trim()).toBe("url: '',");
   });
 
   it('classifies every template file the engine will touch', () => {
@@ -210,7 +219,7 @@ describe('generation through the CLI', () => {
     expect(out.text).toContain('DRY RUN');
     expect(out.text).toContain('astro-tailwind');
     expect(out.text).toContain('src/pages/index.astro');
-    expect(out.text).toContain('Total: 12 files');
+    expect(out.text).toContain('Total: 18 files');
     expect(readdirSync(cwd)).toEqual([]);
   });
 
@@ -291,5 +300,128 @@ describe('generation through the CLI', () => {
 
     expect(code).toBe(1);
     expect(err.text).toContain('Unknown mode "landing"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M3 structural conformance
+// ---------------------------------------------------------------------------
+
+describe('M3 structure in both modes', () => {
+  const modes = ['coming-soon', 'full'] as const;
+
+  const build = (mode: (typeof modes)[number]) =>
+    plan(makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode } }), {
+      registry,
+    });
+
+  const read = (mode: (typeof modes)[number], file: string): string => {
+    const op = build(mode).operations.find((entry) => entry.path === file);
+    return op && op.type === 'write' ? op.content : '';
+  };
+
+  it.each(modes)('%s ships the required files', (mode) => {
+    const paths = build(mode).operations.map((op) => op.path);
+    for (const required of [
+      'src/pages/index.astro',
+      'src/pages/404.astro',
+      'src/layouts/BaseLayout.astro',
+      'src/components/Header.astro',
+      'src/components/Footer.astro',
+      'src/components/Brand.astro',
+      'src/components/SocialLinks.astro',
+      'src/components/LaunchNotice.astro',
+      'src/config/site.config.ts',
+      'src/styles/global.css',
+    ]) {
+      expect(paths, `${mode} is missing ${required}`).toContain(required);
+    }
+  });
+
+  it.each(modes)('%s leaves no unresolved tokens', (mode) => {
+    for (const op of build(mode).operations) {
+      if (op.type !== 'write') continue;
+      expect(findTokens(op.content), `in ${op.path}`).toEqual([]);
+    }
+  });
+
+  it.each(modes)('%s index page uses the layout and the config', (mode) => {
+    const page = read(mode, 'src/pages/index.astro');
+    expect(page).toContain('BaseLayout');
+    expect(page).toContain('site.config.ts');
+  });
+
+  it('the 404 page uses the same layout and offers a way home', () => {
+    const page = read('coming-soon', 'src/pages/404.astro');
+    expect(page).toContain('BaseLayout');
+    expect(page).toContain('href="/"');
+    expect(page).toContain('btn btn-primary');
+  });
+
+  it('site config exposes the full M3 model', () => {
+    const config = read('coming-soon', 'src/config/site.config.ts');
+    for (const symbol of ['SITE', 'NAV', 'SOCIAL', 'CONTACT', 'LAUNCH', 'THEME']) {
+      expect(config, `missing export ${symbol}`).toContain(`export const ${symbol}`);
+    }
+    for (const type of ['NavItem', 'SocialLink', 'ContactDetails', 'LaunchSettings']) {
+      expect(config).toContain(`interface ${type}`);
+    }
+  });
+
+  it('ships no fabricated client data by default', () => {
+    const config = read('coming-soon', 'src/config/site.config.ts');
+    // Empty defaults everywhere: no invented accounts, contacts or launch date.
+    expect(config).toContain('export const NAV: NavItem[] = [];');
+    expect(config).toContain('export const SOCIAL: SocialLink[] = [];');
+    expect(config).toMatch(/email: '',/);
+    expect(config).toMatch(/enabled: false,/);
+  });
+
+  it('defines the design system as semantic tokens, not scattered hexes', () => {
+    const css = read('coming-soon', 'src/styles/global.css');
+    for (const token of [
+      '--color-background',
+      '--color-foreground',
+      '--color-muted',
+      '--color-accent',
+      '--text-display',
+      '--radius-md',
+      '--shadow-subtle',
+    ]) {
+      expect(css, `missing token ${token}`).toContain(token);
+    }
+    expect(css).toContain('prefers-color-scheme: dark');
+    expect(css).toContain('prefers-reduced-motion: no-preference');
+  });
+
+  it.each(modes)('%s pages reference tokens rather than raw hex colours', (mode) => {
+    for (const file of ['src/pages/index.astro', 'src/pages/404.astro']) {
+      const content = read(mode, file);
+      expect(content, `${file} hard-codes a hex colour`).not.toMatch(/#[0-9a-f]{6}\b/i);
+    }
+  });
+
+  it.each(modes)('%s keeps the accessibility baseline in the layout', (mode) => {
+    const layout = read(mode, 'src/layouts/BaseLayout.astro');
+    expect(layout).toContain('Skip to content');
+    expect(layout).toContain('<main');
+    expect(layout).toContain('lang={SITE.locale}');
+  });
+
+  it('does not depend on a third-party font or icon CDN', () => {
+    for (const mode of modes) {
+      for (const op of build(mode).operations) {
+        if (op.type !== 'write') continue;
+        expect(op.content, `${op.path} loads a remote font`).not.toContain('fonts.googleapis.com');
+        expect(op.content, `${op.path} loads a remote asset`).not.toMatch(
+          /<link[^>]+href="https?:\/\//,
+        );
+      }
+    }
+  });
+
+  it('adds no runtime dependencies to the generated project', () => {
+    const pkg = JSON.parse(read('coming-soon', 'package.json'));
+    expect(Object.keys(pkg.dependencies)).toEqual(['astro']);
   });
 });

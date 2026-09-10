@@ -1,22 +1,149 @@
 ---
+import Brand from '../components/Brand.astro';
+import LaunchNotice from '../components/LaunchNotice.astro';
+import SocialLinks from '../components/SocialLinks.astro';
+import { CONTACT, LAUNCH, SITE, SOCIAL } from '../config/site.config.ts';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { SITE } from '../config/site.config.ts';
+
+const hasEmail = CONTACT.email !== '';
+const hasSocial = SOCIAL.some((link) => link.label !== '' && link.href !== '');
+const hasLaunch = LAUNCH.enabled && LAUNCH.date !== '';
 ---
 
-<BaseLayout>
-  <p class="text-sm font-medium tracking-widest text-slate-500 uppercase">Coming soon</p>
+{/* The page carries its own brand lockup, so a header would only repeat it. */}
+<BaseLayout showHeader={false} measure="narrow">
+  <div class="hero">
+    <div class="glow" aria-hidden="true"></div>
 
-  <h1 class="mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-    {SITE.name}
-  </h1>
+    <div class="container-page inner">
+      <div class="brand rise">
+        <Brand size="lg" />
+      </div>
 
-  <p class="mt-6 max-w-prose text-lg text-slate-600">
-    {SITE.description}
-  </p>
+      <p class="eyebrow rise" style="animation-delay: 60ms">Coming soon</p>
 
-  <p class="mt-10 text-sm text-slate-500">
-    This is the starting point, not the finished page. Edit
-    <code class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">src/pages/index.astro</code>
-    to make it yours.
-  </p>
+      <h1 class="rise" style="animation-delay: 120ms">{SITE.name}</h1>
+
+      <p class="lead rise" style="animation-delay: 180ms">{SITE.description}</p>
+
+      {
+        hasLaunch && (
+          <div class="rise" style="animation-delay: 240ms">
+            <LaunchNotice />
+          </div>
+        )
+      }
+
+      {
+        (hasEmail || hasSocial) && (
+          <div class="actions rise" style="animation-delay: 300ms">
+            {hasEmail && (
+              <a class="btn btn-primary" href={`mailto:${CONTACT.email}`}>
+                Get in touch
+              </a>
+            )}
+            {hasSocial && <SocialLinks label="Social links" />}
+          </div>
+        )
+      }
+
+      {
+        CONTACT.location !== '' && (
+          <p class="location rise" style="animation-delay: 340ms">
+            {CONTACT.location}
+          </p>
+        )
+      }
+    </div>
+  </div>
 </BaseLayout>
+
+<style>
+  .hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: calc(100dvh - 6rem);
+    padding-block: var(--spacing-section);
+    overflow: hidden;
+  }
+
+  /* One soft, very low-contrast wash tinted by the accent. No blobs and no
+     page-wide gradient - just enough that the page does not read as a blank
+     sheet of paper. */
+  .glow {
+    position: absolute;
+    inset-inline: 0;
+    top: -30vh;
+    height: 70vh;
+    background: radial-gradient(
+      55% 60% at 50% 50%,
+      color-mix(in oklab, var(--color-accent) 8%, transparent),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+
+  .brand {
+    margin-bottom: 0.5rem;
+  }
+
+  h1 {
+    margin: 0;
+    max-width: 16ch;
+    font-size: var(--text-display);
+    line-height: var(--text-display--line-height);
+    letter-spacing: var(--text-display--letter-spacing);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .lead {
+    margin: 0;
+    max-width: 52ch;
+    color: var(--color-muted);
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+    text-wrap: pretty;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .location {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+  }
+
+  /* On the narrowest screens the call to action goes full width so it is an
+     easy target, and the headline gets the full measure. */
+  @media (max-width: 30rem) {
+    .actions {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .actions :global(.btn) {
+      width: 100%;
+    }
+
+    h1 {
+      max-width: none;
+    }
+  }
+</style>

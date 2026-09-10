@@ -1,0 +1,141 @@
+---
+import { CONTACT, NAV } from '../config/site.config.ts';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const hasEmail = CONTACT.email !== '';
+const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+---
+
+<BaseLayout title="Page not found" description="This page does not exist." measure="narrow">
+  <div class="wrap">
+    <div class="container-page inner">
+      <p class="code rise" aria-hidden="true">404</p>
+
+      <h1 class="rise" style="animation-delay: 60ms">This page doesn't exist.</h1>
+
+      <p class="lead rise" style="animation-delay: 120ms">
+        The link may be out of date, or the address may have been mistyped.
+      </p>
+
+      <div class="actions rise" style="animation-delay: 180ms">
+        <a class="btn btn-primary" href="/">Return home</a>
+        {
+          hasEmail && (
+            <a class="btn btn-secondary" href={`mailto:${CONTACT.email}`}>
+              Report a broken link
+            </a>
+          )
+        }
+      </div>
+
+      {
+        links.length > 0 && (
+          <nav class="suggestions rise" style="animation-delay: 240ms" aria-label="Other pages">
+            <p class="eyebrow">Try instead</p>
+            <ul>
+              {links.map((item) => (
+                <li>
+                  <a class="link" href={item.href}>
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .wrap {
+    display: flex;
+    align-items: center;
+    min-height: calc(100dvh - 10rem);
+    padding-block: var(--spacing-section);
+  }
+
+  .inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  /* Oversized, quiet, and decorative - the real heading below carries the
+     meaning, so this is hidden from assistive technology. */
+  .code {
+    margin: 0 0 -0.5rem;
+    font-size: clamp(4.5rem, 2rem + 11vw, 9rem);
+    font-weight: 600;
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--color-border-strong);
+    user-select: none;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--text-h1);
+    line-height: var(--text-h1--line-height);
+    letter-spacing: var(--text-h1--letter-spacing);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .lead {
+    margin: 0;
+    max-width: 48ch;
+    color: var(--color-muted);
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+    text-wrap: pretty;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+    width: 100%;
+  }
+
+  .suggestions ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .suggestions a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    font-size: var(--text-small);
+  }
+
+  @media (max-width: 30rem) {
+    .actions {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .actions .btn {
+      width: 100%;
+    }
+  }
+</style>

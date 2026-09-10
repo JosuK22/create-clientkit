@@ -1,0 +1,89 @@
+---
+import { SITE } from '../config/site.config.ts';
+
+interface Props {
+  /** 'sm' for header and footer, 'lg' for a page's own brand lockup. */
+  size?: 'sm' | 'lg';
+  /** Wrap in a link home. Off when the brand already sits on the home page. */
+  href?: string;
+}
+
+const { size = 'sm', href } = Astro.props;
+
+// A compact mark derived from the site name: up to two initials. It is a
+// neutral stand-in until the client's real logo is dropped in.
+const initials = SITE.name
+  .split(/\s+/)
+  .filter((word) => /[a-z0-9]/i.test(word))
+  .slice(0, 2)
+  .map((word) => word[0]?.toUpperCase() ?? '')
+  .join('');
+
+const Tag = href ? 'a' : 'div';
+---
+
+<Tag class:list={['brand', size]} href={href} aria-label={href ? SITE.name : undefined}>
+  <span class="mark" aria-hidden="true">{initials}</span>
+  <span class="name">{SITE.name}</span>
+</Tag>
+
+<style>
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--color-foreground);
+    text-decoration: none;
+    min-width: 0;
+  }
+
+  .mark {
+    display: grid;
+    place-items: center;
+    flex: none;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .name {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    /* Long names truncate in the header rather than pushing the layout apart. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sm .mark {
+    width: 1.875rem;
+    height: 1.875rem;
+    font-size: 0.75rem;
+  }
+
+  .sm .name {
+    font-size: 0.9375rem;
+  }
+
+  .lg {
+    gap: 0.875rem;
+  }
+
+  .lg .mark {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .lg .name {
+    font-size: 1.0625rem;
+    white-space: normal;
+  }
+
+  a.brand:hover .mark {
+    border-color: var(--color-foreground);
+  }
+</style>

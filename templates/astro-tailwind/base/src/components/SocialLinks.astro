@@ -1,0 +1,75 @@
+---
+import { SOCIAL } from '../config/site.config.ts';
+
+interface Props {
+  /** Accessible name for the list, since a page may show it more than once. */
+  label?: string;
+  align?: 'start' | 'center';
+}
+
+const { label = 'Social links', align = 'start' } = Astro.props;
+
+// Nothing configured means nothing rendered - never an empty container.
+const links = SOCIAL.filter((link) => link.label !== '' && link.href !== '');
+const isExternal = (href: string) => /^https?:\/\//i.test(href);
+---
+
+{
+  links.length > 0 && (
+    <ul class:list={['social', align]} aria-label={label}>
+      {links.map((link) => (
+        <li>
+          <a
+            href={link.href}
+            rel={isExternal(link.href) ? 'me noopener noreferrer' : undefined}
+            target={isExternal(link.href) ? '_blank' : undefined}
+          >
+            {link.label}
+            {isExternal(link.href) && <span class="sr-only"> (opens in a new tab)</span>}
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .social {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .center {
+    justify-content: center;
+  }
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  a:hover {
+    color: var(--color-foreground);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>

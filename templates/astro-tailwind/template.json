@@ -6,7 +6,10 @@
   "framework": "astro",
   "frameworkVersion": "7.3.2",
   "minNode": ">=22.12.0",
-  "supportedModes": ["coming-soon", "full"],
+  "supportedModes": [
+    "coming-soon",
+    "full"
+  ],
   "defaults": {
     "mode": "coming-soon",
     "locale": "en"
@@ -16,15 +19,18 @@
     "siteName",
     "siteUrl",
     "description",
-    "year",
     "projectName",
     "author",
     "locale",
     "mode"
   ],
-  "postSteps": ["install", "git-init"],
+  "postSteps": [
+    "install",
+    "git-init"
+  ],
   "nextSteps": [
-    "Edit src/config/site.config.ts - it drives the whole site.",
-    "Replace public/favicon.svg with the client's mark."
+    "Edit src/config/site.config.ts - name, description, navigation, social, contact and launch date all live there.",
+    "Set theme.accent to the client brand colour, or leave it for the neutral ink palette.",
+    "Replace public/favicon.svg with the client mark."
   ]
 }

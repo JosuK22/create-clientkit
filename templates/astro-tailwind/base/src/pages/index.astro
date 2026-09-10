@@ -3,9 +3,29 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout>
-  <h1 class="text-3xl font-semibold tracking-tight">{'Placeholder'}</h1>
-  <p class="mt-4 text-slate-600">
-    This page comes from the template's base layer and is replaced by the
-    selected mode. If you are seeing it, the mode layer did not apply.
-  </p>
+  <div class="container-page wrap">
+    <h1>Placeholder</h1>
+    <p>
+      This page comes from the template's base layer and is replaced by the
+      selected mode. If you are seeing it, the mode layer did not apply.
+    </p>
+  </div>
 </BaseLayout>
+
+<style>
+  .wrap {
+    padding-block: var(--spacing-section);
+  }
+
+  h1 {
+    margin: 0 0 1rem;
+    font-size: var(--text-h1);
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    max-width: 60ch;
+    color: var(--color-muted);
+  }
+</style>

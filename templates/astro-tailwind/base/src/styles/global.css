@@ -1,13 +1,325 @@
 @import 'tailwindcss';
 
-/* Project-wide design tokens live here. Expand as the site grows. */
-@theme {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+/* ===========================================================================
+   1. Palette
+   ---------------------------------------------------------------------------
+   Raw colour values live here as ordinary custom properties, and the Tailwind
+   theme below only points at them. That means the entire site re-themes from
+   this one block - light, dark and brand accent - without a single component
+   being duplicated or a line of JavaScript being shipped.
+
+   Neutral by design: the default look is ink on paper so it suits any client.
+   Set `theme.accent` in src/config/site.config.ts to introduce brand colour.
+   =========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --ck-background: #ffffff;
+  --ck-surface: #f7f8f9;
+  --ck-surface-strong: #eef0f2;
+  --ck-foreground: #0f1216;
+  --ck-muted: #5a616d;
+  --ck-border: #e4e6ea;
+  --ck-border-strong: #cfd3da;
+
+  /* Overridden per-site by BaseLayout when theme.accent is set. */
+  --ck-accent: #0f1216;
+  --ck-accent-foreground: #ffffff;
 }
 
-/* Respect the visitor's motion preference. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-appearance='light']) {
+    color-scheme: dark;
+
+    --ck-background: #0b0d10;
+    --ck-surface: #12151a;
+    --ck-surface-strong: #1a1f26;
+    --ck-foreground: #eceef1;
+    --ck-muted: #9aa2b1;
+    --ck-border: #232830;
+    --ck-border-strong: #333a45;
+
+    --ck-accent: #eceef1;
+    --ck-accent-foreground: #0b0d10;
+  }
+}
+
+:root[data-appearance='dark'] {
+  color-scheme: dark;
+
+  --ck-background: #0b0d10;
+  --ck-surface: #12151a;
+  --ck-surface-strong: #1a1f26;
+  --ck-foreground: #eceef1;
+  --ck-muted: #9aa2b1;
+  --ck-border: #232830;
+  --ck-border-strong: #333a45;
+
+  --ck-accent: #eceef1;
+  --ck-accent-foreground: #0b0d10;
+}
+
+/* ===========================================================================
+   2. Design tokens
+   ---------------------------------------------------------------------------
+   Tailwind v4 is configured in CSS. There is no tailwind.config.js.
+   Everything declared here becomes a utility: `bg-surface`, `text-muted`,
+   `text-display`, `rounded-lg`, `shadow-lifted`, and so on.
+   =========================================================================== */
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Semantic colours - components never reference a raw hex. */
+  --color-background: var(--ck-background);
+  --color-surface: var(--ck-surface);
+  --color-surface-strong: var(--ck-surface-strong);
+  --color-foreground: var(--ck-foreground);
+  --color-muted: var(--ck-muted);
+  --color-border: var(--ck-border);
+  --color-border-strong: var(--ck-border-strong);
+  --color-accent: var(--ck-accent);
+  --color-accent-foreground: var(--ck-accent-foreground);
+
+  /* Type scale. Display and h1 are fluid so long client names stay readable
+     from 320px upwards without a pile of breakpoint overrides. */
+  --text-display: clamp(2.5rem, 1.35rem + 5.1vw, 4.75rem);
+  --text-display--line-height: 1.03;
+  --text-display--letter-spacing: -0.035em;
+
+  --text-h1: clamp(2rem, 1.35rem + 2.9vw, 3.25rem);
+  --text-h1--line-height: 1.08;
+  --text-h1--letter-spacing: -0.03em;
+
+  --text-h2: clamp(1.5rem, 1.25rem + 1.1vw, 2rem);
+  --text-h2--line-height: 1.18;
+  --text-h2--letter-spacing: -0.02em;
+
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.4;
+  --text-h3--letter-spacing: -0.01em;
+
+  --text-lead: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  --text-lead--line-height: 1.6;
+
+  --text-body: 1rem;
+  --text-body--line-height: 1.65;
+
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.55;
+
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.2;
+  --text-label--letter-spacing: 0.14em;
+
+  /* Restrained radii - nothing is a pill except deliberate controls. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Two shadows only, both subtle. Depth is used for hierarchy, not decoration. */
+  --shadow-subtle: 0 1px 2px 0 rgb(15 18 22 / 0.04), 0 1px 3px 0 rgb(15 18 22 / 0.06);
+  --shadow-lifted: 0 4px 12px -2px rgb(15 18 22 / 0.08), 0 12px 32px -8px rgb(15 18 22 / 0.10);
+
+  /* Vertical rhythm between major page blocks. */
+  --spacing-section: 4.5rem;
+  --spacing-section-lg: 7rem;
+}
+
+/* ===========================================================================
+   3. Base
+   =========================================================================== */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One consistent focus treatment everywhere, always visible. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+
+  /* Long client names and URLs should wrap, never overflow the viewport. */
+  h1,
+  h2,
+  h3,
+  p {
+    overflow-wrap: break-word;
+  }
+}
+
+/* ===========================================================================
+   4. Components
+   ---------------------------------------------------------------------------
+   Written as plain CSS against the tokens above so restyling a button is one
+   edit here rather than a search across every page.
+   =========================================================================== */
+
+@layer components {
+  .page-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  .container-page {
+    width: 100%;
+    /* Set by BaseLayout's `measure` prop, so header, content and footer all
+       share one column width instead of each choosing its own. */
+    max-width: var(--ck-measure, 72rem);
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Buttons ---------------------------------------------------------------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem; /* comfortable touch target */
+    padding: 0.625rem 1.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: var(--text-small);
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-primary {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+
+  .btn-primary:hover {
+    background-color: color-mix(in oklab, var(--color-accent) 86%, var(--color-background));
+  }
+
+  .btn-secondary {
+    background-color: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-foreground);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-foreground);
+  }
+
+  /* Eyebrow ---------------------------------------------------------------- */
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: var(--text-label--letter-spacing);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 1.75rem;
+    height: 1px;
+    background-color: var(--color-border-strong);
+  }
+
+  /* Inline text links ------------------------------------------------------ */
+
+  .link {
+    color: var(--color-foreground);
+    text-decoration: underline;
+    text-decoration-color: var(--color-border-strong);
+    text-underline-offset: 0.25em;
+    transition: text-decoration-color 160ms ease;
+  }
+
+  .link:hover {
+    text-decoration-color: var(--color-accent);
+  }
+
+  /* Hairline rule ---------------------------------------------------------- */
+
+  .rule {
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+/* ===========================================================================
+   5. Motion
+   ---------------------------------------------------------------------------
+   Entrance animation is applied only when the visitor has not asked for
+   reduced motion, so the default resting state is fully visible. Nothing is
+   ever hidden behind an animation that might not run.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    animation: ck-rise 640ms cubic-bezier(0.22, 0.68, 0.24, 1) both;
+  }
+
+  @keyframes ck-rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.625rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {

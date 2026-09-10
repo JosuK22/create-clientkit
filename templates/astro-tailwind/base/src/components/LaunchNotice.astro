@@ -1,0 +1,136 @@
+---
+import { LAUNCH, SITE } from '../config/site.config.ts';
+
+// Render nothing at all unless a launch is configured *and* the date parses.
+// A broken date must never produce an empty box or fail the build.
+const parsed = LAUNCH.enabled && LAUNCH.date !== '' ? new Date(LAUNCH.date) : null;
+const launchDate = parsed !== null && !Number.isNaN(parsed.getTime()) ? parsed : null;
+
+const formatted =
+  launchDate === null
+    ? ''
+    : new Intl.DateTimeFormat(SITE.locale || 'en', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(launchDate);
+
+const iso = launchDate === null ? '' : launchDate.toISOString();
+---
+
+{
+  launchDate !== null && (
+    <div class="launch">
+      <p class="line">
+        Launching <time datetime={iso}>{formatted}</time>
+      </p>
+
+      {/*
+        The date above is the real content and is always present. The countdown
+        is a progressive enhancement: it stays hidden without JavaScript, and it
+        is hidden from assistive technology because it repeats what the date
+        already says.
+      */}
+      <div class="countdown" data-launch={iso} hidden aria-hidden="true">
+        <span class="unit"><b data-unit="days">0</b><small>days</small></span>
+        <span class="unit"><b data-unit="hours">0</b><small>hrs</small></span>
+        <span class="unit"><b data-unit="minutes">0</b><small>min</small></span>
+        <span class="unit"><b data-unit="seconds">0</b><small>sec</small></span>
+      </div>
+
+      {LAUNCH.note !== '' && <p class="note">{LAUNCH.note}</p>}
+    </div>
+  )
+}
+
+<script>
+  // ~20 lines, no framework, no hydration. Runs once on the page that uses it.
+  const root = document.querySelector<HTMLElement>('.countdown[data-launch]');
+  const target = root ? Date.parse(root.dataset.launch ?? '') : Number.NaN;
+
+  if (root && !Number.isNaN(target)) {
+    const cells = new Map<string, HTMLElement>();
+    for (const cell of root.querySelectorAll<HTMLElement>('[data-unit]')) {
+      cells.set(cell.dataset.unit ?? '', cell);
+    }
+
+    const tick = (): void => {
+      const remaining = target - Date.now();
+      if (remaining <= 0) {
+        root.hidden = true;
+        return;
+      }
+      const seconds = Math.floor(remaining / 1000);
+      const parts: Record<string, number> = {
+        days: Math.floor(seconds / 86400),
+        hours: Math.floor(seconds / 3600) % 24,
+        minutes: Math.floor(seconds / 60) % 60,
+        seconds: seconds % 60,
+      };
+      for (const [unit, cell] of cells) {
+        cell.textContent = String(parts[unit] ?? 0).padStart(2, '0');
+      }
+      root.hidden = false;
+    };
+
+    tick();
+    window.setInterval(tick, 1000);
+  }
+</script>
+
+<style>
+  .launch {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .line {
+    margin: 0;
+    color: var(--color-foreground);
+    font-size: var(--text-body);
+  }
+
+  time {
+    font-weight: 600;
+  }
+
+  .countdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    min-width: 3.75rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+  }
+
+  .unit b {
+    font-size: 1.125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  .unit small {
+    color: var(--color-muted);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+  }
+</style>

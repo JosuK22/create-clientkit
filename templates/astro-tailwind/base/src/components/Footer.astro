@@ -1,0 +1,87 @@
+---
+import SocialLinks from './SocialLinks.astro';
+import { CONTACT, SITE, SOCIAL } from '../config/site.config.ts';
+
+// Computed at build time rather than frozen in at scaffold time, so the notice
+// stays correct for as long as the site is rebuilt.
+const year = new Date().getFullYear();
+
+const hasSocial = SOCIAL.some((link) => link.label !== '' && link.href !== '');
+const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
+---
+
+<footer class="site-footer">
+  <div class="container-page inner">
+    <p class="copyright">
+      &copy; {year} {SITE.name}
+    </p>
+
+    {
+      (hasContact || hasSocial) && (
+        <div class="links">
+          {CONTACT.email !== '' && (
+            <a href={`mailto:${CONTACT.email}`} class="contact">
+              {CONTACT.email}
+            </a>
+          )}
+          {CONTACT.phone !== '' && (
+            <a href={`tel:${CONTACT.phone.replace(/[^+\d]/g, '')}`} class="contact">
+              {CONTACT.phone}
+            </a>
+          )}
+          {hasSocial && <SocialLinks label="Social links in the footer" />}
+        </div>
+      )
+    }
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--color-border);
+    padding-block: 2rem;
+  }
+
+  .inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 2rem;
+  }
+
+  .copyright {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1.25rem;
+  }
+
+  .contact {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .contact:hover {
+    color: var(--color-foreground);
+  }
+
+  @media (max-width: 40rem) {
+    .inner {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
