@@ -7,13 +7,11 @@ will be, so the first release is a decision rather than an improvisation.
 
 Three things are still outstanding and block a first publish:
 
-- [ ] Replace the `{{AUTHOR_NAME}}` placeholder in `package.json` and `LICENSE`
-      — `npm run preflight` fails while either is unresolved, deliberately: a
-      licence with no copyright holder is worse than no licence.
-- [ ] Replace `{{GITHUB_HANDLE}}` in the `repository`, `bugs` and `homepage`
-      fields.
-- [ ] Create the npm account, enable 2FA, and confirm `create-clientkit` is
-      still unclaimed.
+- [x] Author and repository metadata resolved (`JosuK22`, `josephkanoj@gmail.com`).
+- [x] `create-clientkit` confirmed unclaimed on npm.
+- [ ] Create the npm account and enable 2FA.
+- [ ] Configure trusted publishing (OIDC) for the package on npmjs.com.
+- [ ] Run CI on GitHub-hosted runners at least once.
 
 ## Versioning
 
@@ -68,10 +66,10 @@ Then publish from CI (see below), and write the release notes on the tag.
 
 ## Publishing with provenance
 
-Publishing should happen from a GitHub Actions workflow using **trusted
-publishing (OIDC)**, not a long-lived `NPM_TOKEN` stored as a secret. The
-workflow does not exist yet — it is deliberately left until the account and
-placeholders above are settled — but the shape is:
+Publishing happens from `.github/workflows/release.yml` using **trusted
+publishing (OIDC)**, not a long-lived `NPM_TOKEN`. It triggers on a `v*.*.*`
+tag, verifies the tag matches `package.json`, runs the full preflight, packs,
+uploads the artifact, and only then publishes:
 
 ```yaml
 permissions:

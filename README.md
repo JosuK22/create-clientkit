@@ -35,13 +35,17 @@ and warns before generating that the project itself will need 22.12+.
 
 ### Supported platforms
 
-Every row is verified by CI on every push, not assumed:
-
-|         | CLI | Generated site | Verified on                       |
+|         | CLI | Generated site | Covered by the CI matrix          |
 | ------- | --- | -------------- | --------------------------------- |
 | Linux   | yes | yes            | Node 20.19, 22, 24 (site: 22, 24) |
 | Windows | yes | yes            | Node 20.19, 22, 24 (site: 22)     |
 | macOS   | yes | yes            | Node 20.19, 22, 24 (site: 22)     |
+
+> **Verification status.** Windows is verified directly — the full test suite,
+> clean-room packaging and generated-project builds are run there. The Linux
+> and macOS rows describe what `.github/workflows/ci.yml` covers; that
+> workflow has not yet executed on GitHub-hosted runners, so treat those rows
+> as intended coverage rather than observed results until the first CI run.
 
 ## Usage
 

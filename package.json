@@ -13,7 +13,11 @@
     "starter"
   ],
   "license": "MIT",
-  "author": "{{AUTHOR_NAME}}",
+  "author": {
+    "name": "JosuK22",
+    "email": "josephkanoj@gmail.com",
+    "url": "https://github.com/JosuK22"
+  },
   "type": "module",
   "engines": {
     "node": ">=20.19"
@@ -71,10 +75,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/{{GITHUB_HANDLE}}/create-clientkit.git"
+    "url": "git+https://github.com/JosuK22/create-clientkit.git"
   },
   "bugs": {
-    "url": "https://github.com/{{GITHUB_HANDLE}}/create-clientkit/issues"
+    "url": "https://github.com/JosuK22/create-clientkit/issues"
   },
-  "homepage": "https://github.com/{{GITHUB_HANDLE}}/create-clientkit#readme"
+  "homepage": "https://github.com/JosuK22/create-clientkit#readme"
 }
