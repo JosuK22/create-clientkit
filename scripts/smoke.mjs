@@ -96,17 +96,27 @@ function section(title) {
 
 // --- build the artifact ------------------------------------------------------
 
+const workspace = mkdtempSync(path.join(tmpdir(), 'ck-smoke-'));
+
 section('packing');
-const packOutput = execFileSync('npm', ['pack', '--json'], {
+
+/*
+ * The tarball is written into the temporary workspace, never the repository.
+ *
+ * This runs inside `prepublishOnly`, so `npm publish` is packing the very same
+ * directory at the same time. Packing here too - and then deleting the result
+ * on cleanup - destroyed the tarball publish was about to upload. Keeping every
+ * artifact inside the workspace means this check cannot interfere with whatever
+ * invoked it.
+ */
+const packOutput = execFileSync('npm', ['pack', '--json', '--pack-destination', workspace], {
   cwd: repoRoot,
   encoding: 'utf8',
   shell: WIN,
 });
 const tarballName = (JSON.parse(packOutput)[0] ?? {}).filename;
-const tarball = path.join(repoRoot, tarballName);
+const tarball = path.join(workspace, tarballName);
 console.log(`  ${tarballName}`);
-
-const workspace = mkdtempSync(path.join(tmpdir(), 'ck-smoke-'));
 console.log(`  workspace: ${workspace}`);
 
 function cleanup() {
@@ -114,8 +124,8 @@ function cleanup() {
     console.log(`\nworkspace kept at ${workspace}`);
     return;
   }
+  // Removing the workspace removes the tarball with it.
   rmSync(workspace, { recursive: true, force: true });
-  rmSync(tarball, { force: true });
 }
 
 try {
