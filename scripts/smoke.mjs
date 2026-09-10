@@ -14,7 +14,15 @@
  *   node scripts/smoke.mjs --audit         also run axe + Lighthouse on each build
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -300,6 +308,93 @@ try {
       }
     }
   }
+
+  // --- CLI behaviour against the packed artifact ------------------------------
+  //
+  // The scenarios above prove generation works. These prove the flags and the
+  // filesystem guarantees behave the same when driven from the installed
+  // package rather than the source tree.
+
+  section('CLI behaviour');
+
+  // --dry-run writes nothing at all.
+  const dryDir = path.join(workspace, 'dry');
+  const dryOut = cliRun(cli, ['dry', '--yes', '--dry-run'], workspace, '--dry-run');
+  expect(dryOut?.includes('DRY RUN') === true, '--dry-run did not announce itself');
+  expect(/Total: \d+ files/.test(dryOut ?? ''), '--dry-run did not list a file total');
+  expect(!existsSync(dryDir), '--dry-run created a directory');
+  console.log('  --dry-run: listed files, wrote nothing');
+
+  // --no-git and --no-install are honoured.
+  const flagsDir = path.join(workspace, 'flags');
+  cliRun(cli, ['flags', '--yes', '--no-install', '--no-git'], workspace, '--no-install --no-git');
+  expect(!existsSync(path.join(flagsDir, 'node_modules')), '--no-install still installed');
+  expect(!existsSync(path.join(flagsDir, '.git')), '--no-git still initialised a repository');
+  console.log('  --no-install / --no-git: honoured');
+
+  // git-init runs when it is not disabled.
+  const gitDir = path.join(workspace, 'withgit');
+  cliRun(cli, ['withgit', '--yes', '--no-install'], workspace, 'git init post-step');
+  expect(existsSync(path.join(gitDir, '.git')), 'git-init post-step did not create a repository');
+  console.log('  git-init: repository created');
+
+  // The package manager recorded in provenance follows the detected client.
+  const provenance = JSON.parse(readFileSync(path.join(gitDir, '.client-site.json'), 'utf8'));
+  expect(
+    ['npm', 'pnpm', 'yarn', 'bun'].includes(provenance.config.packageManager),
+    `unexpected package manager recorded: ${provenance.config.packageManager}`,
+  );
+  const pnpmDir = path.join(workspace, 'pm');
+  cliRun(cli, ['pm', '--yes', '--no-install', '--no-git', '--pm', 'pnpm'], workspace, '--pm pnpm');
+  const pmProvenance = JSON.parse(readFileSync(path.join(pnpmDir, '.client-site.json'), 'utf8'));
+  expect(
+    pmProvenance.config.packageManager === 'pnpm',
+    `--pm pnpm was not recorded, got ${pmProvenance.config.packageManager}`,
+  );
+  console.log(
+    `  package manager: detected ${provenance.config.packageManager}, --pm override works`,
+  );
+
+  // Names with characters that break naive shell quoting survive intact.
+  const oddDir = path.join(workspace, 'odd-name');
+  cliRun(
+    cli,
+    ['odd-name', '--yes', '--no-install', '--no-git', '--name', 'A & B "Studio" <Test>'],
+    workspace,
+    'special characters in --name',
+  );
+  const oddConfig = readFileSync(path.join(oddDir, 'src', 'config', 'site.config.ts'), 'utf8');
+  expect(
+    oddConfig.includes('A & B "Studio" <Test>') || oddConfig.includes('A & B "Studio" <Test>'),
+    'a name with special characters did not survive generation',
+  );
+  console.log('  special characters: preserved in the generated config');
+
+  // A non-empty directory is refused non-interactively, and nothing is touched.
+  const guardDir = path.join(workspace, 'guard');
+  mkdirSync(guardDir, { recursive: true });
+  writeFileSync(path.join(guardDir, 'KEEP.txt'), 'untouched');
+  let refused = false;
+  try {
+    execFileSync(process.execPath, [cli, 'guard', '--yes', '--no-install', '--no-git'], {
+      cwd: workspace,
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
+  } catch {
+    refused = true;
+  }
+  expect(refused, 'a non-empty directory was not refused');
+  expect(
+    readdirSync(guardDir).join(',') === 'KEEP.txt',
+    'a refused run modified the existing directory',
+  );
+  console.log('  non-empty directory: refused, existing files untouched');
+
+  // No staging directory survives any of the runs above.
+  const staging = readdirSync(workspace).filter((entry) => entry.includes('.tmp-'));
+  expect(staging.length === 0, `staging directories left behind: ${staging.join(', ')}`);
+  console.log('  atomic generation: no staging directories remain');
 } finally {
   cleanup();
 }
