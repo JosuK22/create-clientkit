@@ -22,6 +22,8 @@ export interface Prompter {
   productionUrl(validate: (value: string) => Validation): Promise<string | null>;
   mode(defaultValue: TemplateMode): Promise<TemplateMode>;
   setup(defaults: SetupAnswer): Promise<SetupAnswer>;
+  /** Explicit consent before writing into a directory that already has files. */
+  confirmNonEmpty(collisionCount: number): Promise<boolean>;
 }
 
 function unwrap<T>(value: T | symbol): T {
@@ -118,6 +120,19 @@ export class ClackPrompter implements Prompter {
     );
     return { install: selected.includes('install'), git: selected.includes('git') };
   }
+
+  async confirmNonEmpty(collisionCount: number): Promise<boolean> {
+    return unwrap(
+      await p.confirm({
+        message:
+          collisionCount > 0
+            ? `Continue and replace ${collisionCount} existing file(s)?`
+            : 'Continue and add files to this directory?',
+        // Destructive by default means "no": the user must opt in.
+        initialValue: false,
+      }),
+    );
+  }
 }
 
 /**
@@ -152,5 +167,9 @@ export class NonInteractivePrompter implements Prompter {
   }
   setup(): Promise<SetupAnswer> {
     this.#fail('the setup options');
+  }
+
+  confirmNonEmpty(): Promise<boolean> {
+    this.#fail('confirmation to write into a non-empty directory');
   }
 }

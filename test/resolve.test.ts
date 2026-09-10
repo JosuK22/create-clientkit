@@ -305,3 +305,118 @@ describe('ProjectContext immutability', () => {
     expect(context.projectName).toBe('acme-website');
   });
 });
+
+describe('--name / --url / --mode (M1 flag parity)', () => {
+  it('--name sets the site name', async () => {
+    const { context, sources } = await run({ argv: ['acme-website', '--name', 'Acme Ltd'] });
+    expect(context.site.name).toBe('Acme Ltd');
+    expect(sources['site.name']).toBe('flag');
+  });
+
+  it('--url sets and normalises the production URL', async () => {
+    const { context, sources } = await run({
+      argv: ['acme-website', '--url', 'https://acme.example/'],
+    });
+    expect(context.site.url).toBe('https://acme.example');
+    expect(sources['site.url']).toBe('flag');
+  });
+
+  it('--mode sets the mode', async () => {
+    const { context, sources } = await run({ argv: ['acme-website', '--mode', 'full'] });
+    expect(context.template.mode).toBe('full');
+    expect(sources['template.mode']).toBe('flag');
+  });
+
+  it('-m is a short alias for --mode', async () => {
+    const { context } = await run({ argv: ['acme-website', '-m', 'full'] });
+    expect(context.template.mode).toBe('full');
+  });
+
+  it('all three suppress their prompts', async () => {
+    const { asked } = await run({
+      argv: ['acme-website', '--name', 'Acme', '--url', 'https://acme.example', '--mode', 'full'],
+    });
+    expect(asked).toEqual(['setup']);
+  });
+
+  it('--name overrides the site name from --from', async () => {
+    const { context, sources } = await run({
+      argv: ['acme-website', '--from', 'preset.json', '--name', 'From Flag'],
+      files: { 'preset.json': JSON.stringify({ site: { name: 'From File' } }) },
+    });
+    expect(context.site.name).toBe('From Flag');
+    expect(sources['site.name']).toBe('flag');
+  });
+
+  it('--url overrides the site URL from --from', async () => {
+    const { context, sources } = await run({
+      argv: ['acme-website', '--from', 'preset.json', '--url', 'https://flag.example'],
+      files: { 'preset.json': JSON.stringify({ site: { url: 'https://file.example' } }) },
+    });
+    expect(context.site.url).toBe('https://flag.example');
+    expect(sources['site.url']).toBe('flag');
+  });
+
+  it('--mode overrides the mode from --from', async () => {
+    const { context, sources } = await run({
+      argv: ['acme-website', '--from', 'preset.json', '--mode', 'full'],
+      files: { 'preset.json': JSON.stringify({ template: { mode: 'coming-soon' } }) },
+    });
+    expect(context.template.mode).toBe('full');
+    expect(sources['template.mode']).toBe('flag');
+  });
+
+  it('an empty --url means "no production URL", not "unset"', async () => {
+    const { context, sources } = await run({
+      argv: ['acme-website', '--from', 'preset.json', '--url', ''],
+      files: { 'preset.json': JSON.stringify({ site: { url: 'https://file.example' } }) },
+    });
+    expect(context.site.url).toBeNull();
+    expect(sources['site.url']).toBe('flag');
+  });
+
+  it('validates --name through the shared validator', async () => {
+    await expect(run({ argv: ['acme-website', '--name', '   '] })).rejects.toThrow(
+      /Invalid --name/,
+    );
+  });
+
+  it('validates --url through the shared validator', async () => {
+    await expect(run({ argv: ['acme-website', '--url', 'not-a-url'] })).rejects.toThrow(
+      /Invalid --url/,
+    );
+    await expect(run({ argv: ['acme-website', '--url', 'ftp://acme.example'] })).rejects.toThrow(
+      /Invalid --url/,
+    );
+  });
+
+  it('rejects an unknown --mode', async () => {
+    await expect(run({ argv: ['acme-website', '--mode', 'landing'] })).rejects.toThrow(
+      /Unknown mode "landing"/,
+    );
+  });
+
+  it('makes a fully non-interactive run possible without --from', async () => {
+    const { context, asked } = await run({
+      argv: [
+        'acme-website',
+        '--yes',
+        '--name',
+        'Acme Ltd',
+        '--url',
+        'https://acme.example',
+        '--mode',
+        'full',
+        '--no-git',
+        '--no-install',
+      ],
+      interactive: false,
+    });
+    expect(asked).toEqual([]);
+    expect(context.site.name).toBe('Acme Ltd');
+    expect(context.site.url).toBe('https://acme.example');
+    expect(context.template.mode).toBe('full');
+    expect(context.git).toBe(false);
+    expect(context.install).toBe(false);
+  });
+});

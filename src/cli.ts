@@ -2,7 +2,7 @@ import { assertFlagCombinations, parseCliArgs } from './args.js';
 import { runCreate } from './commands/create.js';
 import { runList } from './commands/list.js';
 import { CancelledError, CliError, EXIT_CANCELLED, EXIT_ERROR, EXIT_OK } from './errors.js';
-import { emptyRegistry } from './templates/registry.js';
+import { createRegistry } from './templates/registry.js';
 import { helpText } from './ui/help.js';
 import { Logger } from './ui/logger.js';
 import { MIN_NODE_VERSION, nodeVersionMessage, satisfiesMinimum } from './util/node.js';
@@ -51,17 +51,18 @@ export async function main(argv: readonly string[], options: MainOptions = {}): 
     assertFlagCombinations(flags);
 
     if (flags.listTemplates) {
-      return runList(emptyRegistry, logger);
+      return runList(createRegistry(), logger);
     }
 
     return await runCreate({
       flags,
       logger,
-      registry: emptyRegistry,
+      registry: createRegistry(),
       cliVersion: CLI_VERSION,
       cwd,
       env,
       isTTY,
+      nodeVersion,
     });
   } catch (error) {
     return reportError(error, logger);

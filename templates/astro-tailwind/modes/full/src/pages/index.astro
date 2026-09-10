@@ -1,0 +1,35 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../config/site.config.ts';
+
+const sections = [
+  { title: 'About', body: 'Who the client is and what they do.' },
+  { title: 'Services', body: 'What they offer, in plain language.' },
+  { title: 'Contact', body: 'How to reach them.' },
+];
+---
+
+<BaseLayout>
+  <h1 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+    {SITE.name}
+  </h1>
+
+  <p class="mt-6 max-w-prose text-lg text-slate-600">
+    {SITE.description}
+  </p>
+
+  <div class="mt-14 grid gap-8 sm:grid-cols-3">
+    {
+      sections.map((section) => (
+        <section>
+          <h2 class="text-base font-semibold text-slate-900">{section.title}</h2>
+          <p class="mt-2 text-sm text-slate-600">{section.body}</p>
+        </section>
+      ))
+    }
+  </div>
+
+  <p class="mt-14 text-sm text-slate-500">
+    Starting scaffold only. Replace these sections with the real content.
+  </p>
+</BaseLayout>

@@ -1,0 +1,30 @@
+{
+  "id": "astro-tailwind",
+  "displayName": "Astro + TypeScript + Tailwind",
+  "description": "Professional client website foundation",
+  "version": "0.1.0",
+  "framework": "astro",
+  "frameworkVersion": "7.3.2",
+  "minNode": ">=22.12.0",
+  "supportedModes": ["coming-soon", "full"],
+  "defaults": {
+    "mode": "coming-soon",
+    "locale": "en"
+  },
+  "availableFeatures": [],
+  "tokens": [
+    "siteName",
+    "siteUrl",
+    "description",
+    "year",
+    "projectName",
+    "author",
+    "locale",
+    "mode"
+  ],
+  "postSteps": ["install", "git-init"],
+  "nextSteps": [
+    "Edit src/config/site.config.ts - it drives the whole site.",
+    "Replace public/favicon.svg with the client's mark."
+  ]
+}

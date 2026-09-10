@@ -1,0 +1,43 @@
+---
+import { SITE } from '../config/site.config.ts';
+import '../styles/global.css';
+
+interface Props {
+  /** Page title. The site name is appended automatically. */
+  title?: string;
+  description?: string;
+}
+
+const { title, description = SITE.description } = Astro.props;
+const pageTitle = title ? `${title} - ${SITE.name}` : SITE.name;
+---
+
+<!doctype html>
+<html lang={SITE.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+  </head>
+  <body class="min-h-dvh bg-white text-slate-900 antialiased">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-slate-900 focus:px-3 focus:py-2 focus:text-white"
+    >
+      Skip to content
+    </a>
+
+    <div class="mx-auto flex min-h-dvh max-w-3xl flex-col px-6">
+      <main id="main" class="flex-1 py-16">
+        <slot />
+      </main>
+
+      <footer class="border-t border-slate-200 py-8 text-sm text-slate-500">
+        &copy; {{year}} {SITE.name}
+      </footer>
+    </div>
+  </body>
+</html>

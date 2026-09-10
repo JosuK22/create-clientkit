@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../config/site.config.ts';
+---
+
+<BaseLayout>
+  <p class="text-sm font-medium tracking-widest text-slate-500 uppercase">Coming soon</p>
+
+  <h1 class="mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+    {SITE.name}
+  </h1>
+
+  <p class="mt-6 max-w-prose text-lg text-slate-600">
+    {SITE.description}
+  </p>
+
+  <p class="mt-10 text-sm text-slate-500">
+    This is the starting point, not the finished page. Edit
+    <code class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">src/pages/index.astro</code>
+    to make it yours.
+  </p>
+</BaseLayout>

@@ -40,6 +40,9 @@ npx create-clientkit@latest [directory] [options]
 | `--dry-run`           | Resolve and print the plan; write nothing |
 | `--no-git`            | Skip git initialisation                   |
 | `--no-install`        | Skip dependency installation              |
+| `--name <name>`       | Client / site name                        |
+| `--url <url>`         | Production URL (omit if not decided yet)  |
+| `-m, --mode <mode>`   | `coming-soon` or `full`                   |
 | `--pm <manager>`      | Force `npm`, `pnpm`, `yarn` or `bun`      |
 | `--debug`             | Print diagnostics and full stack traces   |
 | `-h, --help`          | Show help                                 |
@@ -65,8 +68,11 @@ Every run is scriptable. `--yes` never prompts, and a non-TTY stdin without
 
 ```sh
 npm create clientkit@latest acme-website --yes --no-install
+npm create clientkit@latest acme-website --yes --name "Acme Ltd" --mode full
 npm create clientkit@latest --from ./agency-preset.json --dry-run
 ```
+
+Every prompt has a matching flag, so a fully scripted run needs no config file.
 
 ### Config file (`--from`)
 
@@ -115,8 +121,50 @@ src/context/      resolve, prompts, defaults, validate, fromFile
 ProjectContext    frozen; the contract for every later stage
 ```
 
-`src/templates/registry.ts` is an intentionally empty registry: no templates
-exist yet and none are faked.
+Generation itself is split into a pure planner and a separate apply step:
+
+```
+ProjectContext
+  -> registry      discovers templates/ inside the package (never downloaded)
+  -> compose       base/ then modes/<mode>/; later layers win
+  -> tokens        {{siteName}} and friends; unknown tokens are an error
+  -> plan()        FileOperation[] in memory - reads only, writes nothing
+  -> apply()       stages in a sibling temp dir, then moves into place
+```
+
+`plan()` never mutates anything, which is what makes `--dry-run` exact rather
+than a promise. `apply()` materialises the whole tree in a temporary sibling
+directory first, so a failure part-way through leaves the target untouched.
+
+### What gets generated
+
+```
+.client-site.json      how this project was scaffolded (no secrets)
+.gitattributes
+.gitignore
+README.md
+astro.config.mjs
+package.json
+public/favicon.svg
+src/config/site.config.ts
+src/layouts/BaseLayout.astro
+src/pages/index.astro
+src/styles/global.css
+tsconfig.json
+```
+
+Pinned exactly: Astro 7.3.2, Tailwind CSS 4.3.3 via `@tailwindcss/vite`,
+TypeScript 5.9.3. Tailwind v4 is configured in CSS (`@theme`) - there is no
+`tailwind.config.js`. The generated project requires Node 22.12+, which is
+Astro 7's own floor; the CLI itself still runs on Node 20.19.
+
+### Writing into a directory that already has files
+
+A missing or empty directory is generated straight into. A directory with
+content is never overwritten silently: the CLI lists exactly which files would
+be replaced and asks first, defaulting to no. Files the template does not name
+are never touched or deleted. In non-interactive mode (`--yes`) a non-empty
+directory is refused outright, because there is no way to confirm.
 
 ## Development
 

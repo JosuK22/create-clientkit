@@ -124,12 +124,12 @@ describe('main', () => {
     expect(out.text.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  it('reports an empty template registry without inventing templates', async () => {
+  it('lists the templates that ship with the package', async () => {
     const { logger, out } = testLogger();
     const code = await main(['--list-templates'], { logger, cwd: TEST_CWD });
 
     expect(code).toBe(0);
-    expect(out.text.trim()).toBe('No templates are available yet.');
+    expect(out.text).toContain('astro-tailwind');
   });
 
   it('fails cleanly on a non-TTY stdin without --yes instead of hanging', async () => {
@@ -154,8 +154,8 @@ describe('main', () => {
     expect(err.text).toContain('20.19.0');
   });
 
-  it('resolves and prints a plan under --dry-run without writing anything', async () => {
-    const { logger, out, err } = testLogger();
+  it('resolves and prints a real file plan under --dry-run', async () => {
+    const { logger, out } = testLogger();
     const code = await main(['acme-website', '--yes', '--dry-run'], {
       logger,
       cwd: TEST_CWD,
@@ -167,7 +167,8 @@ describe('main', () => {
     expect(out.text).toContain('DRY RUN');
     expect(out.text).toContain('acme-website');
     expect(out.text).toContain('coming-soon');
-    expect(err.text).toContain('not implemented yet');
+    expect(out.text).toContain('package.json');
+    expect(out.text).toMatch(/Total: \d+ files/);
   });
 
   it('reports a missing --from file as a user error', async () => {

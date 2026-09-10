@@ -1,6 +1,11 @@
+import path from 'node:path';
+
 import pc from 'picocolors';
 
-import type { ProjectContext, SourceMap } from '../types.js';
+import type { GenerationPlan } from '../generate/files.js';
+import type { PostStepResult } from '../generate/postSteps.js';
+import type { TemplateManifest } from '../templates/manifest.js';
+import type { PackageManager, ProjectContext, SourceMap } from '../types.js';
 
 function label(text: string): string {
   return pc.dim(text.padEnd(18));
@@ -50,5 +55,71 @@ export function renderPlan(
   row('Initialise git', context.git, 'git');
   lines.push('');
   lines.push(pc.dim(`  CLI ${context.cliVersion}  |  resolved ${context.generatedAt}`));
+  return lines.join('\n');
+}
+
+/**
+ * The `--dry-run` view: the actual file list the plan would produce, so the
+ * output is verifiable rather than a promise.
+ */
+export function renderDryRun(
+  generationPlan: GenerationPlan,
+  context: ProjectContext,
+  sources: SourceMap,
+  options: { verbose: boolean },
+): string {
+  const lines: string[] = [];
+  lines.push('');
+  lines.push(pc.bold(pc.yellow('DRY RUN - no files will be written.')));
+  lines.push('');
+  lines.push(`  ${label('Target')}${generationPlan.targetDir}`);
+  lines.push(
+    `  ${label('Template')}${generationPlan.templateId} ${pc.dim(`v${generationPlan.templateVersion}`)}`,
+  );
+  lines.push(`  ${label('Mode')}${generationPlan.mode}`);
+  lines.push('');
+  lines.push(pc.bold('Files:'));
+
+  for (const operation of generationPlan.operations) {
+    const kind = operation.type === 'copy' ? pc.dim(' (binary)') : '';
+    const origin = options.verbose ? pc.dim(`  <- ${operation.origin}`) : '';
+    lines.push(`  ${operation.path}${kind}${origin}`);
+  }
+
+  lines.push('');
+  lines.push(`Total: ${generationPlan.operations.length} files`);
+  lines.push('');
+  lines.push(renderPlan(context, sources, { showSources: true }));
+  return lines.join('\n');
+}
+
+const RUN_PREFIX: Readonly<Record<PackageManager, string>> = {
+  npm: 'npm run',
+  pnpm: 'pnpm',
+  yarn: 'yarn',
+  bun: 'bun run',
+};
+
+export function renderNextSteps(
+  context: ProjectContext,
+  manifest: TemplateManifest,
+  postResults: readonly PostStepResult[],
+  cwd: string,
+): string {
+  const relative = path.relative(cwd, context.targetDir) || '.';
+  const installed = postResults.some(
+    (result) => result.step === 'install' && result.status === 'ok',
+  );
+
+  const commands: string[] = [`cd ${relative}`];
+  if (!installed) commands.push(`${context.packageManager} install`);
+  commands.push(`${RUN_PREFIX[context.packageManager]} dev`);
+
+  const lines: string[] = [pc.bold('Next steps')];
+  for (const command of commands) lines.push(`  ${pc.cyan(command)}`);
+  if (manifest.nextSteps.length > 0) {
+    lines.push('');
+    for (const step of manifest.nextSteps) lines.push(`  ${pc.dim('-')} ${step}`);
+  }
   return lines.join('\n');
 }

@@ -11,6 +11,9 @@ export function helpText(): string {
   Options
     -t, --template <id>   Template to scaffold from
         --list-templates  List available templates and exit
+        --name <name>     Client / site name
+        --url <url>       Production URL (omit if not decided yet)
+    -m, --mode <mode>     coming-soon | full
     -y, --yes             Accept all defaults; never prompt
         --from <file>     Read answers from a JSON config file
         --dry-run         Resolve and print the plan; write nothing

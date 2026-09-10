@@ -1,7 +1,13 @@
 import { assertFlagCombinations, type ParsedFlags } from '../args.js';
 import { CliError } from '../errors.js';
 import type { TemplateRegistry } from '../templates/registry.js';
-import type { ContextInput, ProjectContext, ResolutionResult, ValueSource } from '../types.js';
+import {
+  TEMPLATE_MODES,
+  type ContextInput,
+  type ProjectContext,
+  type ResolutionResult,
+  type ValueSource,
+} from '../types.js';
 import { detectPackageManager } from '../util/pm.js';
 import {
   DEFAULTS,
@@ -14,6 +20,7 @@ import type { Prompter } from './prompts.js';
 import {
   deriveProjectName,
   isPackageManagerId,
+  isTemplateMode,
   validateProjectName,
   validateSiteName,
   validateTargetDir,
@@ -60,6 +67,30 @@ function flagsLayer(flags: ParsedFlags, cwd: string): ContextInput {
   }
 
   if (flags.template !== undefined) layer.templateId = flags.template;
+
+  // --name / --url / --mode reuse the same validators as the config file and
+  // the prompts; there is exactly one validation path per field.
+  if (flags.name !== undefined) {
+    const error = validateSiteName(flags.name);
+    if (error) throw new CliError(`Invalid --name: ${error}`);
+    layer.siteName = flags.name.trim();
+  }
+
+  if (flags.url !== undefined) {
+    const check = validateUrl(flags.url);
+    if (check.error) throw new CliError(`Invalid --url: ${check.error}`);
+    // An explicitly empty --url means "no production URL", not "unset".
+    layer.siteUrl = check.value;
+  }
+
+  if (flags.mode !== undefined) {
+    if (!isTemplateMode(flags.mode)) {
+      throw new CliError(`Unknown mode "${flags.mode}".`, {
+        hint: `Supported values for --mode: ${TEMPLATE_MODES.join(', ')}.`,
+      });
+    }
+    layer.mode = flags.mode;
+  }
 
   if (flags.pm !== undefined) {
     if (!isPackageManagerId(flags.pm)) {
@@ -204,6 +235,13 @@ export async function resolveContext(options: ResolveOptions): Promise<Resolutio
     mark('template.mode', 'default');
   }
 
+  if (registry.has(templateId) && !registry.supportsMode(templateId, mode)) {
+    const supported = registry.get(templateId).supportedModes;
+    throw new CliError(`Template "${templateId}" does not support mode "${mode}".`, {
+      hint: `Supported modes: ${supported.join(', ')}.`,
+    });
+  }
+
   // ---- setup (install / git) ---------------------------------------------
   let install: boolean;
   let git: boolean;
@@ -250,10 +288,16 @@ export async function resolveContext(options: ResolveOptions): Promise<Resolutio
   const author = explicit.author ?? DEFAULTS.author;
   mark('site.author', explicit.author !== undefined ? sourceOf('author') : 'default');
 
-  const templateVersion = explicit.templateVersion ?? DEFAULTS.templateVersion;
+  // The registry is the authority on a template's version once one is installed.
+  const registryVersion = registry.has(templateId) ? registry.get(templateId).version : null;
+  const templateVersion = explicit.templateVersion ?? registryVersion ?? DEFAULTS.templateVersion;
   mark(
     'template.version',
-    explicit.templateVersion !== undefined ? sourceOf('templateVersion') : 'default',
+    explicit.templateVersion !== undefined
+      ? sourceOf('templateVersion')
+      : registryVersion !== null
+        ? 'template'
+        : 'default',
   );
 
   const detected = detectPackageManager(env['npm_config_user_agent']);

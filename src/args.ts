@@ -13,6 +13,9 @@ export interface ParsedFlags {
   readonly noGit: boolean;
   readonly noInstall: boolean;
   readonly template: string | undefined;
+  readonly name: string | undefined;
+  readonly url: string | undefined;
+  readonly mode: string | undefined;
   readonly from: string | undefined;
   readonly pm: string | undefined;
 }
@@ -26,6 +29,9 @@ const OPTIONS = {
   version: { type: 'boolean', short: 'v' },
   template: { type: 'string', short: 't' },
   'list-templates': { type: 'boolean' },
+  name: { type: 'string' },
+  url: { type: 'string' },
+  mode: { type: 'string', short: 'm' },
   yes: { type: 'boolean', short: 'y' },
   from: { type: 'string' },
   'dry-run': { type: 'boolean' },
@@ -79,6 +85,9 @@ export function parseCliArgs(argv: readonly string[]): ParsedFlags {
     noGit: asBool('no-git'),
     noInstall: asBool('no-install'),
     template: asStr('template'),
+    name: asStr('name'),
+    url: asStr('url'),
+    mode: asStr('mode'),
     from: asStr('from'),
     pm: asStr('pm'),
   };
