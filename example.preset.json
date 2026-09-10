@@ -1,0 +1,18 @@
+{
+  "dir": "acme-website",
+  "site": {
+    "name": "Acme Ltd",
+    "url": "https://acme.example",
+    "description": "Bespoke widgets since 1994.",
+    "locale": "en-GB",
+    "author": null
+  },
+  "template": {
+    "id": "astro-tailwind",
+    "version": null,
+    "mode": "coming-soon"
+  },
+  "packageManager": "pnpm",
+  "git": true,
+  "install": false
+}

@@ -1,0 +1,11 @@
+# `files` in package.json is the allow-list; this is defence in depth.
+src
+test
+node_modules
+.github
+*.tsbuildinfo
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+.prettierrc.json
+.prettierignore
