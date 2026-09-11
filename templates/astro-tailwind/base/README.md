@@ -64,6 +64,12 @@ what it needs to override:
 **Everything derives from `SITE`.** You never repeat the site name,
 description or URL.
 
+### Set the URL before the final build
+
+`SITE.url` is read at **build time**, so canonical tags, `og:url` and the
+sitemap are baked into the output. Moving a built site to a different domain
+leaves them pointing at the old one - rebuild after changing it.
+
 ### Before you have a domain
 
 `SITE.url` starts empty and that is a supported state, not a broken one. While
