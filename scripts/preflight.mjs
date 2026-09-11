@@ -3,8 +3,8 @@
  * Release preflight: answers "is this package safe to publish?".
  *
  * Runs every gate in order and reports a single verdict. It publishes nothing
- * and needs no credentials - `npm publish` is a separate, deliberate step a
- * human takes after this passes.
+ * and needs no credentials - releasing is a separate, deliberate step a human
+ * takes after this passes.
  *
  *   node scripts/preflight.mjs              full run
  *   node scripts/preflight.mjs --fast       skip the audit (axe + Lighthouse)
@@ -117,10 +117,18 @@ if (failed) {
 console.log(`
 PREFLIGHT PASSED - the package is safe to publish.
 
-Publishing is a separate, deliberate step and is not automated here:
+Publishing is a separate, deliberate step and is not automated here. Tagging
+is what starts it:
 
-  npm publish --access public --provenance
+  git tag v<version> && git push --follow-tags
 
-Provenance requires publishing from a trusted CI workflow with an OIDC
-identity (id-token: write), not a long-lived npm token. See RELEASING.md.
+CI then stages the release with provenance, using trusted publishing (OIDC)
+rather than a long-lived npm token. Staging is not public. A maintainer makes
+it live:
+
+  npm stage list create-clientkit
+  npm stage approve <stage-id>          # prompts for 2FA
+
+Approval cannot be automated - it requires proof of presence and rejects OIDC
+tokens, which is the point. See RELEASING.md.
 `);
