@@ -14,13 +14,15 @@ Verified after publishing: `npm create clientkit@latest` resolves 0.1.0 from
 the public registry, generates 22 files, and the generated project passes
 `astro check` (0 errors) and builds with zero client-side JavaScript.
 
-## 1.0.0 — prepared, not yet released
-
-> **Status: prepared.** These notes are written and reviewed, but 1.0.0 has not
-> been tagged or published. The remaining release gates are external —
-> see "Outstanding before release" below.
+## 1.0.0 — 2026-09-11
 
 The first stable public release of the CLI contract.
+
+Published from CI through npm trusted publishing (OIDC), with no long-lived
+token anywhere in the repository or the workflow. The trusted publisher is
+configured for **staged publishing only**: CI prepares the release and a
+maintainer approves it with 2FA, so no automated system can make a version
+live unattended.
 
 ### What it is
 
@@ -94,9 +96,23 @@ Verified in CI on Windows, macOS and Linux:
 axe reporting zero violations is not a claim of WCAG compliance; automated
 rules cover a minority of real accessibility barriers.
 
-### Outstanding before release
+### Release gates, all met
 
-- [ ] CI executed on GitHub-hosted runners
-- [ ] Author and repository metadata resolved
-- [ ] npm account with 2FA, trusted publishing configured
-- [ ] A generated site deployed to a real domain and validated
+- [x] CI executed on GitHub-hosted runners — 17/17 jobs green across Windows,
+      macOS and Linux on Node 20.19, 22 and 24
+- [x] Author and repository metadata resolved
+- [x] npm account with 2FA; trusted publishing configured for staged publishing
+- [x] A generated site deployed to a real domain and validated
+
+That last gate was a live deployment, not a local preview. On the deployed
+site: the home page returns 200 and an unknown path returns a real 404 (not a
+soft 200); `robots.txt`, `favicon.svg`, `sitemap-index.xml` and `sitemap-0.xml`
+all resolve; the canonical tag, `og:url` and the structured-data `url` all
+match the serving host; and the `Sitemap:` line in `robots.txt` fetches
+successfully. Both SEO paths were exercised — the URL-less build, which omits
+canonical, `og:url` and the sitemap entirely, and the configured-URL build.
+
+The schema.org validator reports 0 errors and 0 warnings for the generated
+`Organization` markup. Google's Rich Results Test reports no rich-result items
+detected, which is the expected outcome: `Organization` is not a rich-result
+type. It confirmed the page was crawled successfully.
