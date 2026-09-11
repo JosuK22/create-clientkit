@@ -4,7 +4,12 @@ import { CONTACT, SITE, SOCIAL } from '../config/site.config.ts';
 
 // Computed at build time rather than frozen in at scaffold time, so the notice
 // stays correct for as long as the site is rebuilt.
-const year = new Date().getFullYear();
+//
+// Built as one string rather than as adjacent `{year} {SITE.name}` expressions
+// in the markup: a formatter may put those on separate lines, and Astro drops
+// the newline between two adjacent expressions, which silently renders
+// "2026Acme Studio" with no space.
+const copyright = `© ${new Date().getFullYear()} ${SITE.name}`;
 
 const hasSocial = SOCIAL.some((link) => link.label !== '' && link.href !== '');
 const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
@@ -12,10 +17,7 @@ const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
 
 <footer class="site-footer">
   <div class="container-page inner">
-    <p class="copyright">
-      &copy; {year}
-      {SITE.name}
-    </p>
+    <p class="copyright">{copyright}</p>
 
     {
       (hasContact || hasSocial) && (

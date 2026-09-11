@@ -277,6 +277,20 @@ try {
       failures.push(`${scenario.name}: JSON-LD is not valid JSON`);
     }
 
+    /*
+     * Rendered text, not just tags.
+     *
+     * A formatter once split "{year} {SITE.name}" across two lines, and Astro
+     * drops the newline between adjacent expressions - so the footer rendered
+     * "2026Acme Studio" with no space. Nothing in the markup looked wrong.
+     * This asserts the visible result instead.
+     */
+    const notice = html.slice(html.indexOf('copyright')).slice(0, 200);
+    expect(
+      /(?:&copy;|©)\s*\d{4}\s+\S/.test(notice),
+      `${scenario.name}: copyright notice is missing a space: ${notice.slice(0, 60)}`,
+    );
+
     // The safety guarantee that matters most: nothing fabricated.
     const fabricated = /yourdomain|your-domain|client-site\.com|example\.com/i;
     expect(!fabricated.test(head), `${scenario.name}: fabricated domain in metadata`);
