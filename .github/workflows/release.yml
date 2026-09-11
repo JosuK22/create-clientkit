@@ -1,7 +1,8 @@
 name: Release
 
-# Publishes to npm with provenance, using trusted publishing (OIDC) rather
-# than a long-lived npm token. Nothing here reads a secret.
+# Stages a release to npm with provenance, using trusted publishing (OIDC)
+# rather than a long-lived npm token. Nothing here reads a secret, and nothing
+# here goes live: the last step is a human approving the staged version.
 #
 # Two things must be true before this can succeed, and neither can be done
 # from a workflow file:
@@ -73,16 +74,32 @@ jobs:
           path: '*.tgz'
           retention-days: 30
 
-      - name: Publish with provenance
+      # `npm stage publish`, not `npm publish`. The trusted publisher is
+      # configured for staged publishing only, so CI can prepare a release but
+      # cannot make one live: a human approves it with 2FA, after npm's malware
+      # scan has run. Staging is always permitted for a trusted publisher, so
+      # this step is correct whether or not direct publish is also enabled.
+      #
+      # --provenance stays explicit even though trusted publishing generates
+      # attestations automatically. With the flag, npm fails rather than
+      # quietly staging a build that carries no provenance - which would defeat
+      # the point of publishing from CI at all.
+      - name: Stage the release with provenance
         if: startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true
-        run: npm publish --access public --provenance
+        run: npm stage publish --access public --provenance
 
       - name: Report
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if [ "${{ startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true }}" = "true" ]; then
-            echo "### Published create-clientkit@$VERSION" >> "$GITHUB_STEP_SUMMARY"
-            echo "https://www.npmjs.com/package/create-clientkit/v/$VERSION" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Staged create-clientkit@$VERSION" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Not live yet. Approve it to publish:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```sh' >> "$GITHUB_STEP_SUMMARY"
+            echo "npm stage list create-clientkit" >> "$GITHUB_STEP_SUMMARY"
+            echo "npm stage approve <stage-id>   # prompts for 2FA" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "Or npmjs.com -> create-clientkit -> Staged Packages." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "### Dry run for create-clientkit@$VERSION" >> "$GITHUB_STEP_SUMMARY"
             echo "All gates ran; nothing was published." >> "$GITHUB_STEP_SUMMARY"

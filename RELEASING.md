@@ -9,10 +9,10 @@ decision rather than an improvisation.
 - [x] `create-clientkit` confirmed unclaimed on npm.
 - [x] npm account created with 2FA enabled.
 - [x] CI green on GitHub-hosted runners (17/17, three platforms).
-- [ ] Bootstrap publish of `0.1.0` — see below.
+- [x] Bootstrap publish of `0.1.0` — see below.
 - [ ] Configure trusted publishing (OIDC) on npmjs.com, which is only possible
       after that first publish.
-- [ ] A generated site deployed and validated against a real domain.
+- [x] A generated site deployed and validated against a real domain.
 
 ## The bootstrap publish
 
@@ -42,12 +42,23 @@ what trusted publishing exists to avoid.
 Then, on npmjs.com → the package → Settings → **Trusted Publisher** →
 GitHub Actions:
 
-| Field                | Value              |
-| -------------------- | ------------------ |
-| Organization or user | `JosuK22`          |
-| Repository           | `create-clientkit` |
-| Workflow filename    | `release.yml`      |
-| Environment          | leave empty        |
+| Field                | Value               |
+| -------------------- | ------------------- |
+| Organization or user | `JosuK22`           |
+| Repository           | `create-clientkit`  |
+| Workflow filename    | `release.yml`       |
+| Environment          | leave empty         |
+| Allowed actions      | leave **unchecked** |
+
+That last row is the important one. `npm stage publish` is always allowed for
+a trusted publisher; the checkbox grants the _additional_ right to publish
+directly with `npm publish`, and npm marks it "Not recommended".
+
+Leaving it unchecked means CI can prepare a release but cannot make one live.
+That is the only step in the whole pipeline where an automated system would
+otherwise make an irreversible public change with no human in the loop —
+unpublishing is possible for 72 hours and breaks anyone who already installed.
+The cost of the stricter setting is one `npm stage approve` command.
 
 ## Versioning
 
@@ -98,14 +109,17 @@ npm version <patch|minor|major>
 git push --follow-tags
 ```
 
-Then publish from CI (see below), and write the release notes on the tag.
+The tag triggers CI, which stages the release. Approve it (see below), then
+write the release notes on the tag.
 
 ## Publishing with provenance
 
-Publishing happens from `.github/workflows/release.yml` using **trusted
-publishing (OIDC)**, not a long-lived `NPM_TOKEN`. It triggers on a `v*.*.*`
-tag, verifies the tag matches `package.json`, runs the full preflight, packs,
-uploads the artifact, and only then publishes:
+Publishing happens in two halves: CI stages, a human approves.
+
+`.github/workflows/release.yml` uses **trusted publishing (OIDC)**, not a
+long-lived `NPM_TOKEN`. It triggers on a `v*.*.*` tag, verifies the tag matches
+`package.json`, runs the full preflight, packs, uploads the artifact, and only
+then stages:
 
 ```yaml
 permissions:
@@ -113,26 +127,44 @@ permissions:
   id-token: write # required for provenance
 
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-node@v4
+  - uses: actions/checkout@v7
+  - uses: actions/setup-node@v7
     with:
       node-version: 24
       registry-url: https://registry.npmjs.org
   - run: npm ci
   - run: npm run preflight
-  - run: npm publish --access public --provenance
+  - run: npm stage publish --access public --provenance
 ```
+
+Nothing is public at that point. To make it live:
+
+```sh
+npm stage list create-clientkit
+npm stage view <stage-id>        # inspect before approving
+npm stage approve <stage-id>     # prompts for 2FA
+```
+
+`npm stage reject <stage-id>` discards it instead. Both can also be done on
+npmjs.com under the package's **Staged Packages** tab. Approval is only
+possible once npm's malware scan has finished.
 
 Requirements for that to work:
 
-- npm must be new enough to support `--provenance` (npm 9.5+).
+- Staging needs npm 11.15.0+ and Node 22.14+. Node 24 ships npm 11.19.0, so
+  the workflow's `node-version: 24` already satisfies both.
 - The workflow must run on a public GitHub repository.
 - Trusted publishing must be configured for the package on npmjs.com, linking
   it to this repository and workflow file.
-- `prepublishOnly` already runs `preflight`, so a local `npm publish` is also
-  gated — but a local publish cannot produce provenance.
+- Approval cannot be automated. `npm stage approve` requires proof of presence
+  and does not accept an OIDC token — which is the entire point.
+- `--provenance` is redundant under trusted publishing, which attaches
+  attestations automatically. It is kept explicit so that npm **fails** rather
+  than quietly staging a build with no provenance.
+- `prepublishOnly` already runs `preflight`, so a local publish is also gated —
+  but a local publish cannot produce provenance.
 
-## After publishing
+## After approving
 
 Verify the published artifact behaves like the tested one:
 
