@@ -116,3 +116,48 @@ The schema.org validator reports 0 errors and 0 warnings for the generated
 `Organization` markup. Google's Rich Results Test reports no rich-result items
 detected, which is the expected outcome: `Organization` is not a rich-result
 type. It confirmed the page was crawled successfully.
+
+## 1.0.1 — 2026-09-11
+
+A documentation and help-text patch. No functional change: the CLI generates
+exactly what 1.0.0 generated, and no flag, command or template output differs.
+
+Three things shipped in 1.0.0 that were accurate when written and wrong by
+release. All three were the first thing a new user read.
+
+### Corrected CLI help text
+
+`--help` ended with a note left over from an early milestone:
+
+> Early build: configuration is resolved and validated, but no files are
+> generated yet.
+
+That was true before generation was implemented and false from the moment it
+was. It now describes the actual defaults — dependencies installed and a git
+repository initialised unless `--no-install` or `--no-git` is passed — and the
+ownership model.
+
+### Corrected package documentation
+
+The README, which is what renders on the npm page, described the package as
+`pre-release (0.1.0)` and `not yet published to npm`, and labelled the
+cross-platform CI matrix as intended coverage rather than observed results.
+Both were written before publication. The README now states the real release
+status and the observed CI coverage, keeping the one honest exception: Ctrl+C
+cancellation cannot be verified on Windows, which has neither pty allocation
+nor POSIX signal delivery to a child process.
+
+### Improved first-user guidance
+
+`SITE.description` is generated as `Official website of <Name>.` — deliberately
+generic, because the CLI will not invent claims about a business it knows
+nothing about. It is a placeholder, but nothing said so, and it would ship to
+production unchanged as the meta description, `og:description` and X card
+description. Both the repository README and the generated project's README now
+flag it in the pre-deploy checklist, alongside a note on why no `og:image` is
+emitted until one is configured and why the X card stays `summary` until then.
+
+Also added, affecting the repository rather than the published package:
+`CONTRIBUTING.md`, GitHub issue templates, release-recovery procedures in
+`RELEASING.md`, a preflight artifact-fingerprint stamp that stops the release
+gates running twice, and a self-test for the dependency-drift probe.

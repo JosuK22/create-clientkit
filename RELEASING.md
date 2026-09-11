@@ -10,8 +10,9 @@ decision rather than an improvisation.
 - [x] npm account created with 2FA enabled.
 - [x] CI green on GitHub-hosted runners (17/17, three platforms).
 - [x] Bootstrap publish of `0.1.0` — see below.
-- [ ] Configure trusted publishing (OIDC) on npmjs.com, which is only possible
-      after that first publish.
+- [x] Configure trusted publishing (OIDC) on npmjs.com, which is only possible
+      after that first publish. Configured for **staged publishing only** —
+      see the table below.
 - [x] A generated site deployed and validated against a real domain.
 
 ## The bootstrap publish
