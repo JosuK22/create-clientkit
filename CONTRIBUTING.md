@@ -14,6 +14,19 @@ conversation about details first.
 If you hit a **security** problem, do not open a public issue. Email
 josephkanoj@gmail.com instead.
 
+### Questions
+
+Issues are the channel for those too, for now.
+
+> **Decision: GitHub Discussions stays disabled.**
+> Issues provide a sufficient public feedback channel at the current project
+> stage — there is not yet enough usage for a discussion forum to have anyone
+> in it, and an empty Discussions tab reads as an abandoned one. Revisit when
+> community usage increases.
+
+A question asked in an issue is a perfectly good issue. If it turns out the
+answer should have been in the docs, that is a documentation bug worth having.
+
 ## What this project is, and is not
 
 `create-clientkit` scaffolds the foundation of a client website and then gets

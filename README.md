@@ -1,22 +1,37 @@
 # create-clientkit
 
+[![npm](https://img.shields.io/npm/v/create-clientkit)](https://www.npmjs.com/package/create-clientkit)
+[![CI](https://github.com/JosuK22/create-clientkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JosuK22/create-clientkit/actions/workflows/ci.yml)
+[![node](https://img.shields.io/node/v/create-clientkit)](https://nodejs.org)
+[![licence](https://img.shields.io/npm/l/create-clientkit)](./LICENSE)
+
 **Create the boring foundation of your next client website in seconds.**
-
-A scaffolding CLI for developers who build client websites over and over:
-freelancers, agencies and frontend teams. It generates the foundation you
-rebuild every time — layout, Coming Soon page, 404, SEO, robots, sitemap,
-structured data, favicon, accessibility baseline, build config — and then gets
-out of the way.
-
-It is **not** a website builder. You own the generated source from the moment
-it lands on disk.
 
 ```sh
 npm create clientkit@latest acme-website
 ```
 
-[![npm](https://img.shields.io/npm/v/create-clientkit)](https://www.npmjs.com/package/create-clientkit)
-[![CI](https://github.com/JosuK22/create-clientkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JosuK22/create-clientkit/actions/workflows/ci.yml)
+A scaffolding CLI for developers who build client websites over and over:
+freelancers, agencies and frontend teams. It generates the foundation you
+rebuild every time — layout, a Coming Soon page, a custom 404, SEO metadata,
+`robots.txt`, a sitemap, structured data, a favicon, an accessibility baseline
+and build config — and then gets out of the way.
+
+It is **not** a website builder. You own the generated source from the moment
+it lands on disk.
+
+**What it generates** — a static [Astro](https://astro.build) 7 +
+[Tailwind CSS](https://tailwindcss.com) 4 site in TypeScript: responsive, light
+and dark themes, and no client-side JavaScript by default. Start in
+**Coming Soon** mode for a launch page, **Full** for a small multi-section home
+page, or **URL-less** when the domain is not decided yet.
+
+**What it is** — one bundled CLI with **zero runtime dependencies**, MIT
+licensed, published from CI with
+[provenance](https://docs.npmjs.com/generating-provenance-statements) and
+tested on Linux, Windows and macOS across Node 20.19, 22 and 24. The site it
+generates has its own dependencies — Astro and Tailwind, pinned exactly — which
+is a separate thing from the CLI's own dependency count.
 
 ---
 
@@ -48,10 +63,23 @@ and warns before generating that the project itself will need 22.12+.
 
 ## Usage
 
+Recommended — nothing to install first, and `@latest` sidesteps npm's
+initializer cache:
+
 ```sh
 npm create clientkit@latest [directory] [options]
+```
+
+The same binary is reachable through `npx`, if that suits your workflow better.
+It does the same thing:
+
+```sh
 npx create-clientkit@latest [directory] [options]
 ```
+
+Note that this is about how you _invoke_ the CLI. Which package manager installs
+the generated project's dependencies is a separate choice — detected from your
+environment, or forced with `--pm`.
 
 | Flag                  | Description                               |
 | --------------------- | ----------------------------------------- |
@@ -115,10 +143,26 @@ One template ships in V1:
 | ---------------- | --------------------------------------- | --------------------- |
 | `astro-tailwind` | Astro 7, Tailwind CSS 4, TypeScript 5.9 | `coming-soon`, `full` |
 
-- **`coming-soon`** — a single polished launch page you can put live today.
-- **`full`** — a small home page with sections, on the same design system.
+- **`coming-soon`** — a single polished launch page you can put live today,
+  with an optional launch date and a progressive-enhancement countdown.
+- **`full`** — a small multi-section home page, on the same design system.
 
 Both include the custom 404, the design system and the full SEO layer.
+
+### URL-less
+
+Not a third mode — a state either mode starts in, and a supported one. When you
+have not decided on a domain, leave the production URL unset and the generated
+site **omits** every absolute tag rather than pointing it at a guess: no
+canonical, no `og:url`, no sitemap, and no `Sitemap:` line in `robots.txt`.
+
+```sh
+npm create clientkit@latest acme-website --yes   # no --url: URL-less
+```
+
+Set `SITE.url` in `src/config/site.config.ts` whenever the domain is known and
+all of it appears on the next build. Nothing needs regenerating, and no
+placeholder domain was ever written to disk.
 
 ## The generated project
 
