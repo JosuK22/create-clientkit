@@ -145,9 +145,19 @@ npm stage view <stage-id>        # inspect before approving
 npm stage approve <stage-id>     # prompts for 2FA
 ```
 
-`npm stage reject <stage-id>` discards it instead. Both can also be done on
-npmjs.com under the package's **Staged Packages** tab. Approval is only
-possible once npm's malware scan has finished.
+`npm stage reject <stage-id>` discards it instead. Approval is only possible
+once npm's malware scan has finished.
+
+**The `npm stage` subcommand needs npm 11.15.0+ locally**, which is newer than
+the npm bundled with Node 22. CI is unaffected — it runs Node 24 — but the
+machine doing the approving may not have it, and the failure is an unhelpful
+`Unknown command: "stage"`. Either approve on npmjs.com under the package's
+**Staged Packages** tab, which needs no CLI at all, or run a newer npm without
+touching the global install:
+
+```sh
+npx npm@11 stage approve <stage-id>
+```
 
 Requirements for that to work:
 
