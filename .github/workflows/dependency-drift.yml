@@ -85,3 +85,40 @@ jobs:
                 labels: ['dependency-drift'],
               });
             }
+
+  # The probe job above short-circuits whenever every pin is current or held,
+  # which is most weeks - so its interesting path (drift detected, project
+  # upgraded, rebuilt) can sit unexecuted for months and then fail on the one
+  # morning it is needed.
+  #
+  # This job exercises that path deliberately, by overriding what the probe
+  # believes "latest" to be for a single package. No pin is changed and nothing
+  # is published; it is a self-test of the machinery.
+  #
+  # It is a separate job on purpose: a failure here means the probe script
+  # broke, not that the ecosystem moved, and it must not file the drift issue
+  # above.
+  selftest:
+    name: self-test the drift probe path
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Exercise the drift-detected branch against a simulated version
+        run: npm run drift:selftest
+
+      - name: Confirm the simulation changed no pin
+        run: |
+          if ! git diff --quiet -- templates/; then
+            echo "::error::the drift self-test modified the template - it must never do that"
+            git --no-pager diff -- templates/
+            exit 1
+          fi
+          echo "template pins unchanged, as required"

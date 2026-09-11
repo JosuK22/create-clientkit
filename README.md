@@ -15,10 +15,8 @@ it lands on disk.
 npm create clientkit@latest acme-website
 ```
 
----
-
-> **Status: pre-release (0.1.0).** Feature-complete for V1 and verified in CI
-> across Windows, macOS and Linux, but not yet published to npm.
+[![npm](https://img.shields.io/npm/v/create-clientkit)](https://www.npmjs.com/package/create-clientkit)
+[![CI](https://github.com/JosuK22/create-clientkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JosuK22/create-clientkit/actions/workflows/ci.yml)
 
 ---
 
@@ -41,11 +39,12 @@ and warns before generating that the project itself will need 22.12+.
 | Windows | yes | yes            | Node 20.19, 22, 24 (site: 22)     |
 | macOS   | yes | yes            | Node 20.19, 22, 24 (site: 22)     |
 
-> **Verification status.** Windows is verified directly — the full test suite,
-> clean-room packaging and generated-project builds are run there. The Linux
-> and macOS rows describe what `.github/workflows/ci.yml` covers; that
-> workflow has not yet executed on GitHub-hosted runners, so treat those rows
-> as intended coverage rather than observed results until the first CI run.
+> **Verification status.** Every row above is observed, not intended: the CI
+> workflow runs on GitHub-hosted runners for all three platforms on each push.
+> One exception is called out honestly — Ctrl+C cancellation cannot be tested
+> on Windows, which has neither pty allocation nor POSIX signal delivery to a
+> child process, so `scripts/cancel-check.mjs` prints the manual procedure
+> there instead of asserting anything.
 
 ## Usage
 
@@ -166,12 +165,18 @@ on after launch keeps the real site invisible.
 
 1. Set `SITE.url` in `src/config/site.config.ts` — canonical URLs and the
    sitemap depend on it.
-2. Replace `public/favicon.svg` with the client's mark.
-3. Add a 1200×630 image to `public/` and set `SEO.image` if you want social
-   previews. No `og:image` is emitted until you do.
-4. Fill in `CONTACT` and `SOCIAL` — anything left empty is not rendered, and
+2. Rewrite `SITE.description`. It is generated as `Official website of <Name>.`
+   — deliberately generic, because the CLI will not invent claims about a
+   business it knows nothing about. It is a placeholder, and it becomes the
+   meta description, `og:description` and the X card description. Aim for
+   roughly 120–160 characters of real copy.
+3. Replace `public/favicon.svg` with the client's mark.
+4. Add a 1200×630 image to `public/` and set `SEO.image` if you want social
+   previews. No `og:image` is emitted until you do, and the X card stays
+   `summary` rather than rendering an empty `summary_large_image`.
+5. Fill in `CONTACT` and `SOCIAL` — anything left empty is not rendered, and
    not claimed in the structured data.
-5. `npm run check && npm run build`, then deploy `dist/` as a static site.
+6. `npm run check && npm run build`, then deploy `dist/` as a static site.
 
 Only the origin of `SITE.url` is used. To deploy under a subpath, also set
 `base` in `astro.config.mjs`.
@@ -221,6 +226,13 @@ The CLI publishes with `dependencies: {}` — its dependencies are bundled into
 `dist/cli.js` at build time, so `npm create` is one tarball and no dependency
 resolution. See [THIRD-PARTY.md](./THIRD-PARTY.md) and
 [RELEASING.md](./RELEASING.md).
+
+## Contributing
+
+Bug reports and ideas are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+The quickest useful report is an
+[issue from a template](https://github.com/JosuK22/create-clientkit/issues/new/choose),
+since they ask for the versions and the exact command up front.
 
 ## Licence
 

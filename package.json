@@ -51,10 +51,11 @@
     "audit": "node scripts/audit-site.mjs",
     "preflight": "node scripts/preflight.mjs",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build",
-    "prepublishOnly": "npm run preflight",
+    "prepublishOnly": "node scripts/preflight.mjs --skip-if-verified",
     "cancel-check": "node scripts/cancel-check.mjs",
     "drift": "node scripts/drift-probe.mjs",
-    "drift:report": "node scripts/drift-probe.mjs --report"
+    "drift:report": "node scripts/drift-probe.mjs --report",
+    "drift:selftest": "node scripts/drift-probe.mjs --simulate-drift tailwindcss@4.3.2"
   },
   "devDependencies": {
     "@clack/prompts": "^0.11.0",

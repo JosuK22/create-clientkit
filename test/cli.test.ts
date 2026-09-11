@@ -116,6 +116,43 @@ describe('main', () => {
     expect(out.text).toContain('--list-templates');
   });
 
+  // 1.0.0 shipped with a leftover M1 note in --help saying "no files are
+  // generated yet", which was true when generation was unimplemented and
+  // false by M2. Nothing caught it: every gate checked that generation
+  // worked, none checked that the help text still described reality.
+  //
+  // This guards the class, not the sentence - any help text that disclaims
+  // being finished is a release blocker once the feature exists.
+  it('does not claim in --help that generation is unimplemented', async () => {
+    const { logger, out } = testLogger();
+    await main(['--help'], { logger, cwd: TEST_CWD });
+
+    const stale = [
+      /no files are\s+generated/i,
+      /not generated yet/i,
+      /early build/i,
+      /\bnot (?:yet )?implemented\b/i,
+      /\bwork in progress\b/i,
+      /\bplaceholder\b/i,
+    ];
+
+    for (const pattern of stale) {
+      expect(
+        pattern.test(out.text),
+        `--help still carries an unimplemented-status claim matching ${pattern}`,
+      ).toBe(false);
+    }
+  });
+
+  it('documents the install and git defaults in --help', async () => {
+    const { logger, out } = testLogger();
+    await main(['--help'], { logger, cwd: TEST_CWD });
+
+    expect(out.text).toMatch(/--no-install/);
+    expect(out.text).toMatch(/--no-git/);
+    expect(out.text).toMatch(/installed and a git repository is initialised/i);
+  });
+
   it('prints the version and exits 0', async () => {
     const { logger, out } = testLogger();
     const code = await main(['--version'], { logger, cwd: TEST_CWD });

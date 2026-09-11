@@ -1,0 +1,79 @@
+name: CLI bug
+description: create-clientkit failed to run, prompt, or generate a project
+labels: ['bug', 'cli']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For problems with the `create-clientkit` command itself. If the CLI
+        finished and the *generated project* is the problem, use the
+        "Generated project bug" template instead.
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command you ran
+      description: Paste it verbatim, including flags. Redact client names if you need to.
+      render: shell
+      placeholder: npm create clientkit@latest acme-website --mode full
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Full output
+      description: Re-run with `--debug` if you can - it prints diagnostics and full stack traces.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: cli-version
+    attributes:
+      label: create-clientkit version
+      description: The CLI prints it in the banner, or run `npm create clientkit@latest -- --version`.
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node -v`. The CLI needs 20.19 or newer.
+      placeholder: v22.15.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: pm
+    attributes:
+      label: Package manager
+      options:
+        - npm
+        - pnpm
+        - yarn
+        - bun
+        - not sure
+    validations:
+      required: true

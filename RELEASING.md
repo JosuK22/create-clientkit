@@ -102,7 +102,22 @@ npm run preflight
 10. `check:package` — tarball contents, dependency guards, hygiene
 11. `smoke:audit` — clean-room install, generate, check, build, axe, Lighthouse
 
-It publishes nothing and needs no credentials. If it passes:
+It publishes nothing and needs no credentials.
+
+A complete pass records a stamp under `node_modules/.cache/clientkit/`
+containing the shasum of the tarball `npm publish` would upload.
+`prepublishOnly` runs `preflight --skip-if-verified`, which skips the gates
+**only** when the tarball npm would produce right now has that exact shasum.
+That is what stops the release workflow running every gate twice.
+
+It is not a bypass, and it cannot be used as one. A source edit, a
+hand-modified `dist/`, a version bump, a different machine or a missing stamp
+all change or invalidate the comparison and the gates run in full. `--fast` and
+`--allow-dirty` runs never write a stamp at all, because each skips a real gate
+and must not stand in for a complete verdict. To force a full run, delete the
+stamp or pass `npm run preflight` directly.
+
+If it passes:
 
 ```sh
 npm version <patch|minor|major>
@@ -186,8 +201,69 @@ npm create clientkit@latest verify-site --yes --no-install --no-git
 Then check the npm page shows the provenance badge, and that
 `npm view create-clientkit dependencies` is empty.
 
-## If a release is bad
+## When a release goes wrong
 
-`npm deprecate create-clientkit@<version> "<reason>"` and publish a fix.
-Unpublishing is only possible within 72 hours and breaks anyone who already
-installed it — deprecate instead, except for a genuine secret leak.
+Staged publishing means most failures happen before anything is public. Work
+out which of these you are in before doing anything.
+
+### Preflight failed in CI
+
+Nothing was staged and nothing is public. Fix the cause, commit, and move the
+tag:
+
+```sh
+git tag -d v<version>
+git push origin :refs/tags/v<version>   # delete the remote tag
+# ... fix, commit ...
+git tag -a v<version> -m "..." && git push --follow-tags
+```
+
+Moving a tag is only acceptable because the version was never published. Once
+a version is live its tag is immutable — ship a new version instead.
+
+### Staged, but the artifact is wrong
+
+The version exists in the staging area and is not installable by anyone.
+Reject it:
+
+```sh
+npm stage list create-clientkit
+npm stage reject <stage-id>
+```
+
+Then fix, and re-tag as above. Inspect first with `npm stage view <stage-id>`,
+or `npm stage download <stage-id>` to examine the tarball itself.
+
+### The tag and package.json disagree
+
+The workflow refuses to publish and says so. This means the tag was created
+without the version bump being committed. Delete the tag, commit the bump,
+re-tag.
+
+### Published, and it is bad
+
+This is the only genuinely expensive case, which is the reason for every gate
+before it.
+
+```sh
+npm deprecate create-clientkit@<version> "<reason>; use <good-version>"
+```
+
+Then publish a fix as a new patch version. **Do not unpublish.** It is only
+possible within 72 hours, it breaks anyone who already installed, and npm
+blocks re-using the version number afterwards. The sole exception is a genuine
+secret leak, where the leaked credential must be rotated regardless — removing
+the package does not un-leak it.
+
+### The published artifact does not match the repository
+
+Check the provenance before assuming the worst:
+
+```sh
+npm view create-clientkit@<version> dist.attestations
+```
+
+Every release from CI carries a SLSA attestation naming the workflow, the tag
+and the runner. If it is absent on a version that should have it, or names
+something unexpected, treat it as a security incident rather than a build
+problem.

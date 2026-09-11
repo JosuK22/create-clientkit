@@ -29,8 +29,11 @@ export function helpText(): string {
     npm create clientkit@latest acme-website --yes --no-install
     npm create clientkit@latest --from ./agency-preset.json --dry-run
 
-  Note
-    Early build: configuration is resolved and validated, but no files are
-    generated yet.
+  Notes
+    Dependencies are installed and a git repository is initialised by default.
+    Pass --no-install or --no-git to skip either.
+
+    The generated project is yours - private, unlicensed and dependency-pinned.
+    Nothing phones home and nothing is downloaded beyond your own install.
 `.trimStart();
 }

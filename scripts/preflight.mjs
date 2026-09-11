@@ -9,13 +9,96 @@
  *   node scripts/preflight.mjs              full run
  *   node scripts/preflight.mjs --fast       skip the audit (axe + Lighthouse)
  *   node scripts/preflight.mjs --allow-dirty  skip the clean-tree gate
+ *   node scripts/preflight.mjs --skip-if-verified   see below
+ *
+ * --skip-if-verified exists because the release workflow would otherwise run
+ * every gate twice: once as its own step, and again when `npm stage publish`
+ * fires `prepublishOnly`.
+ *
+ * It is not a bypass. A full passing run stamps the shasum of the tarball npm
+ * would produce, and the skip applies only when the tarball npm would produce
+ * *now* has that same shasum - meaning the exact bytes headed for the registry
+ * have already been through every gate. Any difference at all (a source edit,
+ * a hand-modified dist/, a version bump, a different machine, a missing stamp)
+ * fails the comparison and runs the gates in full.
+ *
+ * A --fast or --allow-dirty run never stamps: those skip real gates, so their
+ * verdict must not stand in for a complete one.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 const FAST = process.argv.includes('--fast');
 const ALLOW_DIRTY = process.argv.includes('--allow-dirty');
+const SKIP_IF_VERIFIED = process.argv.includes('--skip-if-verified');
 const WIN = process.platform === 'win32';
+
+/** Gitignored: node_modules is already ignored, and `npm ci` clears it. */
+const STAMP_FILE = path.join('node_modules', '.cache', 'clientkit', 'preflight-stamp.json');
+
+/**
+ * The shasum of the tarball `npm publish` would upload, without writing one.
+ *
+ * Verified reproducible: repeated calls agree, and a stray .tgz in the repo
+ * root does not perturb it because `files` is an explicit allow-list.
+ */
+function packFingerprint() {
+  const out = execFileSync(WIN ? 'npm.cmd' : 'npm', ['pack', '--dry-run', '--json'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    shell: WIN,
+  });
+  const entry = JSON.parse(out)[0];
+  return { shasum: entry.shasum, files: entry.entryCount, size: entry.size };
+}
+
+function readStamp() {
+  if (!existsSync(STAMP_FILE)) return null;
+  try {
+    return JSON.parse(readFileSync(STAMP_FILE, 'utf8'));
+  } catch {
+    return null; // a corrupt stamp is simply no stamp
+  }
+}
+
+function writeStamp(fingerprint, version) {
+  mkdirSync(path.dirname(STAMP_FILE), { recursive: true });
+  writeFileSync(
+    STAMP_FILE,
+    `${JSON.stringify({ ...fingerprint, version, at: new Date().toISOString() }, null, 2)}\n`,
+  );
+}
+
+if (SKIP_IF_VERIFIED) {
+  const stamp = readStamp();
+  const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
+  let current = null;
+  try {
+    current = packFingerprint();
+  } catch {
+    // Leave it null: if the artifact cannot be fingerprinted it cannot be
+    // shown to match, so the gates run in full. That is the safe direction.
+  }
+
+  if (stamp && current && stamp.shasum === current.shasum && stamp.version === version) {
+    console.log(`
+preflight: skipped - these exact bytes already passed.
+
+  tarball shasum : ${current.shasum}
+  files / size   : ${current.files} / ${current.size} B
+  verified at    : ${stamp.at}
+
+The full gate ran earlier against an identical artifact. Change anything at all
+and this runs again automatically.
+`);
+    process.exit(0);
+  }
+
+  if (stamp && current && stamp.shasum !== current.shasum) {
+    console.log('preflight: the artifact changed since it was last verified - running in full.\n');
+  }
+}
 
 const results = [];
 let failed = false;
@@ -112,6 +195,19 @@ console.log(`\n${passed}/${results.length} gates passed`);
 if (failed) {
   console.error('\nPREFLIGHT FAILED - do not publish.');
   process.exit(1);
+}
+
+// Only a complete run earns a stamp. --fast skips the audit and --allow-dirty
+// skips the clean-tree gate, so neither verdict may stand in for a full one.
+if (!FAST && !ALLOW_DIRTY) {
+  try {
+    const pkgVersion = JSON.parse(readFileSync('package.json', 'utf8')).version;
+    writeStamp(packFingerprint(), pkgVersion);
+  } catch (error) {
+    // Never fail a passing preflight over a cache write - the only cost is
+    // that the next publish re-runs the gates, which is the safe direction.
+    console.error(`  (could not record the preflight stamp: ${error.message})`);
+  }
 }
 
 console.log(`

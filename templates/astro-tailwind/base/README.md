@@ -78,6 +78,20 @@ sitemap and the sitemap line in `robots.txt` - rather than pointing them at a
 domain nobody owns yet. Fill `SITE.url` in and they all appear. Only the
 origin is used; a subpath deployment also needs Astro's `base` option.
 
+### Social previews and the description
+
+`SITE.description` arrives as `Official website of {{siteName}}.` That is a
+placeholder, not a suggestion. It was generated without knowing anything about
+the business, and it becomes the meta description, `og:description` and the X
+card description - so it is worth replacing with real copy, roughly 120-160
+characters, before launch.
+
+`SEO.image` starts empty and no `og:image` is emitted while it is. The X card
+stays `summary` in that state rather than claiming `summary_large_image` with
+no image to show, which renders as an empty card. Drop a 1200x630 image into
+`public/`, point `SEO.image` at it, and the card switches to the large format
+on its own.
+
 ### Indexing
 
 `SEO.noindex` controls it, and it is `false` by default so a launched site is

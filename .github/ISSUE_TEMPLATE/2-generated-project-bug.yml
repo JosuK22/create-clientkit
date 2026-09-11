@@ -1,0 +1,100 @@
+name: Generated project bug
+description: The CLI worked, but the generated site is wrong, won't check, or won't build
+labels: ['bug', 'template']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For problems in the scaffolded project: `astro check` errors, build
+        failures, wrong markup, broken styling, incorrect SEO output.
+
+        Please check first whether you changed the file in question - the
+        generated project is yours, and local edits are the usual cause.
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - coming-soon
+        - full
+    validations:
+      required: true
+
+  - type: dropdown
+    id: url-configured
+    attributes:
+      label: Is SITE.url set?
+      description: Several SEO behaviours differ deliberately between the two states.
+      options:
+        - 'yes - SITE.url is set'
+        - 'no - SITE.url is still empty'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where it goes wrong
+      options:
+        - npm install
+        - npm run check
+        - npm run build
+        - npm run dev
+        - the built site renders incorrectly
+        - deployed behaviour (404, robots, sitemap, canonical)
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Full output or the relevant markup
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: cli-version
+    attributes:
+      label: create-clientkit version that generated it
+      description: Check `.client-site.json` in the project root if you are unsure.
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: The generated site needs 22.12 or newer - that is Astro 7's own floor.
+      placeholder: v22.15.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: local-changes
+    attributes:
+      label: What have you changed since generating?
+      description: '"nothing" is a perfectly good answer, and a useful one.'
+    validations:
+      required: true

@@ -1,0 +1,31 @@
+name: Documentation problem
+description: Something in the README, the generated project's README, or the CLI help is wrong, missing or misleading
+labels: ['docs']
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Repository README
+        - The generated project's README
+        - CLI --help output
+        - RELEASING.md
+        - npm package page
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What it says, and what is wrong with it
+      description: Quote the passage if you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What would be clearer?
+      description: Optional, but a concrete suggestion is the fastest path to a fix.

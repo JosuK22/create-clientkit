@@ -61,6 +61,12 @@ jobs:
 
       # The same gate a developer runs locally: typecheck, lint, format,
       # notices, tests, build, package contents, clean-room smoke and audit.
+      #
+      # A complete pass stamps the shasum of the tarball npm would produce.
+      # The publish step below fires `prepublishOnly`, which consults that
+      # stamp and skips only if the bytes are byte-for-byte the ones verified
+      # here - so the gates run once per release instead of twice, without any
+      # of them being skippable. See scripts/preflight.mjs.
       - name: Release preflight
         run: npm run preflight
 

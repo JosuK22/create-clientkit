@@ -1,0 +1,6 @@
+# Blank issues stay enabled: the four templates cover the common cases, and
+# anything that does not fit should still be easy to report.
+#
+# No contact_links here on purpose - GitHub Discussions is not enabled on this
+# repository, and a link to a disabled feature is worse than no link.
+blank_issues_enabled: true

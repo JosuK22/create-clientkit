@@ -9,6 +9,22 @@
  *
  *   node scripts/drift-probe.mjs --report   print pinned vs latest, exit 0
  *   node scripts/drift-probe.mjs            probe; non-zero if latest breaks
+ *   node scripts/drift-probe.mjs --force    probe even when nothing is behind
+ *   node scripts/drift-probe.mjs --simulate-drift <pkg>@<version>
+ *
+ * --simulate-drift exists because the interesting branch - "something is
+ * actually behind" - only executes when the ecosystem happens to have moved.
+ * Left to chance, the upgrade-and-rebuild path can sit untested for months and
+ * then fail on the one morning it matters.
+ *
+ * It overrides what this script *believes* the latest version to be, for the
+ * named package only. It does not change a pin, does not write to the
+ * template, and does not contact a different registry. Point it at a real
+ * published version adjacent to the pin and the whole path runs for real:
+ * drift detected -> project generated -> copy upgraded -> astro check ->
+ * build -> report.
+ *
+ *   node scripts/drift-probe.mjs --simulate-drift tailwindcss@4.3.2
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -19,6 +35,26 @@ const REPORT_ONLY = process.argv.includes('--report');
 // Runs the probe even when nothing is behind, so the machinery itself can be
 // exercised on demand rather than only when the ecosystem happens to move.
 const FORCE = process.argv.includes('--force');
+
+/**
+ * Parsed `--simulate-drift <pkg>@<version>` pairs, as a name -> version map.
+ *
+ * Deliberately parsed strictly: a malformed argument is a hard error rather
+ * than a silently ignored flag, because silently probing the real versions
+ * while believing a simulation ran is the one outcome worth preventing.
+ */
+const SIMULATED = {};
+for (let i = 0; i < process.argv.length; i += 1) {
+  if (process.argv[i] !== '--simulate-drift') continue;
+  const spec = process.argv[i + 1];
+  const at = spec === undefined ? -1 : spec.lastIndexOf('@');
+  if (at === undefined || at <= 0) {
+    console.error(`--simulate-drift needs <pkg>@<version>, got: ${spec ?? '(nothing)'}`);
+    process.exit(2);
+  }
+  SIMULATED[spec.slice(0, at)] = spec.slice(at + 1);
+}
+const SIMULATING = Object.keys(SIMULATED).length > 0;
 
 /**
  * Pins held back on purpose, with the reason. The probe reports these but does
@@ -53,6 +89,30 @@ const names = Object.keys(pinned).sort();
 const latest = {};
 for (const name of names) {
   latest[name] = npm(['view', name, 'version'], repoRoot).trim();
+}
+
+for (const [name, version] of Object.entries(SIMULATED)) {
+  if (!(name in latest)) {
+    console.error(
+      `--simulate-drift names "${name}", which the template does not depend on.\n` +
+        `  known: ${names.join(', ')}`,
+    );
+    process.exit(2);
+  }
+  latest[name] = version;
+}
+
+if (SIMULATING) {
+  console.log(`
+  SIMULATION - not a real drift report.
+
+  The "latest" column below is overridden for: ${Object.entries(SIMULATED)
+    .map(([n, v]) => `${n}@${v}`)
+    .join(', ')}
+
+  Nothing is pinned, written or published differently because of this. The
+  point is to run the upgrade-and-rebuild path on demand instead of waiting
+  for the ecosystem to move.`);
 }
 
 console.log('\n  package                pinned      latest      status');
@@ -148,10 +208,20 @@ ${probeable.map((n) => `    ${n}: ${pinned[n]} -> ${latest[n]}`).join('\n')}
     process.exit(1);
   }
 
-  console.log(`
+  console.log(
+    SIMULATING
+      ? `
+  SIMULATED drift probe completed: the generated project upgraded, type-checked
+  and built against the simulated versions.
+
+  This proves the probe path works. It says nothing about the real ecosystem -
+  run without --simulate-drift for that. No pin was changed.
+`
+      : `
   The template builds cleanly against the latest versions.
   The pins are still deliberate - upgrade them in a reviewed commit, not here.
-`);
+`,
+  );
 } finally {
   rmSync(workspace, { recursive: true, force: true });
 }

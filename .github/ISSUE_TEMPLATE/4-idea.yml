@@ -1,0 +1,34 @@
+name: Idea or feature request
+description: Suggest something create-clientkit should do
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth knowing before you write: create-clientkit is deliberately narrow.
+        It scaffolds a client-website foundation and stops. A CMS, auth, forms,
+        analytics, deployment automation, payments and a visual builder are all
+        explicit non-goals, not gaps waiting to be filled.
+
+        Ideas that make the existing scaffold better are very welcome.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you hit, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What do you suggest?
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you handle it today?
+      description: Since you own the generated source, editing it is often the right answer - it helps to know why it is not.
