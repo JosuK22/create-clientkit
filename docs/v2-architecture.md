@@ -1007,3 +1007,75 @@ the whole point.
 | Astro byte-identical reproduction is the gate on step 2             | DECIDED  |
 | Mode becomes a feature; `TEMPLATE_MODES` leaves core types          | PROPOSED |
 | Greenfield-only, so no user code is ever parsed                     | DECIDED  |
+
+---
+
+## 26. Implementation status
+
+### Stage 0 — golden snapshot safety net (landed, `00c3590`)
+
+Four snapshots pin what 1.0.2 generates. See
+[golden-snapshots.md](./golden-snapshots.md).
+
+### Stage 1 — core domain types (landed)
+
+The vocabulary described above now exists in `src/domain/`. Types and a few
+pure helpers only: no adapters, no compatibility engine, no planner changes.
+Nothing in the V1 generation path imports it, and the shipped bundle is
+byte-identical — a test asserts both.
+
+```
+src/domain/
+├── dimensions.ts     the independent axes and their id unions
+├── capabilities.ts   Capability, Constraint, describeConstraint
+├── roles.ts          FileRole, ArchitectureDefinition, resolveRole
+├── contributions.ts  dependency / file / script / config contributions
+├── manifest.ts       ProjectManifest + a read-only bridge from V1
+├── resolved.ts       ResolvedProject
+├── adapters.ts       the declare → resolve → contribute contract
+└── index.ts          the internal entry point
+```
+
+**The pipeline**
+
+```
+ProjectManifest     what the user asked for       no versions, no paths
+      ↓
+ResolvedProject     what that means technically   capabilities, roles, extensions
+      ↓
+Contribution[]      what each adapter wants       owned, ordered, reasoned
+      ↓
+GenerationPlan      what will be written          V1, unchanged
+      ↓
+FileOperation[]     the safety boundary           V1, unchanged
+```
+
+**The adapter contract**
+
+| Phase      | Sees              | Returns             | Why it is separate                                                                                                                       |
+| ---------- | ----------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| declare    | nothing           | static metadata     | The compatibility engine filters on it before anything is selected, and cannot run an adapter to find out whether the adapter is usable. |
+| resolve    | `ProjectManifest` | `AdapterResolution` | Resolution produces the resolved project, so it cannot also consume it.                                                                  |
+| contribute | `ResolvedProject` | `Contribution`      | What an adapter writes depends on decisions other adapters made — the language's extension, the architecture's paths.                    |
+
+An adapter is handed plain data and returns plain data. The contract gives it
+no filesystem, no logger, no registry and no other adapter, so it cannot write
+a file, run a command, call `apply()`, or read another adapter's state. A test
+additionally asserts no module under `src/domain/` imports `node:fs`,
+`node:child_process`, `node:process` or `node:os`.
+
+**The dimensions, and why each is its own axis**
+
+| Dimension    | Answers                        | Kept separate from                                                       |
+| ------------ | ------------------------------ | ------------------------------------------------------------------------ |
+| Framework    | What renders the site          | The build tool — React implies no bundler, Astro is both                 |
+| Build tool   | What compiles it               | The framework — otherwise `react` and `react-vite` become two frameworks |
+| Language     | TypeScript or JavaScript       | Everything — it only decides extensions and type config                  |
+| Styling      | How CSS is authored            | The UI library — Tailwind and MUI can both be selected                   |
+| UI library   | Prebuilt components            | Styling — Bootstrap and Chakra are not interchangeable                   |
+| Architecture | Folder and layering convention | The framework — a framework may offer more than one                      |
+| Feature      | SEO, sitemap, starter pages    | The framework — intent is shared, implementation is not                  |
+
+V1's `mode` is not a dimension. It was an Astro template detail that reached
+`src/types.ts`; in this vocabulary it is `starter:coming-soon` /
+`starter:full`, two feature ids.

@@ -1,0 +1,107 @@
+import { CliError } from '../errors.js';
+import type { ArchitectureId } from './dimensions.js';
+
+/**
+ * Semantic file roles, and the architecture that maps them to real paths.
+ *
+ * This is what stops every non-framework adapter from needing to know which
+ * framework it is running under. A styling adapter says "I have a global
+ * stylesheet" and never learns where it went:
+ *
+ *     styles.global  ->  src/styles/global.css   (Astro)
+ *                    ->  src/styles/index.css    (React + Vite)
+ *                    ->  src/app/globals.css     (Next.js)
+ *                    ->  src/styles.scss         (Angular)
+ *
+ * One Tailwind adapter therefore serves four frameworks with no branch in it.
+ * Without this, the alternative is `if (framework === 'nextjs')` inside every
+ * adapter that writes a file, which is the conditional-logic explosion the
+ * architecture exists to avoid.
+ *
+ * The vocabulary below is a core artifact. If it is wrong or too thin, adapters
+ * start reaching for literal paths instead and the decoupling quietly rots -
+ * which is why `FileTarget` in `contributions.ts` records which of the two an
+ * adapter used, so that drift is measurable rather than invisible.
+ */
+export const FILE_ROLES = [
+  /** Process entry point: `main.tsx`, `main.ts`. */
+  'app.entry',
+  /** Root component or shell the entry renders. */
+  'app.root',
+  /** The shared page shell: `<head>`, header, footer. */
+  'app.layout',
+  /** Home page. */
+  'page.home',
+  /** Not-found page. */
+  'page.notFound',
+  /** The single file a developer edits to configure the site. */
+  'config.site',
+  /** Framework configuration: `astro.config.mjs`, `next.config.ts`. */
+  'config.framework',
+  /** Build-tool configuration where it is a separate file: `vite.config.ts`. */
+  'config.build',
+  /** Language configuration: `tsconfig.json`. */
+  'config.language',
+  /** Styling-system configuration, where the system needs a file of its own. */
+  'config.styling',
+  /** The global stylesheet every page loads. */
+  'styles.global',
+  /** Package manifest. */
+  'package',
+  /** Static assets directory marker. */
+  'assets.public',
+  /** Project README. */
+  'docs.readme',
+] as const;
+
+export type FileRole = (typeof FILE_ROLES)[number];
+
+/**
+ * A framework's folder and layering convention.
+ *
+ * Owned by the framework adapter, because "professional structure" means
+ * something different per ecosystem and pretending otherwise is how a
+ * generator ends up making Angular look like React.
+ *
+ * `roles` is partial: not every architecture has somewhere to put every role,
+ * and an unmapped role is a real answer rather than an oversight. Asking for
+ * one that is unmapped fails loudly (see `resolveRole`) instead of silently
+ * writing to a path nobody chose.
+ */
+export interface ArchitectureDefinition {
+  readonly id: ArchitectureId;
+  readonly displayName: string;
+  /** Created even when empty, so the shape of the project is visible up front. */
+  readonly directories: readonly string[];
+  readonly roles: Readonly<Partial<Record<FileRole, string>>>;
+}
+
+/**
+ * Maps a role to its concrete path for one architecture.
+ *
+ * Throws rather than returning undefined: an adapter contributing to a role the
+ * architecture does not define is a bug in one of the two, and the useful
+ * moment to say so is immediately, naming both. Silently dropping the
+ * contribution would produce a project missing a file with no indication why.
+ */
+export function resolveRole(architecture: ArchitectureDefinition, role: FileRole): string {
+  const target = architecture.roles[role];
+  if (target === undefined) {
+    const known = Object.keys(architecture.roles).sort().join(', ');
+    throw new CliError(
+      `Architecture "${architecture.id}" does not define a path for the file role "${role}".`,
+      {
+        hint:
+          known === ''
+            ? `"${architecture.id}" maps no roles at all.`
+            : `Roles it does define: ${known}.`,
+      },
+    );
+  }
+  return target;
+}
+
+/** Whether an architecture can place a given role, without throwing. */
+export function definesRole(architecture: ArchitectureDefinition, role: FileRole): boolean {
+  return architecture.roles[role] !== undefined;
+}
