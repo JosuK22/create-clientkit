@@ -62,7 +62,24 @@ function findBundledRoots() {
         continue;
       }
       if (!/\.ts$/.test(entry.name)) continue;
-      for (const match of readFileSync(full, 'utf8').matchAll(/from\s+'([^']+)'/g)) {
+      // Anchored to the start of a line, which is what separates a real import
+      // from a string that merely looks like one.
+      //
+      // src/domain/build-config.ts emits import statements for the *generated*
+      // project, so its source contains "import { defineConfig } from 'vite';"
+      // as data. Unanchored, this scan read that as the CLI bundling Vite, and
+      // pulled postcss and source-map-js into the notices - three packages the
+      // CLI does not ship. Emitted strings are always indented inside an
+      // expression; real imports and re-exports start their line.
+      //
+      // The second pattern catches the closing line of a multi-line import,
+      // which prettier produces for long specifier lists.
+      const source = readFileSync(full, 'utf8');
+      const matches = [
+        ...source.matchAll(/^\s*(?:import|export)\b[^;]*?from\s+'([^']+)'/gm),
+        ...source.matchAll(/^\}\s*from\s+'([^']+)'/gm),
+      ];
+      for (const match of matches) {
         const spec = match[1];
         if (spec.startsWith('.') || spec.startsWith('node:')) continue;
         // Keep the package name, dropping any deep import path.

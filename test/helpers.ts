@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { Prompter, SetupAnswer } from '../src/context/prompts.js';
 import type { TargetDirFs } from '../src/context/validate.js';
 import { CliError } from '../src/errors.js';
+import type { GenerationPlan } from '../src/generate/files.js';
 import type { PlanFs } from '../src/generate/plan.js';
 import type { TemplateManifest } from '../src/templates/manifest.js';
 import type { TemplateRegistry } from '../src/templates/registry.js';
@@ -223,4 +224,59 @@ export const FAKE_MANIFEST: TemplateManifest = {
 export function tempDir(prefix: string): { dir: string; cleanup: () => void } {
   const dir = mkdtempSync(path.join(tmpdir(), `ck-${prefix}-`));
   return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+// ---------------------------------------------------------------------------
+// Golden plan rendering
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders a plan as diff-friendly text for golden snapshots.
+ *
+ * Lifted out of golden.test.ts in Stage 4 so the React suite renders through
+ * exactly the same code. Two suites with two copies of a renderer drift, and
+ * the first symptom would be a snapshot difference that means nothing.
+ *
+ * Two blocks on purpose. ORDER lists operations in the sequence the planner
+ * emits them, so a reordering is a small obvious diff rather than being buried.
+ * FILES carries content, so a content change stays local to the file that
+ * changed instead of shifting everything after it.
+ */
+export function renderPlan(generated: GenerationPlan, templatesRoot: string): string {
+  const TARGET_DIR = '<TARGET_DIR>';
+  const normaliseSource = (absolute: string): string =>
+    `<TEMPLATES>/${path.relative(templatesRoot, absolute).split(path.sep).join('/')}`;
+
+  const lines: string[] = [];
+
+  lines.push('== PLAN ==');
+  lines.push(`templateId       ${generated.templateId}`);
+  lines.push(`templateVersion  ${generated.templateVersion}`);
+  lines.push(`mode             ${generated.mode}`);
+  lines.push(`targetDir        ${TARGET_DIR}`);
+  lines.push(`operationCount   ${generated.operations.length}`);
+  lines.push('');
+
+  lines.push('== ORDER ==');
+  for (const operation of generated.operations) {
+    lines.push(`${operation.type.padEnd(5)}  ${operation.path}`);
+  }
+  lines.push('');
+
+  lines.push('== FILES ==');
+  for (const operation of generated.operations) {
+    lines.push('');
+    lines.push(`---- ${operation.path} ----`);
+    lines.push(`type    ${operation.type}`);
+    lines.push(`origin  ${operation.origin}`);
+    if (operation.type === 'copy') {
+      lines.push(`source  ${normaliseSource(operation.source)}`);
+      lines.push('(binary; copied byte-for-byte, never token-substituted)');
+      continue;
+    }
+    lines.push('----');
+    lines.push(operation.content);
+  }
+
+  return `${lines.join('\n')}\n`;
 }

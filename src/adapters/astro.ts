@@ -11,6 +11,7 @@ import { emptyContribution } from '../domain/contributions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
 import type { ArchitectureDefinition } from '../domain/roles.js';
+import { starterLayerFor } from './starters.js';
 
 /**
  * The Astro framework adapter: the first concrete adapter, and the one whose
@@ -80,17 +81,6 @@ const ASTRO_ARCHITECTURE: ArchitectureDefinition = {
   },
 };
 
-/**
- * Which mode layer a set of features selects.
- *
- * V1's `mode` is a starter feature in the V2 vocabulary, so the mapping back to
- * a template directory happens here - inside the adapter that owns those
- * directories - rather than in the planner.
- */
-export function starterLayerFor(features: readonly string[]): string {
-  return features.includes('starter:full') ? 'full' : 'coming-soon';
-}
-
 const OWNER = adapterRef(ASTRO_DECLARATION);
 
 /**
@@ -105,6 +95,8 @@ export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
   return {
     declaration: ASTRO_DECLARATION,
 
+    /** Astro is its own build tool; there is no separate adapter to select. */
+    ownsBuildTool: true,
     buildTools: { kind: 'fixed', value: 'astro' },
     languages: { kind: 'fixed', value: 'ts' },
     routers: { kind: 'fixed', value: 'file-based' },

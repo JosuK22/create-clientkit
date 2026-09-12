@@ -10,7 +10,7 @@ import { plan } from '../src/generate/plan.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import type { GenerationPlan } from '../src/generate/files.js';
 import type { ProjectContext, ResolutionResult, TemplateMode } from '../src/types.js';
-import { emptyFs, makeContext, TEST_CWD, TEST_HOME } from './helpers.js';
+import { emptyFs, makeContext, renderPlan, TEST_CWD, TEST_HOME } from './helpers.js';
 
 /**
  * Golden snapshots of what create-clientkit@1.0.2 generates.
@@ -47,13 +47,6 @@ const registry = createRegistry(TEMPLATES_ROOT);
 // ---------------------------------------------------------------------------
 
 const TARGET_DIR = '<TARGET_DIR>';
-const TEMPLATES = '<TEMPLATES>';
-
-/** Absolute path inside the shipped templates directory -> `<TEMPLATES>/...`. */
-function normaliseSource(absolute: string): string {
-  const relative = path.relative(TEMPLATES_ROOT, absolute).split(path.sep).join('/');
-  return `${TEMPLATES}/${relative}`;
-}
 
 /**
  * Renders a plan as diff-friendly text.
@@ -63,40 +56,7 @@ function normaliseSource(absolute: string): string {
  * being buried. FILES carries the content, so a content change shows up local
  * to the file that changed instead of shifting everything after it.
  */
-function render(generated: GenerationPlan): string {
-  const lines: string[] = [];
-
-  lines.push('== PLAN ==');
-  lines.push(`templateId       ${generated.templateId}`);
-  lines.push(`templateVersion  ${generated.templateVersion}`);
-  lines.push(`mode             ${generated.mode}`);
-  lines.push(`targetDir        ${TARGET_DIR}`);
-  lines.push(`operationCount   ${generated.operations.length}`);
-  lines.push('');
-
-  lines.push('== ORDER ==');
-  for (const operation of generated.operations) {
-    lines.push(`${operation.type.padEnd(5)}  ${operation.path}`);
-  }
-  lines.push('');
-
-  lines.push('== FILES ==');
-  for (const operation of generated.operations) {
-    lines.push('');
-    lines.push(`---- ${operation.path} ----`);
-    lines.push(`type    ${operation.type}`);
-    lines.push(`origin  ${operation.origin}`);
-    if (operation.type === 'copy') {
-      lines.push(`source  ${normaliseSource(operation.source)}`);
-      lines.push('(binary; copied byte-for-byte, never token-substituted)');
-      continue;
-    }
-    lines.push('----');
-    lines.push(operation.content);
-  }
-
-  return `${lines.join('\n')}\n`;
-}
+const render = (generated: GenerationPlan): string => renderPlan(generated, TEMPLATES_ROOT);
 
 /** Renders a resolution result: the CLI-input -> ProjectContext half of the contract. */
 function renderResolution(result: ResolutionResult): string {

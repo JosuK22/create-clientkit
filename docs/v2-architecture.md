@@ -1123,7 +1123,7 @@ change, and the golden snapshots cover it.
 ids exist in the dimension vocabulary; no adapter implements them, and the
 registry says so.
 
-### Stage 3 — compatibility engine and selection (landed)
+### Stage 3 — compatibility engine and selection (landed, `ec0a47b`)
 
 The decision layer. Given a manifest, it determines which adapters are
 eligible, which choices survive, why a rejected one was rejected, and folds
@@ -1178,3 +1178,68 @@ byte-identical; no prompts, no new flags, no template changes. Still no React,
 Next.js, Angular, Bootstrap, MUI or Chakra — the engine is proven against
 hypothetical declarations in `test/compatibility.test.ts`, which is the only
 honest way to show it generalises while one framework is implemented.
+
+### Stage 4 — React + Vite adapter (landed)
+
+The second framework, and the first evidence that the architecture generalises
+rather than merely describing Astro.
+
+```
+src/adapters/react.ts        framework: capabilities, architecture, layers, deps
+src/adapters/vite.ts         build tool: vite-plugins, build scripts
+src/adapters/starters.ts     shared feature → starter-layer mapping
+src/domain/build-config.ts   composes a build config from several adapters
+templates/react-vite/        base + coming-soon + full layers
+```
+
+**Supported today:** `astro + tailwind` and `react + vite + typescript +
+tailwind` (UI library `none`, router `none`). Next.js, Angular, Bootstrap, MUI
+and Chakra remain names in the vocabulary with no adapter behind them; the
+registry refuses them by name.
+
+**React and Vite are separate dimensions.** There is no `react-vite` adapter and
+no such framework id. React declares `react-runtime`, `jsx`, `typescript` and
+`spa-routing`; Vite declares `vite-plugins`. React deliberately does _not_
+declare `vite-plugins` — claiming it would let React plus a bundler with no
+plugin system satisfy Tailwind's requirement, and the engine could not catch it.
+
+**Tailwind was not modified to understand React.** Its declaration still names
+no framework. The requirement it has had since Stage 2 — `vite-plugins` — is
+satisfied by Astro in one stack and by Vite in the other, with the same bytes.
+
+**`vite.config.ts` is composed, not templated.** It is deliberately absent from
+the React template. React contributes `@vitejs/plugin-react` and Tailwind
+contributes `@tailwindcss/vite` as `ConfigContribution` entries — the type that
+had existed unused since Stage 1 — and `build-config.ts` emits the file. A
+template carrying both plugins would have hardcoded Tailwind into React and
+broken the first time someone picked React without it.
+
+Composition is driven by the `config.build` file role. Astro's architecture maps
+no such role, so nothing is composed for it and its template keeps registering
+the Tailwind plugin itself — the legacy arrangement Stage 2 recorded, unchanged.
+
+**Two contract additions**, both on `FrameworkAdapter`:
+
+| Field               | Why                                                                                                                                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ownsBuildTool`     | Astro ships its build tooling and must not be asked for a build-tool adapter; React must. Without it, selection cannot tell "needs none" from "adapter missing", and silently skipping would generate a project with no way to build it. |
+| `templateManifest?` | React's template has no `template.json` on disk, because one would list it in the V1 `--list-templates` and announce a framework with no public selection path. Astro omits the field and keeps using the disk registry.                 |
+
+**Role asymmetry is real and load-bearing.** React maps `app.entry` and
+`config.build`, which Astro leaves unmapped; Astro maps `config.framework` and
+`page.notFound`, which React leaves unmapped. Absorbing that is the whole
+purpose of addressing files by role.
+
+**Unchanged.** The V1 golden checksum is identical, the CLI has no new flags or
+prompts, and `templates/astro-tailwind/` was not touched.
+
+**Known limitations, stated rather than implied:**
+
+- No router, so no client-side 404 page. Astro has one; React does not.
+- Metadata is set at runtime by a hook. A crawler that does not execute
+  JavaScript sees only `index.html`. That is an SPA property, not a defect to
+  paper over with a library.
+- `package.json` is still composed from template layers; dependency and script
+  contributions are declared and asserted but not yet used to build the file.
+- Plugin order in the composed config is by owner — stable, but an adapter that
+  genuinely needed to run before another has no way to say so yet.

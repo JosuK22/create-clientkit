@@ -4,6 +4,7 @@ import type { ArchitectureId, BuildToolId, LanguageId, RouterId } from './dimens
 import type { ProjectManifest } from './manifest.js';
 import type { ResolvedProject, SourceExtensions } from './resolved.js';
 import type { ArchitectureDefinition } from './roles.js';
+import type { TemplateManifest } from '../templates/manifest.js';
 
 /**
  * The adapter contract: declare, then resolve, then contribute.
@@ -114,12 +115,39 @@ export interface Adapter {
  * structure is. Everything else is a plain `Adapter`.
  */
 export interface FrameworkAdapter extends Adapter {
+  /**
+   * Whether the framework is its own build tool.
+   *
+   * Astro, Next and Angular each ship their build tooling; React does not and
+   * has to be paired with one. Selection needs to know which, or it cannot tell
+   * "this framework needs no separate build-tool adapter" from "the build-tool
+   * adapter is missing" - and silently skipping the second would generate a
+   * project with no way to build it.
+   *
+   * Stated explicitly rather than inferred from `buildTools.kind === 'fixed'`,
+   * which happens to agree for all four frameworks today but conflates two
+   * different questions: whether the user has a choice, and who owns the
+   * tooling. A framework could one day fix its build tool to something it does
+   * not own.
+   */
+  readonly ownsBuildTool: boolean;
   readonly buildTools: DimensionOptions<BuildToolId>;
   readonly languages: DimensionOptions<LanguageId>;
   readonly routers: DimensionOptions<RouterId>;
   readonly architectures: DimensionOptions<ArchitectureId>;
   /** The architecture definitions this framework offers, keyed by id. */
   readonly architectureDefinitions: readonly ArchitectureDefinition[];
+  /**
+   * Template identity, for frameworks whose template directory is not
+   * discoverable by the V1 registry.
+   *
+   * Astro omits it: its template.json is on disk and the V1 registry already
+   * serves it, so declaring it here would only create something to drift.
+   * React needs it, because giving its directory a template.json would make it
+   * appear in the V1 --list-templates output and announce a framework that has
+   * no public selection path yet.
+   */
+  readonly templateManifest?: TemplateManifest;
 }
 
 export type BuildToolAdapter = Adapter;

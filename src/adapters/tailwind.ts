@@ -65,6 +65,35 @@ export function createTailwindAdapter(): Adapter {
     contribute(_project: ResolvedProject): Contribution {
       return {
         ...emptyContribution(OWNER),
+
+        /**
+         * Registers the Tailwind plugin in whatever build configuration the
+         * selected architecture defines.
+         *
+         * Added when React arrived, and deliberately framework-blind: it names
+         * a role, not a file and not a framework. Architectures that map
+         * `config.build` (React) get the plugin composed in; architectures that
+         * do not (Astro, whose build config is `astro.config.mjs` under
+         * `config.framework`) compose nothing and keep registering it in their
+         * own template, exactly as before.
+         *
+         * This is the whole of what Tailwind gained from React existing. There
+         * is no branch on the framework here and there should never be one.
+         */
+        config: [
+          {
+            target: 'config.build',
+            at: 'plugins',
+            value: {
+              importName: 'tailwindcss',
+              importFrom: '@tailwindcss/vite',
+              call: 'tailwindcss()',
+            },
+            owner: OWNER,
+            reason: 'Tailwind v4 compiles through a build plugin',
+          },
+        ],
+
         // Exactly the versions in templates/astro-tailwind/base/_package.json.
         dependencies: [
           {

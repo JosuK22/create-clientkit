@@ -76,6 +76,16 @@ export function selectAdapters(manifest: ProjectManifest, registry: AdapterRegis
     { ref: adapterRef(framework.declaration), adapter: framework },
   ];
 
+  // A framework that ships its own build tooling (Astro, and later Next and
+  // Angular) has no separate build-tool adapter and must not be asked for one.
+  // A framework that does not (React) must have one, and a missing adapter is
+  // an error rather than a silent skip - skipping would generate a project with
+  // no way to build it.
+  if (!framework.ownsBuildTool) {
+    const buildTool = registry.buildTool(manifest.buildTool);
+    adapters.push({ ref: adapterRef(buildTool.declaration), adapter: buildTool });
+  }
+
   // `none` is a real answer meaning "no styling adapter participates", not a
   // missing adapter - asking the registry for it would produce a misleading
   // "not implemented yet".

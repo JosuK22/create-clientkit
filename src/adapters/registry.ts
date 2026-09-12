@@ -1,18 +1,21 @@
+import path from 'node:path';
+
 import { CliError } from '../errors.js';
 import type { Adapter, FrameworkAdapter } from '../domain/adapters.js';
-import type { FrameworkId, StylingId } from '../domain/dimensions.js';
+import type { BuildToolId, FrameworkId, StylingId } from '../domain/dimensions.js';
 import { createAstroAdapter } from './astro.js';
+import { createReactAdapter } from './react.js';
 import { createTailwindAdapter } from './tailwind.js';
+import { createViteAdapter } from './vite.js';
 
 /**
  * The adapter registry, holding exactly what exists.
  *
- * One framework and one styling system, because those are the two that are
- * implemented. The id unions in `domain/dimensions.ts` name more - `react`,
- * `mui`, `bootstrap` - and asking for any of them fails here rather than
- * resolving to a stub. A registry that answered for an adapter nobody wrote
- * would turn "not built yet" into a confusing runtime failure much further
- * downstream.
+ * Two frameworks, one build tool, one styling system - because those are what
+ * is implemented. The id unions in `domain/dimensions.ts` name more (`nextjs`,
+ * `angular`, `mui`, `bootstrap`), and asking for any of them fails here rather
+ * than resolving to a stub or, far worse, quietly falling back to something
+ * that happens to work.
  *
  * That distinction is the registry's job and nobody else's: a **domain id** is
  * a name the vocabulary knows, an **implemented adapter** is code that exists.
@@ -27,11 +30,14 @@ import { createTailwindAdapter } from './tailwind.js';
 export interface AdapterRegistry {
   /** Throws a CliError when the id has no implemented adapter. */
   framework(id: FrameworkId): FrameworkAdapter;
+  buildTool(id: BuildToolId): Adapter;
   styling(id: StylingId): Adapter;
   /** Whether an adapter exists, without throwing. */
   hasFramework(id: FrameworkId): boolean;
+  hasBuildTool(id: BuildToolId): boolean;
   hasStyling(id: StylingId): boolean;
   implementedFrameworks(): readonly FrameworkId[];
+  implementedBuildTools(): readonly BuildToolId[];
   implementedStyling(): readonly StylingId[];
 }
 
@@ -43,26 +49,39 @@ function unsupported(kind: string, id: string, available: readonly string[]): ne
   });
 }
 
-export function createAdapterRegistry(templateRoot: string): AdapterRegistry {
+/**
+ * @param templatesRoot the shipped `templates/` directory, which now holds more
+ * than one framework's material. Each framework adapter is handed its own
+ * subdirectory, so no adapter goes looking for anything.
+ */
+export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   const frameworks = new Map<FrameworkId, FrameworkAdapter>([
-    ['astro', createAstroAdapter(templateRoot)],
+    ['astro', createAstroAdapter(path.join(templatesRoot, 'astro-tailwind'))],
+    ['react', createReactAdapter(path.join(templatesRoot, 'react-vite'))],
   ]);
+  const buildTools = new Map<BuildToolId, Adapter>([['vite', createViteAdapter()]]);
   const styling = new Map<StylingId, Adapter>([['tailwind', createTailwindAdapter()]]);
 
   // Sorted so the list in an error message is stable.
   const frameworkIds = [...frameworks.keys()].sort();
+  const buildToolIds = [...buildTools.keys()].sort();
   const stylingIds = [...styling.keys()].sort();
 
   return {
     framework(id) {
       return frameworks.get(id) ?? unsupported('framework', id, frameworkIds);
     },
+    buildTool(id) {
+      return buildTools.get(id) ?? unsupported('build tool', id, buildToolIds);
+    },
     styling(id) {
       return styling.get(id) ?? unsupported('styling system', id, stylingIds);
     },
     hasFramework: (id) => frameworks.has(id),
+    hasBuildTool: (id) => buildTools.has(id),
     hasStyling: (id) => styling.has(id),
     implementedFrameworks: () => frameworkIds,
+    implementedBuildTools: () => buildToolIds,
     implementedStyling: () => stylingIds,
   };
 }

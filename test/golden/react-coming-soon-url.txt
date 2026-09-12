@@ -1,0 +1,692 @@
+== PLAN ==
+templateId       react-vite
+templateVersion  0.1.0
+mode             coming-soon
+targetDir        <TARGET_DIR>
+operationCount   21
+
+== ORDER ==
+write  .client-site.json
+copy   .gitattributes
+write  .gitignore
+write  index.html
+write  package.json
+write  public/favicon.svg
+write  README.md
+write  src/App.tsx
+write  src/components/common/Brand.tsx
+write  src/components/layout/Footer.tsx
+write  src/components/layout/Header.tsx
+write  src/components/ui/Container.tsx
+write  src/config/site.config.ts
+write  src/hooks/useDocumentMeta.ts
+write  src/layouts/BaseLayout.tsx
+write  src/main.tsx
+write  src/pages/HomePage.tsx
+write  src/styles/index.css
+write  src/vite-env.d.ts
+write  tsconfig.json
+write  vite.config.ts
+
+== FILES ==
+
+---- .client-site.json ----
+type    write
+origin  cli
+----
+{
+  "$schema": "https://create-clientkit.dev/schema/client-site.json",
+  "cliVersion": "9.9.9",
+  "template": {
+    "id": "react-vite",
+    "version": "0.1.0",
+    "framework": "react",
+    "frameworkVersion": "19.3.0"
+  },
+  "mode": "coming-soon",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "config": {
+    "projectName": "acme-app",
+    "siteName": "Acme Ltd",
+    "siteUrl": "https://acme.example",
+    "locale": "en",
+    "packageManager": "npm",
+    "features": []
+  }
+}
+
+
+---- .gitattributes ----
+type    copy
+origin  base
+source  <TEMPLATES>/react-vite/base/_gitattributes
+(binary; copied byte-for-byte, never token-substituted)
+
+---- .gitignore ----
+type    write
+origin  base
+----
+node_modules
+dist
+dist-ssr
+*.local
+
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+
+---- index.html ----
+type    write
+origin  base
+----
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d10" />
+    <title>Acme Ltd</title>
+    <meta name="description" content="Bespoke widgets." />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+---- package.json ----
+type    write
+origin  base + modes/coming-soon
+----
+{
+  "name": "acme-app",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "keywords": [
+    "react",
+    "client-site",
+    "landing-page"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.0"
+  }
+}
+
+
+---- public/favicon.svg ----
+type    write
+origin  base
+----
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M20 40V24h6.4c4.8 0 7.6 2.7 7.6 7s-2.8 7-7.6 7H20Zm4.4-3.4h1.9c2.6 0 4-1.4 4-3.6s-1.4-3.6-4-3.6h-1.9v7.2Z" fill="#f8fafc" />
+  <circle cx="42" cy="38" r="3" fill="#38bdf8" />
+</svg>
+
+
+---- README.md ----
+type    write
+origin  base
+----
+# Acme Ltd
+
+Bespoke widgets.
+
+Scaffolded with [create-clientkit](https://www.npmjs.com/package/create-clientkit).
+This is your code now - edit anything.
+
+## Getting started
+
+```sh
+npm install
+npm run dev
+```
+
+| Script              | What it does                         |
+| ------------------- | ------------------------------------ |
+| `npm run dev`       | Start the Vite dev server            |
+| `npm run build`     | Build the production site to `dist/` |
+| `npm run preview`   | Preview the production build         |
+| `npm run typecheck` | Type-check without emitting          |
+
+## Where to start
+
+1. **`src/config/site.config.ts`** - the single source of truth: name,
+   description, production URL, locale, author, navigation and contact details.
+   An empty string means "not set", and the UI omits that piece rather than
+   showing a placeholder. Nothing is ever invented for you.
+2. **`src/pages/HomePage.tsx`** - the page.
+3. **`src/layouts/BaseLayout.tsx`** - the shared shell: skip link, header,
+   main, footer.
+4. **`src/components/`** - `common/` for shared pieces, `layout/` for header
+   and footer, `ui/` for primitives.
+5. **`src/styles/index.css`** - the design tokens. Tailwind v4 is configured in
+   CSS via `@theme`; there is no `tailwind.config.js`.
+
+## vite.config.ts
+
+Generated rather than copied. Each plugin in it was contributed by the part of
+the stack that needs it - React's by the React integration, Tailwind's by the
+styling system. It is an ordinary file now: add to it freely.
+
+## What this scaffold does not include
+
+Stated plainly so you can decide what to add rather than discover a gap later.
+
+- **No router.** One page. Add React Router or TanStack Router when a second
+  page exists; `App.tsx` is where it goes.
+- **No 404 page.** A client-side 404 needs a router to detect an unmatched
+  path. Until then, configure your host to serve `index.html` for unknown
+  routes.
+- **Server-rendered metadata is limited.** `index.html` carries the title and
+  description; `useDocumentMeta` updates them per page at runtime. A crawler
+  that does not execute JavaScript sees only the initial HTML. If search
+  visibility matters, that is a reason to render on the server rather than to
+  add a library here.
+
+## Before you deploy
+
+1. Rewrite `SITE.description`. It is generated as `Official website of <Name>.`
+   - deliberately generic, because the generator will not invent claims about a
+     business it knows nothing about. Aim for roughly 120-160 characters.
+2. Set `SITE.url` once the domain is known.
+3. Replace `public/favicon.svg` with the client's mark.
+4. Fill in `CONTACT` - anything left empty is not rendered.
+5. `npm run typecheck && npm run build`, then deploy `dist/` as a static site.
+
+
+---- src/App.tsx ----
+type    write
+origin  base
+----
+import { HomePage } from './pages/HomePage';
+
+/**
+ * The application root.
+ *
+ * One page, because this scaffold ships without a router - see the README. Add
+ * one when the site needs a second page, and this is where it goes.
+ */
+export function App() {
+  return <HomePage />;
+}
+
+
+---- src/components/common/Brand.tsx ----
+type    write
+origin  base
+----
+import { SITE } from '../../config/site.config';
+
+interface BrandProps {
+  /** 'lg' is the hero lockup; 'sm' sits in the header. */
+  size?: 'sm' | 'lg';
+}
+
+/** Initials mark plus wordmark, derived from the site name. */
+export function Brand({ size = 'sm' }: BrandProps) {
+  const initials = SITE.name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+
+  const large = size === 'lg';
+
+  return (
+    <span className="inline-flex items-center gap-3">
+      <span
+        aria-hidden="true"
+        className={[
+          'inline-flex items-center justify-center rounded-lg font-semibold',
+          'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900',
+          large ? 'h-12 w-12 text-lg' : 'h-8 w-8 text-sm',
+        ].join(' ')}
+      >
+        {initials}
+      </span>
+      <span className={large ? 'text-xl font-semibold' : 'font-medium'}>{SITE.name}</span>
+    </span>
+  );
+}
+
+
+---- src/components/layout/Footer.tsx ----
+type    write
+origin  base
+----
+import { Container } from '../ui/Container';
+import { CONTACT, SITE } from '../../config/site.config';
+
+export function Footer() {
+  // Built as one string rather than adjacent expressions in the markup, so a
+  // formatter cannot split it and lose the space between year and name.
+  const copyright = `© ${String(new Date().getFullYear())} ${SITE.name}`;
+  const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
+
+  return (
+    <footer className="mt-auto border-t border-neutral-200 dark:border-neutral-800">
+      <Container className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 py-8">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">{copyright}</p>
+
+        {hasContact && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            {CONTACT.email !== '' && (
+              <a
+                href={`mailto:${CONTACT.email}`}
+                className="inline-flex min-h-11 items-center text-sm text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+              >
+                {CONTACT.email}
+              </a>
+            )}
+            {CONTACT.phone !== '' && (
+              <a
+                href={`tel:${CONTACT.phone.replace(/[^+0-9]/g, '')}`}
+                className="inline-flex min-h-11 items-center text-sm text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+              >
+                {CONTACT.phone}
+              </a>
+            )}
+          </div>
+        )}
+      </Container>
+    </footer>
+  );
+}
+
+
+---- src/components/layout/Header.tsx ----
+type    write
+origin  base
+----
+import { Brand } from '../common/Brand';
+import { Container } from '../ui/Container';
+import { NAV } from '../../config/site.config';
+
+/**
+ * Site header.
+ *
+ * The menu is omitted entirely when NAV is empty - a bar containing one logo
+ * that links nowhere is worse than no bar.
+ */
+export function Header() {
+  const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+
+  return (
+    <header className="border-b border-neutral-200 dark:border-neutral-800">
+      <Container className="flex flex-wrap items-center justify-between gap-4 py-4">
+        <Brand />
+
+        {links.length > 0 && (
+          <nav aria-label="Primary">
+            <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              {links.map((item) => (
+                <li key={item.href}>
+                  <a
+                    href={item.href}
+                    className="inline-flex min-h-11 items-center text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+      </Container>
+    </header>
+  );
+}
+
+
+---- src/components/ui/Container.tsx ----
+type    write
+origin  base
+----
+import type { ReactNode } from 'react';
+
+interface ContainerProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/** The shared page gutter. One place to change the measure of the whole site. */
+export function Container({ children, className = '' }: ContainerProps) {
+  return <div className={`mx-auto w-full max-w-5xl px-6 ${className}`.trim()}>{children}</div>;
+}
+
+
+---- src/config/site.config.ts ----
+type    write
+origin  base
+----
+/**
+ * Everything client-specific, in one file.
+ *
+ * An empty string means "not set", and the UI omits that piece rather than
+ * rendering a placeholder. Nothing here is ever invented for you.
+ */
+
+export interface NavItem {
+  label: string;
+  /** In-page anchor ('#services') or path once a router is added. */
+  href: string;
+}
+
+export interface SiteIdentity {
+  name: string;
+  description: string;
+  /**
+   * Production URL. Empty is a supported state, not a broken one - nothing
+   * absolute is emitted until you fill it in, so no page ever points at a
+   * domain nobody owns.
+   */
+  url: string;
+  locale: string;
+  author: string;
+}
+
+export interface ContactDetails {
+  email: string;
+  phone: string;
+}
+
+export const SITE: SiteIdentity = {
+  name: 'Acme Ltd',
+  description: 'Bespoke widgets.',
+  url: 'https://acme.example',
+  locale: 'en',
+  author: '',
+};
+
+/** Header links. Empty means no menu is rendered at all. */
+export const NAV: NavItem[] = [];
+
+/** Each field is optional and hidden when empty. */
+export const CONTACT: ContactDetails = {
+  email: '',
+  phone: '',
+};
+
+
+---- src/hooks/useDocumentMeta.ts ----
+type    write
+origin  base
+----
+import { useEffect } from 'react';
+
+/**
+ * Keeps the document title and meta description in step with the current page.
+ *
+ * A single-page app renders its markup in the browser, so this runs after the
+ * document loads rather than being baked into the HTML. That is enough for
+ * bookmarks, tab titles and social crawlers that execute JavaScript, and it is
+ * not enough for those that do not - a crawler that reads only the initial
+ * response sees what is in index.html.
+ *
+ * If search visibility matters for the site you are building, that is a reason
+ * to render on the server rather than a reason to add a library here.
+ */
+export function useDocumentMeta(title: string, description?: string): void {
+  useEffect(() => {
+    document.title = title;
+
+    if (description === undefined || description === '') return;
+    let tag = document.querySelector('meta[name="description"]');
+    if (tag === null) {
+      tag = document.createElement('meta');
+      tag.setAttribute('name', 'description');
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', description);
+  }, [title, description]);
+}
+
+
+---- src/layouts/BaseLayout.tsx ----
+type    write
+origin  base
+----
+import type { ReactNode } from 'react';
+
+import { Footer } from '../components/layout/Footer';
+import { Header } from '../components/layout/Header';
+
+interface BaseLayoutProps {
+  children: ReactNode;
+  /** Hide the header on pages that carry their own branding. */
+  showHeader?: boolean;
+}
+
+/**
+ * The shared shell: skip link, header, main, footer.
+ *
+ * Every page renders inside this, so the landmarks and the skip target are
+ * defined once rather than per page.
+ */
+export function BaseLayout({ children, showHeader = true }: BaseLayoutProps) {
+  return (
+    <div className="flex min-h-dvh flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-neutral-900 focus:px-4 focus:py-2 focus:text-white"
+      >
+        Skip to content
+      </a>
+
+      {showHeader && <Header />}
+
+      <main id="main" className="flex-1">
+        {children}
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
+
+
+---- src/main.tsx ----
+type    write
+origin  base
+----
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+
+import { App } from './App';
+import './styles/index.css';
+
+const container = document.getElementById('root');
+if (container === null) {
+  throw new Error('Root element #root was not found in index.html.');
+}
+
+createRoot(container).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
+
+
+---- src/pages/HomePage.tsx ----
+type    write
+origin  modes/coming-soon
+----
+import { Brand } from '../components/common/Brand';
+import { Container } from '../components/ui/Container';
+import { BaseLayout } from '../layouts/BaseLayout';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { CONTACT, SITE } from '../config/site.config';
+
+/**
+ * The launch page.
+ *
+ * No header: the page carries its own brand lockup below, and repeating it in
+ * a bar would say the same thing twice on one screen. A launch page also has
+ * nowhere to navigate to yet.
+ */
+export function HomePage() {
+  useDocumentMeta(SITE.name, SITE.description);
+
+  return (
+    <BaseLayout showHeader={false}>
+      <Container className="flex min-h-[70vh] flex-col justify-center py-20">
+        <div className="max-w-2xl">
+          <Brand size="lg" />
+
+          <p className="mt-10 text-sm font-medium uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
+            Coming soon
+          </p>
+
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">{SITE.name}</h1>
+
+          <p className="mt-5 text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
+            {SITE.description}
+          </p>
+
+          {CONTACT.email !== '' && (
+            <a
+              href={`mailto:${CONTACT.email}`}
+              className="mt-10 inline-flex min-h-11 items-center rounded-lg bg-neutral-900 px-5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+            >
+              Get in touch
+            </a>
+          )}
+        </div>
+      </Container>
+    </BaseLayout>
+  );
+}
+
+
+---- src/styles/index.css ----
+type    write
+origin  base
+----
+@import 'tailwindcss';
+
+/*
+ * Design tokens.
+ *
+ * Tailwind v4 is configured in CSS: there is no tailwind.config.js. Change a
+ * value here and it applies everywhere the corresponding utility is used.
+ */
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+}
+
+/* Respect the reader's preference; never animate for someone who asked not to. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+---- src/vite-env.d.ts ----
+type    write
+origin  base
+----
+/// <reference types="vite/client" />
+
+
+---- tsconfig.json ----
+type    write
+origin  base
+----
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": [
+      "vite/client"
+    ],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "src"
+  ]
+}
+
+
+---- vite.config.ts ----
+type    write
+origin  composed from framework:react + styling:tailwind
+----
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+// Generated by create-clientkit. Each plugin below was contributed by the
+// adapter that needs it; add your own freely - this file is yours now.
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
+});
+
