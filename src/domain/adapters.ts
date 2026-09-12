@@ -3,7 +3,7 @@ import type { Contribution } from './contributions.js';
 import type { ArchitectureId, BuildToolId, LanguageId, RouterId } from './dimensions.js';
 import type { ProjectManifest } from './manifest.js';
 import type { ResolvedProject, SourceExtensions } from './resolved.js';
-import type { ArchitectureDefinition } from './roles.js';
+import type { ArchitectureDefinition, FileRole } from './roles.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 
 /**
@@ -135,6 +135,21 @@ export interface FrameworkAdapter extends Adapter {
   readonly languages: DimensionOptions<LanguageId>;
   readonly routers: DimensionOptions<RouterId>;
   readonly architectures: DimensionOptions<ArchitectureId>;
+  /**
+   * Roles this framework satisfies from its own template layers.
+   *
+   * A contribution aimed at one of these is not composed: the template already
+   * puts a file there, and writing a second would be a collision between two
+   * owners. Astro lists styles.global because its template ships global.css;
+   * React lists nothing, so its stylesheet comes from whichever styling adapter
+   * was selected.
+   *
+   * Declared rather than inferred from what the template happens to contain, so
+   * a template that accidentally ships a file an adapter also contributes is
+   * reported as a collision instead of silently winning.
+   */
+  readonly templateOwnedRoles?: readonly FileRole[];
+
   /** The architecture definitions this framework offers, keyed by id. */
   readonly architectureDefinitions: readonly ArchitectureDefinition[];
   /**

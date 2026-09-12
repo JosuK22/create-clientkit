@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { adapterRef } from '../domain/adapters.js';
 import type { Adapter, AdapterDeclaration, AdapterResolution } from '../domain/adapters.js';
 import type { Contribution } from '../domain/contributions.js';
@@ -54,7 +56,7 @@ const TAILWIND_DECLARATION: AdapterDeclaration = {
 
 const OWNER = adapterRef(TAILWIND_DECLARATION);
 
-export function createTailwindAdapter(): Adapter {
+export function createTailwindAdapter(templatesRoot: string): Adapter {
   return {
     declaration: TAILWIND_DECLARATION,
 
@@ -65,6 +67,48 @@ export function createTailwindAdapter(): Adapter {
     contribute(_project: ResolvedProject): Contribution {
       return {
         ...emptyContribution(OWNER),
+
+        /**
+         * The global stylesheet, addressed by role.
+         *
+         * Moved out of the React template in Stage 5. While it lived there, the
+         * framework template hardcoded `@import 'tailwindcss'` - so selecting
+         * any other styling system would still have shipped Tailwind. Owning it
+         * here is what makes the styling dimension real.
+         *
+         * Astro is unaffected: its template ships its own global.css and its
+         * adapter declares that role template-owned, so this contribution is
+         * not composed there and its output does not move.
+         */
+        files: [
+          {
+            // Its own packages, merged into package.json rather than listed in the
+            // framework template - which would make every React project install
+            // Tailwind whatever styling was selected.
+            target: { kind: 'role', role: 'package' },
+            intent: 'merge',
+            payload: {
+              kind: 'json',
+              value: {
+                devDependencies: { '@tailwindcss/vite': '4.3.3', tailwindcss: '4.3.3' },
+              },
+            },
+            owner: OWNER,
+            order: 0,
+            reason: 'the packages this styling system needs',
+          },
+          {
+            target: { kind: 'role', role: 'styles.global' },
+            intent: 'create',
+            payload: {
+              kind: 'template',
+              source: path.join(templatesRoot, 'styling', 'tailwind', 'styles.global.css'),
+            },
+            owner: OWNER,
+            order: 0,
+            reason: 'imports Tailwind and implements the shared style contract',
+          },
+        ],
 
         /**
          * Registers the Tailwind plugin in whatever build configuration the

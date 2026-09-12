@@ -284,7 +284,9 @@ describe('adapter registry', () => {
       expect(`${cli.message} ${cli.hint ?? ''}`).toContain('nextjs');
       expect(`${cli.message} ${cli.hint ?? ''}`).toContain('astro');
     }
-    expect(() => adapters.styling('bootstrap')).toThrow(CliError);
+    // 'scss' is a known StylingId with no adapter; bootstrap became implemented
+    // in Stage 5 and moved to the other side of this line.
+    expect(() => adapters.styling('scss')).toThrow(CliError);
   });
 });
 
@@ -425,7 +427,7 @@ describe('adapter selection and compatibility for the real stack', () => {
     expect(adapters.hasFramework('nextjs')).toBe(false);
     expect(adapters.implementedFrameworks()).toEqual(['astro', 'react']);
     expect(adapters.implementedBuildTools()).toEqual(['vite']);
-    expect(adapters.implementedStyling()).toEqual(['tailwind']);
+    expect(adapters.implementedStyling()).toEqual(['bootstrap', 'tailwind']);
   });
 
   it('rejects an architecture the framework does not offer', () => {

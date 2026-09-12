@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import type { Adapter, FrameworkAdapter } from '../domain/adapters.js';
 import type { BuildToolId, FrameworkId, StylingId } from '../domain/dimensions.js';
 import { createAstroAdapter } from './astro.js';
+import { createBootstrapAdapter } from './bootstrap.js';
 import { createReactAdapter } from './react.js';
 import { createTailwindAdapter } from './tailwind.js';
 import { createViteAdapter } from './vite.js';
@@ -11,9 +12,9 @@ import { createViteAdapter } from './vite.js';
 /**
  * The adapter registry, holding exactly what exists.
  *
- * Two frameworks, one build tool, one styling system - because those are what
+ * Two frameworks, one build tool, two styling systems - because those are what
  * is implemented. The id unions in `domain/dimensions.ts` name more (`nextjs`,
- * `angular`, `mui`, `bootstrap`), and asking for any of them fails here rather
+ * `angular`, `mui`, `scss`), and asking for any of them fails here rather
  * than resolving to a stub or, far worse, quietly falling back to something
  * that happens to work.
  *
@@ -60,7 +61,10 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     ['react', createReactAdapter(path.join(templatesRoot, 'react-vite'))],
   ]);
   const buildTools = new Map<BuildToolId, Adapter>([['vite', createViteAdapter()]]);
-  const styling = new Map<StylingId, Adapter>([['tailwind', createTailwindAdapter()]]);
+  const styling = new Map<StylingId, Adapter>([
+    ['tailwind', createTailwindAdapter(templatesRoot)],
+    ['bootstrap', createBootstrapAdapter(templatesRoot)],
+  ]);
 
   // Sorted so the list in an error message is stable.
   const frameworkIds = [...frameworks.keys()].sort();

@@ -27,32 +27,25 @@ export function HomePage() {
 
   return (
     <BaseLayout>
-      <Container className="py-20">
-        <div className="max-w-2xl">
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{SITE.name}</h1>
-          <p className="mt-5 text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
-            {SITE.description}
-          </p>
+      <Container className="intro">
+        <div className="intro-inner">
+          <h1 className="page-title">{SITE.name}</h1>
+          <p className="lead">{SITE.description}</p>
           {CONTACT.email !== '' && (
-            <a
-              href={`mailto:${CONTACT.email}`}
-              className="mt-8 inline-flex min-h-11 items-center rounded-lg bg-neutral-900 px-5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-            >
+            <a href={`mailto:${CONTACT.email}`} className="button-primary">
               Get in touch
             </a>
           )}
         </div>
       </Container>
 
-      <Container className="grid gap-10 border-t border-neutral-200 py-16 sm:grid-cols-3 dark:border-neutral-800">
+      <Container className="sections">
         {SECTIONS.map((section) => (
           <section key={section.id} id={section.id} aria-labelledby={`${section.id}-heading`}>
-            <h2 id={`${section.id}-heading`} className="text-lg font-semibold">
+            <h2 id={`${section.id}-heading`} className="section-title">
               {section.title}
             </h2>
-            <p className="mt-3 leading-relaxed text-neutral-600 dark:text-neutral-400">
-              {section.body}
-            </p>
+            <p className="section-body">{section.body}</p>
           </section>
         ))}
       </Container>

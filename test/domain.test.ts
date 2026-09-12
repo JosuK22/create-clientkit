@@ -419,6 +419,7 @@ describe('the adapter contract', () => {
       architecture: reactStandard,
       extensions: { source: '.ts', component: '.tsx', config: '.ts' },
       minNode: '>=22.12.0',
+      templateOwnedRoles: [],
       selection: {
         framework: 'astro',
         buildTool: 'astro',

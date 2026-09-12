@@ -30,14 +30,16 @@ npm run dev
    main, footer.
 4. **`src/components/`** - `common/` for shared pieces, `layout/` for header
    and footer, `ui/` for primitives.
-5. **`src/styles/index.css`** - the design tokens. Tailwind v4 is configured in
-   CSS via `@theme`; there is no `tailwind.config.js`.
+5. **`src/styles/index.css`** - the global stylesheet, supplied by the styling
+   system you chose. It defines the semantic classes the components use
+   (`site-header`, `page-title`, `button-primary`), so restyling the site means
+   editing this file rather than hunting through markup.
 
 ## vite.config.ts
 
 Generated rather than copied. Each plugin in it was contributed by the part of
-the stack that needs it - React's by the React integration, Tailwind's by the
-styling system. It is an ordinary file now: add to it freely.
+the stack that needs it - React's by the React integration, and any others by
+the styling system you chose. It is an ordinary file now: add to it freely.
 
 ## What this scaffold does not include
 

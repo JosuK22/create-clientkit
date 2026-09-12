@@ -1,7 +1,7 @@
 == PLAN ==
 templateId       react-vite
 templateVersion  0.1.0
-mode             coming-soon
+mode             full
 targetDir        <TARGET_DIR>
 operationCount   21
 
@@ -43,12 +43,12 @@ origin  cli
     "framework": "react",
     "frameworkVersion": "19.3.0"
   },
-  "mode": "coming-soon",
+  "mode": "full",
   "generatedAt": "2026-01-01T00:00:00.000Z",
   "config": {
     "projectName": "acme-app",
     "siteName": "Acme Ltd",
-    "siteUrl": null,
+    "siteUrl": "https://acme.example",
     "locale": "en",
     "packageManager": "npm",
     "features": []
@@ -106,7 +106,7 @@ origin  base
 
 ---- package.json ----
 type    write
-origin  base + modes/coming-soon + styling:tailwind
+origin  base + modes/full + styling:bootstrap
 ----
 {
   "name": "acme-app",
@@ -120,7 +120,7 @@ origin  base + modes/coming-soon + styling:tailwind
   "keywords": [
     "react",
     "client-site",
-    "landing-page"
+    "website"
   ],
   "scripts": {
     "dev": "vite",
@@ -130,16 +130,15 @@ origin  base + modes/coming-soon + styling:tailwind
   },
   "dependencies": {
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "bootstrap": "5.3.8"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
     "typescript": "5.9.3",
-    "vite": "8.3.0",
-    "@tailwindcss/vite": "4.3.3",
-    "tailwindcss": "4.3.3"
+    "vite": "8.3.0"
   }
 }
 
@@ -418,7 +417,7 @@ export interface ContactDetails {
 export const SITE: SiteIdentity = {
   name: 'Acme Ltd',
   description: 'Bespoke widgets.',
-  url: '',
+  url: 'https://acme.example',
   locale: 'en',
   author: '',
 };
@@ -531,42 +530,58 @@ createRoot(container).render(
 
 ---- src/pages/HomePage.tsx ----
 type    write
-origin  modes/coming-soon
+origin  modes/full
 ----
-import { Brand } from '../components/common/Brand';
 import { Container } from '../components/ui/Container';
 import { BaseLayout } from '../layouts/BaseLayout';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { CONTACT, SITE } from '../config/site.config';
 
-/**
- * The launch page.
- *
- * No header: the page carries its own brand lockup below, and repeating it in
- * a bar would say the same thing twice on one screen. A launch page also has
- * nowhere to navigate to yet.
- */
+/** Placeholder structure, not placeholder claims - replace the copy, keep the shape. */
+const SECTIONS = [
+  {
+    id: 'about',
+    title: 'About',
+    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
+  },
+  {
+    id: 'work',
+    title: 'Work',
+    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
+  },
+];
+
 export function HomePage() {
   useDocumentMeta(SITE.name, SITE.description);
 
   return (
-    <BaseLayout showHeader={false}>
-      <Container className="hero">
-        <div className="hero-inner">
-          <Brand size="lg" />
-
-          <p className="eyebrow">Coming soon</p>
-
+    <BaseLayout>
+      <Container className="intro">
+        <div className="intro-inner">
           <h1 className="page-title">{SITE.name}</h1>
-
           <p className="lead">{SITE.description}</p>
-
           {CONTACT.email !== '' && (
             <a href={`mailto:${CONTACT.email}`} className="button-primary">
               Get in touch
             </a>
           )}
         </div>
+      </Container>
+
+      <Container className="sections">
+        {SECTIONS.map((section) => (
+          <section key={section.id} id={section.id} aria-labelledby={`${section.id}-heading`}>
+            <h2 id={`${section.id}-heading`} className="section-title">
+              {section.title}
+            </h2>
+            <p className="section-body">{section.body}</p>
+          </section>
+        ))}
       </Container>
     </BaseLayout>
   );
@@ -575,248 +590,224 @@ export function HomePage() {
 
 ---- src/styles/index.css ----
 type    write
-origin  styling:tailwind
+origin  styling:bootstrap
 ----
-@import 'tailwindcss';
+@import 'bootstrap/dist/css/bootstrap.min.css';
 
 /*
- * Design tokens.
- *
- * Tailwind v4 is configured in CSS: there is no tailwind.config.js. Change a
- * value here and it applies everywhere the token is used.
+ * Bootstrap supplies the reset, the type scale, the colour system and the
+ * responsive grid. Everything below maps this project's semantic class names
+ * onto Bootstrap's own custom properties, so the values stay Bootstrap's -
+ * change a Bootstrap variable and these follow.
  */
-@theme {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --color-ink: oklch(0.22 0.01 260);
-  --color-ink-muted: oklch(0.52 0.01 260);
-  --color-surface: oklch(1 0 0);
-  --color-line: oklch(0.92 0.005 260);
+
+:root {
   --measure-page: 64rem;
 }
 
-@layer base {
-  html {
-    -webkit-text-size-adjust: 100%;
-  }
-
-  body {
-    margin: 0;
-    font-family: var(--font-sans);
-    color: var(--color-ink);
-    background-color: var(--color-surface);
-    text-rendering: optimizeLegibility;
-  }
+body {
+  margin: 0;
 }
 
-/*
- * The semantic classes the markup asks for.
- *
- * The components name what a thing is; this file decides how it looks. That
- * separation is what lets the same component tree render under a different
- * styling system without the framework template knowing which was selected.
- */
-@layer components {
-  .app-shell {
-    display: flex;
-    min-height: 100dvh;
-    flex-direction: column;
-  }
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
 
-  .app-main {
-    flex: 1;
-  }
+.app-main {
+  flex: 1;
+}
 
-  .skip-link {
-    position: absolute;
-    left: -9999px;
-  }
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
 
-  .skip-link:focus-visible {
-    left: 1rem;
-    top: 1rem;
-    z-index: 50;
-    border-radius: 0.375rem;
-    background-color: var(--color-ink);
-    padding: 0.5rem 1rem;
-    color: var(--color-surface);
-  }
+.skip-link:focus-visible {
+  left: 1rem;
+  top: 1rem;
+  z-index: 1080;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-emphasis-color);
+  padding: 0.5rem 1rem;
+  color: var(--bs-body-bg);
+}
 
-  .container-page {
-    margin-inline: auto;
-    width: 100%;
-    max-width: var(--measure-page);
-    padding-inline: 1.5rem;
-  }
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
+}
 
-  .site-header {
-    border-bottom: 1px solid var(--color-line);
-  }
+.site-header {
+  border-bottom: var(--bs-border-width) solid var(--bs-border-color);
+}
 
-  .site-header-inner,
-  .site-footer-inner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem 2rem;
-    padding-block: 1rem;
-  }
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
+}
 
-  .site-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
-  .site-nav-link,
-  .contact-link {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    color: var(--color-ink-muted);
-    font-size: 0.875rem;
-    text-decoration: none;
-    transition: color 160ms ease;
-  }
+.site-nav-link,
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--bs-secondary-color);
+  font-size: var(--bs-body-font-size);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
 
-  .site-nav-link:hover,
-  .contact-link:hover {
-    color: var(--color-ink);
-  }
+.site-nav-link:hover,
+.contact-link:hover {
+  color: var(--bs-emphasis-color);
+}
 
-  .site-footer {
-    margin-top: auto;
-    border-top: 1px solid var(--color-line);
-  }
+.site-footer {
+  margin-top: auto;
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+}
 
-  .copyright {
-    margin: 0;
-    color: var(--color-ink-muted);
-    font-size: 0.875rem;
-  }
+.copyright {
+  margin: 0;
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
 
-  .contact-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1.25rem;
-  }
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
 
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
 
-  .brand-mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    background-color: var(--color-ink);
-    color: var(--color-surface);
-    font-weight: 600;
-  }
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-emphasis-color);
+  color: var(--bs-body-bg);
+  font-weight: 600;
+}
 
-  .brand-sm .brand-mark {
-    height: 2rem;
-    width: 2rem;
-    font-size: 0.875rem;
-  }
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
 
-  .brand-lg .brand-mark {
-    height: 3rem;
-    width: 3rem;
-    font-size: 1.125rem;
-  }
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
 
-  .brand-lg .brand-name {
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
 
-  .hero,
-  .intro {
-    padding-block: 5rem;
-  }
+.hero,
+.intro {
+  padding-block: 5rem;
+}
 
-  .hero-inner,
-  .intro-inner {
-    max-width: 42rem;
-  }
+.hero-inner,
+.intro-inner {
+  max-width: 42rem;
+}
 
-  .eyebrow {
-    margin: 2.5rem 0 0;
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-ink-muted);
-  }
+.eyebrow {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
 
-  .page-title {
-    margin: 0.75rem 0 0;
-    font-size: clamp(2.25rem, 5vw, 3rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
 
-  .lead {
-    margin: 1.25rem 0 0;
-    font-size: 1.125rem;
-    line-height: 1.7;
-    color: var(--color-ink-muted);
-  }
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--bs-secondary-color);
+}
 
-  .button-primary {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    margin-top: 2rem;
-    border-radius: 0.5rem;
-    background-color: var(--color-ink);
-    padding-inline: 1.25rem;
-    color: var(--color-surface);
-    font-size: 0.875rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition: opacity 160ms ease;
-  }
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 2rem;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-primary);
+  padding-inline: 1.25rem;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: filter 160ms ease;
+}
 
-  .button-primary:hover {
-    opacity: 0.85;
-  }
+.button-primary:hover {
+  filter: brightness(0.92);
+  color: #fff;
+}
 
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
   .sections {
-    display: grid;
-    gap: 2.5rem;
-    border-top: 1px solid var(--color-line);
-    padding-block: 4rem;
-  }
-
-  @media (min-width: 640px) {
-    .sections {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
-  .section-title {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-  }
-
-  .section-body {
-    margin: 0.75rem 0 0;
-    line-height: 1.7;
-    color: var(--color-ink-muted);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* Respect the reader's preference; never animate for someone who asked not to. */
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--bs-secondary-color);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -873,18 +864,16 @@ origin  base
 
 ---- vite.config.ts ----
 type    write
-origin  composed from framework:react + styling:tailwind
+origin  composed from framework:react
 ----
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 
 // Generated by create-clientkit. Each plugin below was contributed by the
 // adapter that needs it; add your own freely - this file is yours now.
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(),
   ],
 });
 

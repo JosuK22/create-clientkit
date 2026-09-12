@@ -74,6 +74,21 @@ export interface ArchitectureDefinition {
   /** Created even when empty, so the shape of the project is visible up front. */
   readonly directories: readonly string[];
   readonly roles: Readonly<Partial<Record<FileRole, string>>>;
+  /**
+   * Roles this architecture cannot be built without.
+   *
+   * Mapping a role says where a file goes *if* one exists; this says the
+   * project is broken when one does not. React needs it because `src/main.tsx`
+   * imports the global stylesheet unconditionally - with no styling adapter
+   * selected, nothing contributes that file and the generated project fails to
+   * build on a missing import.
+   *
+   * Checked against the finished plan by path, so a template-owned file
+   * satisfies the requirement exactly as a contributed one does. Omitted means
+   * nothing is required, which is the right answer for an architecture whose
+   * every file comes from its own template.
+   */
+  readonly requiredRoles?: readonly FileRole[];
 }
 
 /**

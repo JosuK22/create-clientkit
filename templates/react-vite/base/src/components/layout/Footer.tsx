@@ -8,25 +8,19 @@ export function Footer() {
   const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
 
   return (
-    <footer className="mt-auto border-t border-neutral-200 dark:border-neutral-800">
-      <Container className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 py-8">
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">{copyright}</p>
+    <footer className="site-footer">
+      <Container className="site-footer-inner">
+        <p className="copyright">{copyright}</p>
 
         {hasContact && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+          <div className="contact-links">
             {CONTACT.email !== '' && (
-              <a
-                href={`mailto:${CONTACT.email}`}
-                className="inline-flex min-h-11 items-center text-sm text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
+              <a href={`mailto:${CONTACT.email}`} className="contact-link">
                 {CONTACT.email}
               </a>
             )}
             {CONTACT.phone !== '' && (
-              <a
-                href={`tel:${CONTACT.phone.replace(/[^+0-9]/g, '')}`}
-                className="inline-flex min-h-11 items-center text-sm text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
+              <a href={`tel:${CONTACT.phone.replace(/[^+0-9]/g, '')}`} className="contact-link">
                 {CONTACT.phone}
               </a>
             )}

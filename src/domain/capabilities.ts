@@ -45,6 +45,18 @@ export const CAPABILITIES = [
   'file-based-routing',
   'spa-routing',
 
+  /**
+   * The global stylesheet is composed from contributions rather than shipped
+   * by the framework's template.
+   *
+   * An architecture property, not a framework one: any framework whose template
+   * leaves styles.global to be contributed provides it. A styling system that
+   * has no legacy template arrangement anywhere requires it, which is what
+   * keeps such a system away from architectures that would silently ignore its
+   * stylesheet.
+   */
+  'composed-stylesheet',
+
   // styling pipeline
   'postcss',
   'sass',

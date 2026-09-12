@@ -102,6 +102,14 @@ export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
     routers: { kind: 'fixed', value: 'file-based' },
     architectures: { kind: 'fixed', value: 'astro-standard' },
     architectureDefinitions: [ASTRO_ARCHITECTURE],
+    /**
+     * Astro ships both from its own template, so a styling adapter must not
+     * compose a second copy. Astro therefore does not provide
+     * composed-stylesheet, which is what makes Bootstrap - a styling system
+     * with no template arrangement here - incompatible rather than silently
+     * ignored.
+     */
+    templateOwnedRoles: ['styles.global', 'config.framework', 'package'],
 
     /**
      * Astro fixes every dimension it owns, so little here varies with the

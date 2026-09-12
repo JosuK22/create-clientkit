@@ -1,14 +1,15 @@
 import path from 'node:path';
 
 import { collectBuildPlugins, emitViteConfig } from '../domain/build-config.js';
+import { deepMergeJson, stringifyJson } from '../generate/compose.js';
 import type { ConfigContribution, Contribution } from '../domain/contributions.js';
 import { manifestFromProjectContext } from '../domain/manifest.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
-import { definesRole } from '../domain/roles.js';
+import { definesRole, resolveRole } from '../domain/roles.js';
 import { CliError } from '../errors.js';
 import type { FileOperation, GenerationPlan } from '../generate/files.js';
-import { plan, type PlanFs, type PlanLayer } from '../generate/plan.js';
+import { plan, realPlanFs, type PlanFs, type PlanLayer } from '../generate/plan.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
@@ -88,6 +89,73 @@ export function layersFrom(contributions: readonly Contribution[]): readonly Pla
 }
 
 /**
+ * Files an adapter contributed directly, resolved through the architecture.
+ *
+ * The other half of composition, and the first use of `FileContribution` -
+ * present since Stage 1 with nothing consuming it until a second styling system
+ * needed to own the global stylesheet.
+ *
+ * Roles are resolved here, so an adapter names `styles.global` and never learns
+ * that React puts it in `src/styles/index.css`. A contribution aimed at a role
+ * the framework satisfies from its own template is skipped: Astro ships
+ * `global.css`, so Tailwind's stylesheet is not composed there and Astro's
+ * output is untouched. Two adapters claiming the same path is a collision and
+ * is reported, never resolved by running order.
+ */
+export function contributedFiles(
+  project: ResolvedProject,
+  contributions: readonly Contribution[],
+  readText: (file: string) => string,
+): readonly FileOperation[] {
+  const templateOwned = new Set(project.templateOwnedRoles);
+  const claimed = new Map<string, string>();
+  const operations: FileOperation[] = [];
+
+  const files = contributions
+    .flatMap((contribution) => contribution.files)
+    .slice()
+    .sort((a, b) => a.order - b.order || a.owner.localeCompare(b.owner));
+
+  for (const file of files) {
+    if (file.target.kind === 'role' && templateOwned.has(file.target.role)) continue;
+
+    const target =
+      file.target.kind === 'role'
+        ? resolveRole(project.architecture, file.target.role)
+        : file.target.path;
+
+    // `merge` is cooperative and handled later, against the planned file it
+    // attaches to. Only `create` claims a path outright.
+    if (file.intent === 'merge') continue;
+
+    const previous = claimed.get(target);
+    if (previous !== undefined) {
+      throw new CliError(`Two adapters both claim "${target}".`, {
+        hint: `${previous} and ${file.owner} each contributed it. Exactly one should own the file.`,
+      });
+    }
+    claimed.set(target, file.owner);
+
+    const content =
+      file.payload.kind === 'text'
+        ? file.payload.content
+        : file.payload.kind === 'template'
+          ? readText(file.payload.source)
+          : `${JSON.stringify(file.payload.value, null, 2)}\n`;
+
+    operations.push({
+      type: 'write',
+      path: target,
+      // LF on every platform, matching every other generated file.
+      content: content.replace(/\r\n/g, '\n'),
+      origin: file.owner,
+    });
+  }
+
+  return operations;
+}
+
+/**
  * Files composed from configuration contributions rather than template layers.
  *
  * Driven entirely by file roles. An architecture that maps `config.build` gets
@@ -132,6 +200,68 @@ export function composedFiles(
       origin: `composed from ${plugins.map(({ owner }) => owner).join(' + ')}`,
     },
   ];
+}
+
+/**
+ * Applies `merge` file contributions onto files the plan already produces.
+ *
+ * Bootstrap forced this. React's `_package.json` listed Tailwind's packages, so
+ * every React project installed Tailwind whatever styling was selected - the
+ * same coupling the stylesheet had, one file over. The framework template can
+ * only own the dependencies the *framework* needs; the rest has to come from
+ * whoever needs them.
+ *
+ * Deliberately narrow. It merges JSON payloads into an existing planned file
+ * using the planner's own `deepMergeJson`, so `package.json` composes exactly
+ * as template layers already do. It is not a general merge engine: a merge with
+ * nothing to attach to is an error rather than a silent create, and a non-JSON
+ * merge is refused outright.
+ */
+export function applyMerges(
+  project: ResolvedProject,
+  contributions: readonly Contribution[],
+  operations: readonly FileOperation[],
+): readonly FileOperation[] {
+  const templateOwned = new Set(project.templateOwnedRoles);
+  const merges = contributions
+    .flatMap((contribution) => contribution.files)
+    .filter((file) => file.intent === 'merge')
+    .filter((file) => !(file.target.kind === 'role' && templateOwned.has(file.target.role)))
+    .slice()
+    .sort((a, b) => a.order - b.order || a.owner.localeCompare(b.owner));
+
+  if (merges.length === 0) return operations;
+
+  const byPath = new Map(operations.map((operation) => [operation.path, operation]));
+
+  for (const file of merges) {
+    const target =
+      file.target.kind === 'role'
+        ? resolveRole(project.architecture, file.target.role)
+        : file.target.path;
+
+    const existing = byPath.get(target);
+    if (existing === undefined || existing.type !== 'write') {
+      throw new CliError(`${file.owner} tried to merge into "${target}", which nothing creates.`, {
+        hint: 'A merge contribution needs a file to attach to; nothing planned produces this one.',
+      });
+    }
+    if (file.payload.kind !== 'json') {
+      throw new CliError(`${file.owner} can only merge JSON into "${target}".`, {
+        hint: `It contributed a "${file.payload.kind}" payload.`,
+      });
+    }
+
+    const merged = deepMergeJson(JSON.parse(existing.content), file.payload.value);
+    byPath.set(target, {
+      type: 'write',
+      path: target,
+      content: stringifyJson(merged),
+      origin: `${existing.origin} + ${file.owner}`,
+    });
+  }
+
+  return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
 }
 
 /**
@@ -224,6 +354,48 @@ export interface ManifestPlanOptions extends AdapterPlanOptions {
  * The entry point React uses. Astro reaches it through `planWithAdapters`, so
  * both frameworks travel the same path and the golden snapshots cover it.
  */
+/**
+ * Refuses a plan that is missing a file the architecture cannot do without.
+ *
+ * Composition can legitimately leave a mapped role empty - React maps
+ * `config.build` and gets a `vite.config.ts` only because some adapter
+ * contributed a plugin. `requiredRoles` marks the ones where empty is not a
+ * valid outcome but a broken project: React's entry point imports the global
+ * stylesheet unconditionally, so `styling: 'none'` would generate a tree that
+ * installs cleanly and then fails on the first build with a missing import.
+ *
+ * Checked by resolved path rather than by contribution, so a template-owned
+ * file counts. Astro satisfies `styles.global` from its own template and would
+ * pass this check unchanged if it declared the requirement.
+ *
+ * Failing here rather than at `apply()` means nothing is written: the user gets
+ * a sentence about what to pick, not a directory that cannot build.
+ */
+export function assertRequiredRoles(
+  project: ResolvedProject,
+  operations: readonly FileOperation[],
+): void {
+  const required = project.architecture.requiredRoles ?? [];
+  if (required.length === 0) return;
+
+  const present = new Set(operations.map((operation) => operation.path));
+  const missing = required
+    .filter((role) => !present.has(resolveRole(project.architecture, role)))
+    .map((role) => `${role} (${resolveRole(project.architecture, role)})`);
+
+  if (missing.length === 0) return;
+
+  throw new CliError(
+    `Nothing provides ${missing.join(', ')}, which the ${project.architecture.displayName} architecture needs.`,
+    {
+      hint:
+        project.manifest.styling === 'none'
+          ? 'This architecture composes its global stylesheet, so it needs a styling system. Choose one instead of "none".'
+          : `Selected styling: ${project.manifest.styling}.`,
+    },
+  );
+}
+
 export function planManifest(
   manifest: ProjectManifest,
   options: ManifestPlanOptions,
@@ -263,7 +435,17 @@ export function planManifest(
     layers: layersFrom(contributions),
   });
 
-  const operations = mergeComposed(generated.operations, composedFiles(project, contributions));
+  const readText = (options.fs ?? realPlanFs).readText;
+  const operations = applyMerges(
+    project,
+    contributions,
+    mergeComposed(generated.operations, [
+      ...contributedFiles(project, contributions, readText),
+      ...composedFiles(project, contributions),
+    ]),
+  );
+
+  assertRequiredRoles(project, operations);
 
   return {
     plan: { ...generated, operations },

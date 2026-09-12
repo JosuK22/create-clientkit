@@ -46,7 +46,7 @@ const REACT_DECLARATION: AdapterDeclaration = {
    * no plugin system satisfy Tailwind's requirement, which would be a lie the
    * compatibility engine could not catch.
    */
-  provides: ['react-runtime', 'jsx', 'typescript', 'spa-routing'],
+  provides: ['react-runtime', 'jsx', 'typescript', 'spa-routing', 'composed-stylesheet'],
   requires: [],
   minNode: '>=20.19.0',
 };
@@ -105,6 +105,10 @@ const REACT_ARCHITECTURE: ArchitectureDefinition = {
     'assets.public': 'public',
     'docs.readme': 'README.md',
   },
+  // src/main.tsx imports the global stylesheet, so a React project without one
+  // does not build. Declared rather than assumed: an architecture that composed
+  // its entry point could drop this and legitimately support `styling: 'none'`.
+  requiredRoles: ['styles.global'],
 };
 
 const OWNER = adapterRef(REACT_DECLARATION);
@@ -120,6 +124,8 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
     routers: { kind: 'fixed', value: 'none' },
     architectures: { kind: 'fixed', value: 'react-standard' },
     architectureDefinitions: [REACT_ARCHITECTURE],
+    /** Nothing: the styling adapter supplies the global stylesheet. */
+    templateOwnedRoles: [],
     templateManifest: REACT_TEMPLATE_MANIFEST,
 
     resolve(manifest: ProjectManifest): AdapterResolution {

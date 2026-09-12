@@ -106,7 +106,7 @@ origin  base
 
 ---- package.json ----
 type    write
-origin  base + modes/coming-soon
+origin  base + modes/coming-soon + styling:tailwind
 ----
 {
   "name": "acme-app",
@@ -133,13 +133,13 @@ origin  base + modes/coming-soon
     "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "4.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
-    "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
-    "vite": "8.3.0"
+    "vite": "8.3.0",
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3"
   }
 }
 
@@ -191,14 +191,16 @@ npm run dev
    main, footer.
 4. **`src/components/`** - `common/` for shared pieces, `layout/` for header
    and footer, `ui/` for primitives.
-5. **`src/styles/index.css`** - the design tokens. Tailwind v4 is configured in
-   CSS via `@theme`; there is no `tailwind.config.js`.
+5. **`src/styles/index.css`** - the global stylesheet, supplied by the styling
+   system you chose. It defines the semantic classes the components use
+   (`site-header`, `page-title`, `button-primary`), so restyling the site means
+   editing this file rather than hunting through markup.
 
 ## vite.config.ts
 
 Generated rather than copied. Each plugin in it was contributed by the part of
-the stack that needs it - React's by the React integration, Tailwind's by the
-styling system. It is an ordinary file now: add to it freely.
+the stack that needs it - React's by the React integration, and any others by
+the styling system you chose. It is an ordinary file now: add to it freely.
 
 ## What this scaffold does not include
 
@@ -264,21 +266,12 @@ export function Brand({ size = 'sm' }: BrandProps) {
     .join('')
     .toUpperCase();
 
-  const large = size === 'lg';
-
   return (
-    <span className="inline-flex items-center gap-3">
-      <span
-        aria-hidden="true"
-        className={[
-          'inline-flex items-center justify-center rounded-lg font-semibold',
-          'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900',
-          large ? 'h-12 w-12 text-lg' : 'h-8 w-8 text-sm',
-        ].join(' ')}
-      >
+    <span className={`brand brand-${size}`}>
+      <span aria-hidden="true" className="brand-mark">
         {initials}
       </span>
-      <span className={large ? 'text-xl font-semibold' : 'font-medium'}>{SITE.name}</span>
+      <span className="brand-name">{SITE.name}</span>
     </span>
   );
 }
@@ -298,25 +291,19 @@ export function Footer() {
   const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
 
   return (
-    <footer className="mt-auto border-t border-neutral-200 dark:border-neutral-800">
-      <Container className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 py-8">
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">{copyright}</p>
+    <footer className="site-footer">
+      <Container className="site-footer-inner">
+        <p className="copyright">{copyright}</p>
 
         {hasContact && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+          <div className="contact-links">
             {CONTACT.email !== '' && (
-              <a
-                href={`mailto:${CONTACT.email}`}
-                className="inline-flex min-h-11 items-center text-sm text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
+              <a href={`mailto:${CONTACT.email}`} className="contact-link">
                 {CONTACT.email}
               </a>
             )}
             {CONTACT.phone !== '' && (
-              <a
-                href={`tel:${CONTACT.phone.replace(/[^+0-9]/g, '')}`}
-                className="inline-flex min-h-11 items-center text-sm text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
+              <a href={`tel:${CONTACT.phone.replace(/[^+0-9]/g, '')}`} className="contact-link">
                 {CONTACT.phone}
               </a>
             )}
@@ -346,19 +333,16 @@ export function Header() {
   const links = NAV.filter((item) => item.label !== '' && item.href !== '');
 
   return (
-    <header className="border-b border-neutral-200 dark:border-neutral-800">
-      <Container className="flex flex-wrap items-center justify-between gap-4 py-4">
+    <header className="site-header">
+      <Container className="site-header-inner">
         <Brand />
 
         {links.length > 0 && (
           <nav aria-label="Primary">
-            <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <ul className="site-nav">
               {links.map((item) => (
                 <li key={item.href}>
-                  <a
-                    href={item.href}
-                    className="inline-flex min-h-11 items-center text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-                  >
+                  <a href={item.href} className="site-nav-link">
                     {item.label}
                   </a>
                 </li>
@@ -383,9 +367,16 @@ interface ContainerProps {
   className?: string;
 }
 
-/** The shared page gutter. One place to change the measure of the whole site. */
+/**
+ * The shared page gutter.
+ *
+ * Styled by the `container-page` class, which the selected styling system
+ * defines. The markup names what a thing *is*, never how it looks - that is
+ * what lets one component tree work under any styling system without the
+ * framework template knowing which was chosen.
+ */
 export function Container({ children, className = '' }: ContainerProps) {
-  return <div className={`mx-auto w-full max-w-5xl px-6 ${className}`.trim()}>{children}</div>;
+  return <div className={`container-page ${className}`.trim()}>{children}</div>;
 }
 
 
@@ -499,17 +490,14 @@ interface BaseLayoutProps {
  */
 export function BaseLayout({ children, showHeader = true }: BaseLayoutProps) {
   return (
-    <div className="flex min-h-dvh flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-neutral-900 focus:px-4 focus:py-2 focus:text-white"
-      >
+    <div className="app-shell">
+      <a href="#main" className="skip-link">
         Skip to content
       </a>
 
       {showHeader && <Header />}
 
-      <main id="main" className="flex-1">
+      <main id="main" className="app-main">
         {children}
       </main>
 
@@ -563,25 +551,18 @@ export function HomePage() {
 
   return (
     <BaseLayout showHeader={false}>
-      <Container className="flex min-h-[70vh] flex-col justify-center py-20">
-        <div className="max-w-2xl">
+      <Container className="hero">
+        <div className="hero-inner">
           <Brand size="lg" />
 
-          <p className="mt-10 text-sm font-medium uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
-            Coming soon
-          </p>
+          <p className="eyebrow">Coming soon</p>
 
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">{SITE.name}</h1>
+          <h1 className="page-title">{SITE.name}</h1>
 
-          <p className="mt-5 text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
-            {SITE.description}
-          </p>
+          <p className="lead">{SITE.description}</p>
 
           {CONTACT.email !== '' && (
-            <a
-              href={`mailto:${CONTACT.email}`}
-              className="mt-10 inline-flex min-h-11 items-center rounded-lg bg-neutral-900 px-5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-            >
+            <a href={`mailto:${CONTACT.email}`} className="button-primary">
               Get in touch
             </a>
           )}
@@ -594,7 +575,7 @@ export function HomePage() {
 
 ---- src/styles/index.css ----
 type    write
-origin  base
+origin  styling:tailwind
 ----
 @import 'tailwindcss';
 
@@ -602,20 +583,237 @@ origin  base
  * Design tokens.
  *
  * Tailwind v4 is configured in CSS: there is no tailwind.config.js. Change a
- * value here and it applies everywhere the corresponding utility is used.
+ * value here and it applies everywhere the token is used.
  */
 @theme {
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --color-ink: oklch(0.22 0.01 260);
+  --color-ink-muted: oklch(0.52 0.01 260);
+  --color-surface: oklch(1 0 0);
+  --color-line: oklch(0.92 0.005 260);
+  --measure-page: 64rem;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background-color: var(--color-surface);
+    text-rendering: optimizeLegibility;
+  }
 }
 
-body {
-  font-family: var(--font-sans);
-  text-rendering: optimizeLegibility;
+/*
+ * The semantic classes the markup asks for.
+ *
+ * The components name what a thing is; this file decides how it looks. That
+ * separation is what lets the same component tree render under a different
+ * styling system without the framework template knowing which was selected.
+ */
+@layer components {
+  .app-shell {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
+
+  .app-main {
+    flex: 1;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+  }
+
+  .skip-link:focus-visible {
+    left: 1rem;
+    top: 1rem;
+    z-index: 50;
+    border-radius: 0.375rem;
+    background-color: var(--color-ink);
+    padding: 0.5rem 1rem;
+    color: var(--color-surface);
+  }
+
+  .container-page {
+    margin-inline: auto;
+    width: 100%;
+    max-width: var(--measure-page);
+    padding-inline: 1.5rem;
+  }
+
+  .site-header {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .site-header-inner,
+  .site-footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 2rem;
+    padding-block: 1rem;
+  }
+
+  .site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .site-nav-link,
+  .contact-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    color: var(--color-ink-muted);
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .site-nav-link:hover,
+  .contact-link:hover {
+    color: var(--color-ink);
+  }
+
+  .site-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .copyright {
+    margin: 0;
+    color: var(--color-ink-muted);
+    font-size: 0.875rem;
+  }
+
+  .contact-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    background-color: var(--color-ink);
+    color: var(--color-surface);
+    font-weight: 600;
+  }
+
+  .brand-sm .brand-mark {
+    height: 2rem;
+    width: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .brand-lg .brand-mark {
+    height: 3rem;
+    width: 3rem;
+    font-size: 1.125rem;
+  }
+
+  .brand-lg .brand-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .hero,
+  .intro {
+    padding-block: 5rem;
+  }
+
+  .hero-inner,
+  .intro-inner {
+    max-width: 42rem;
+  }
+
+  .eyebrow {
+    margin: 2.5rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
+
+  .page-title {
+    margin: 0.75rem 0 0;
+    font-size: clamp(2.25rem, 5vw, 3rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .lead {
+    margin: 1.25rem 0 0;
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--color-ink-muted);
+  }
+
+  .button-primary {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    margin-top: 2rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-ink);
+    padding-inline: 1.25rem;
+    color: var(--color-surface);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: opacity 160ms ease;
+  }
+
+  .button-primary:hover {
+    opacity: 0.85;
+  }
+
+  .sections {
+    display: grid;
+    gap: 2.5rem;
+    border-top: 1px solid var(--color-line);
+    padding-block: 4rem;
+  }
+
+  @media (min-width: 640px) {
+    .sections {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .section-title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .section-body {
+    margin: 0.75rem 0 0;
+    line-height: 1.7;
+    color: var(--color-ink-muted);
+  }
 }
 
 /* Respect the reader's preference; never animate for someone who asked not to. */

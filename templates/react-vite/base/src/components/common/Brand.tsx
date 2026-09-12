@@ -15,21 +15,12 @@ export function Brand({ size = 'sm' }: BrandProps) {
     .join('')
     .toUpperCase();
 
-  const large = size === 'lg';
-
   return (
-    <span className="inline-flex items-center gap-3">
-      <span
-        aria-hidden="true"
-        className={[
-          'inline-flex items-center justify-center rounded-lg font-semibold',
-          'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900',
-          large ? 'h-12 w-12 text-lg' : 'h-8 w-8 text-sm',
-        ].join(' ')}
-      >
+    <span className={`brand brand-${size}`}>
+      <span aria-hidden="true" className="brand-mark">
         {initials}
       </span>
-      <span className={large ? 'text-xl font-semibold' : 'font-medium'}>{SITE.name}</span>
+      <span className="brand-name">{SITE.name}</span>
     </span>
   );
 }

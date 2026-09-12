@@ -16,25 +16,18 @@ export function HomePage() {
 
   return (
     <BaseLayout showHeader={false}>
-      <Container className="flex min-h-[70vh] flex-col justify-center py-20">
-        <div className="max-w-2xl">
+      <Container className="hero">
+        <div className="hero-inner">
           <Brand size="lg" />
 
-          <p className="mt-10 text-sm font-medium uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
-            Coming soon
-          </p>
+          <p className="eyebrow">Coming soon</p>
 
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">{SITE.name}</h1>
+          <h1 className="page-title">{SITE.name}</h1>
 
-          <p className="mt-5 text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
-            {SITE.description}
-          </p>
+          <p className="lead">{SITE.description}</p>
 
           {CONTACT.email !== '' && (
-            <a
-              href={`mailto:${CONTACT.email}`}
-              className="mt-10 inline-flex min-h-11 items-center rounded-lg bg-neutral-900 px-5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-            >
+            <a href={`mailto:${CONTACT.email}`} className="button-primary">
               Get in touch
             </a>
           )}

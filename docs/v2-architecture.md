@@ -1192,10 +1192,11 @@ src/domain/build-config.ts   composes a build config from several adapters
 templates/react-vite/        base + coming-soon + full layers
 ```
 
-**Supported today:** `astro + tailwind` and `react + vite + typescript +
-tailwind` (UI library `none`, router `none`). Next.js, Angular, Bootstrap, MUI
-and Chakra remain names in the vocabulary with no adapter behind them; the
-registry refuses them by name.
+**Supported as of this stage:** `astro + tailwind` and `react + vite +
+typescript + tailwind` (UI library `none`, router `none`). Next.js, Angular,
+Bootstrap, MUI and Chakra remain names in the vocabulary with no adapter behind
+them; the registry refuses them by name. (Stage 5 adds Bootstrap; see the matrix
+there for the current answer.)
 
 **React and Vite are separate dimensions.** There is no `react-vite` adapter and
 no such framework id. React declares `react-runtime`, `jsx`, `typescript` and
@@ -1243,3 +1244,121 @@ prompts, and `templates/astro-tailwind/` was not touched.
   contributions are declared and asserted but not yet used to build the file.
 - Plugin order in the composed config is by owner — stable, but an adapter that
   genuinely needed to run before another has no way to say so yet.
+
+### Stage 5 — Bootstrap styling adapter (landed)
+
+The second styling system, and the first evidence that the _styling_ dimension
+is a dimension rather than a decoration on the framework.
+
+```
+src/adapters/bootstrap.ts              styling: css-framework, deps, stylesheet
+templates/styling/tailwind/            the stylesheets the adapters contribute
+templates/styling/bootstrap/
+src/adapters/bridge.ts                 contributedFiles, applyMerges, assertRequiredRoles
+```
+
+**Support matrix — every cell below was executed, not inferred:**
+
+| Framework | Build tool | Styling     | Result                                                      |
+| --------- | ---------- | ----------- | ----------------------------------------------------------- |
+| `astro`   | own        | `tailwind`  | supported                                                   |
+| `astro`   | own        | `bootstrap` | refused, by capability (see below)                          |
+| `astro`   | own        | `none`      | supported, but see the limitation on Astro's template below |
+| `react`   | `vite`     | `tailwind`  | supported; installs, typechecks and builds                  |
+| `react`   | `vite`     | `bootstrap` | supported; installs, typechecks and builds                  |
+| `react`   | `vite`     | `none`      | refused, with a sentence saying to pick a styling system    |
+
+`nextjs`, `angular`, `mui`, `chakra`, `scss` and `css` remain names in the
+vocabulary with no adapter behind them; the registry refuses them by name.
+
+**The finding this stage was really about.** React's template hardcoded
+Tailwind — `@import 'tailwindcss'` in `base/src/styles/index.css`, and Tailwind's
+two packages in `base/_package.json`. Adding a Bootstrap adapter next to that
+would have produced a project with both. So the fix is not Bootstrap; the fix is
+that the framework template stopped owning the stylesheet.
+
+**Three mechanisms, none of which name a styling system:**
+
+| Mechanism             | What it does                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `composed-stylesheet` | A capability of the _architecture_: the global stylesheet is composed rather than templated. React provides it; Astro does not.                                     |
+| `templateOwnedRoles`  | Roles a framework's template already fills, so a contribution to them is skipped rather than colliding. Astro lists `styles.global`; React lists nothing.           |
+| `applyMerges`         | Lets an adapter merge JSON into a file it does not own, so each styling system adds its own packages to `package.json` instead of the template listing one of them. |
+
+**Astro + Bootstrap is refused without any rule naming both.** Bootstrap
+requires `composed-stylesheet`; Astro's architecture does not provide it,
+because its template ships the stylesheet. Neither adapter mentions the other,
+and neither was modified to produce the refusal.
+
+**Bootstrap requires only what is technically true.** Not `react-runtime` — it
+is CSS and has no opinion about the runtime. Not `vite-plugins` — unlike
+Tailwind v4 it ships plain CSS and needs no build plugin, so requiring one would
+exclude bundlers that could serve it perfectly well. A test proves a
+hypothetical non-React framework that composes its stylesheet works with this
+adapter unmodified.
+
+**The markup names roles; the stylesheet decides what they look like.** The
+React template's components ask for `site-header`, `page-title`,
+`button-primary` — 28 semantic class names, no utility classes and no mention of
+either styling system. Each adapter's stylesheet implements the same 28.
+Bootstrap's maps them onto Bootstrap's own custom properties, so the values stay
+Bootstrap's rather than being reimplemented in its name.
+
+**Evidence, from real generated projects rather than unit tests.** Both stacks
+were generated through the real `apply()` path and then installed and built:
+
+| Stack               | `npm install` | `typecheck` | `build` | emitted CSS |
+| ------------------- | ------------- | ----------- | ------- | ----------- |
+| `react + bootstrap` | 25 packages   | clean       | clean   | 233.01 kB   |
+| `react + tailwind`  | 40 packages   | clean       | clean   | 7.52 kB     |
+
+"Build passes" is not evidence that Bootstrap is _in_ the project, so the
+discriminator was measured: with Bootstrap still in `package.json` and still in
+`node_modules` but the stylesheet's `@import` removed, the build still succeeds
+and emits **2.95 kB**. 233.01 kB against 2.95 kB is the difference between
+integrated and merely installed. The emitted bundle carries 2,608 `--bs-`
+custom properties against the 2,555 in `bootstrap.min.css`, and all 28 semantic
+classes resolve in both stacks.
+
+The two generated trees are **identical in 17 of 21 files**. The four that
+differ are `package.json`, `src/styles/index.css`, `vite.config.ts` and the
+provenance file. Every `.tsx` file is byte-for-byte the same.
+
+**A hole this stage opened, and closed.** Moving the stylesheet out of the
+template is what makes the styling systems interchangeable — and it means that
+with `styling: 'none'` nothing contributes `src/styles/index.css` while
+`src/main.tsx` still imports it. That plan looked healthy: 20 files, no error,
+installs and typechecks cleanly, then fails on first build. `requiredRoles` on
+`ArchitectureDefinition` marks roles where "empty" is a broken project rather
+than a valid outcome, and the finished plan is checked against them by resolved
+path — so a template-owned file satisfies the requirement exactly as a
+contributed one does. It fails before anything is written.
+
+**Unchanged.** The three V1 golden files, the V1 generation engine and
+`templates/astro-tailwind/` are byte-identical to the previous commit. The CLI
+has no new flags or prompts.
+
+Vite's adapter was not touched at all. React's was - but not to accommodate
+Bootstrap: it gained `composed-stylesheet`, an empty `templateOwnedRoles` and
+`requiredRoles`, which are three ways of saying it stopped owning the global
+stylesheet. Neither adapter names a styling system in its code - Tailwind
+appears in both only in comments explaining why the capability boundaries fall
+where they do - and a test strips the comments and asserts exactly that.
+The distinction matters, because "we added Bootstrap support to React" is
+exactly the outcome this design exists to avoid.
+
+**Known limitations, stated rather than implied:**
+
+- **The styling dimension is real for React and inert for Astro.** Astro's
+  template owns its stylesheet, its Tailwind dependency and its Vite plugin, so
+  Tailwind's adapter contributes nothing to it — `astro + tailwind` and
+  `astro + none` produce byte-identical output, and asking Astro for `none`
+  quietly gives you Tailwind. Making that honest means Astro's template
+  surrendering stylesheet ownership, which is a migration, not an adapter.
+- Bootstrap ships as a full 233 kB stylesheet with no tree-shaking. That is
+  Bootstrap's distribution model, not a defect in the adapter, but it is a real
+  difference from Tailwind's 7.5 kB and a developer should know before choosing.
+- Bootstrap's JavaScript components (dropdowns, modals, offcanvas) are not
+  wired up. Only the CSS is imported, which is all the generated markup needs.
+- The 28-class contract is enforced by a test comparing the two stylesheets, not
+  by a type. A third styling system would be checked the same way.

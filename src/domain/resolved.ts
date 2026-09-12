@@ -1,6 +1,6 @@
 import type { Capability } from './capabilities.js';
 import type { ProjectManifest } from './manifest.js';
-import type { ArchitectureDefinition } from './roles.js';
+import type { ArchitectureDefinition, FileRole } from './roles.js';
 
 /**
  * What the manifest turned out to mean.
@@ -48,6 +48,15 @@ export interface ResolvedProject {
    * has to be computed rather than declared in one place.
    */
   readonly minNode: string;
+
+  /**
+   * Roles the framework satisfies from its own template layers.
+   *
+   * Contributions aimed at these are not composed - the template already puts
+   * a file there. Resolved onto the project so the composition layer does not
+   * have to reach back into the framework adapter to find out.
+   */
+  readonly templateOwnedRoles: readonly FileRole[];
 
   /** Which adapter was selected for each dimension, by id. */
   readonly selection: AdapterSelection;

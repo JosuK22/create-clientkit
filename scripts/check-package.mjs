@@ -31,6 +31,11 @@ const ALLOWED = [
   /^dist\/cli\.js$/,
   /^templates\/[^/]+\/template\.json$/,
   /^templates\/[^/]+\/(base|modes\/[^/]+)\/.+$/,
+  // The styling tree is not a template: it holds the stylesheets the styling
+  // adapters contribute, one directory per system. Deliberately narrower than
+  // the two patterns above - one level deep, CSS only - because nothing else
+  // has any business living there.
+  /^templates\/styling\/[^/]+\/[^/]+\.css$/,
 ];
 
 /** Nothing shipped may match one of these, whatever the allow-list says. */
@@ -72,6 +77,12 @@ const REQUIRED = [
   'templates/astro-tailwind/base/src/config/site.config.ts',
   'templates/astro-tailwind/modes/coming-soon/src/pages/index.astro',
   'templates/astro-tailwind/modes/full/src/pages/index.astro',
+  // A styling adapter contributes its global stylesheet by path. If one of
+  // these stops shipping, every project built with that styling system gets a
+  // dangling import - and the CLI's own tests would not notice, because they
+  // read the repository rather than the tarball.
+  'templates/styling/tailwind/styles.global.css',
+  'templates/styling/bootstrap/styles.global.css',
 ];
 
 const packed = JSON.parse(

@@ -180,6 +180,7 @@ export function resolveProject(
     capabilities,
     architecture,
     extensions: { source, component, config },
+    templateOwnedRoles: framework.templateOwnedRoles ?? [],
     minNode: merged.minNode ?? declaredFloors[0] ?? '>=20.19',
     selection: {
       framework: manifest.framework,

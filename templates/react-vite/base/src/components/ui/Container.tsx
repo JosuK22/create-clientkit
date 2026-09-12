@@ -5,7 +5,14 @@ interface ContainerProps {
   className?: string;
 }
 
-/** The shared page gutter. One place to change the measure of the whole site. */
+/**
+ * The shared page gutter.
+ *
+ * Styled by the `container-page` class, which the selected styling system
+ * defines. The markup names what a thing *is*, never how it looks - that is
+ * what lets one component tree work under any styling system without the
+ * framework template knowing which was chosen.
+ */
 export function Container({ children, className = '' }: ContainerProps) {
-  return <div className={`mx-auto w-full max-w-5xl px-6 ${className}`.trim()}>{children}</div>;
+  return <div className={`container-page ${className}`.trim()}>{children}</div>;
 }

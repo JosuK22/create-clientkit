@@ -279,14 +279,39 @@ describe('React contributions', () => {
   const contributionsOf = (over: Partial<ProjectManifest> = {}) =>
     resolveWithAdapters(reactManifest(over), TEMPLATES_ROOT).contributions;
 
-  it('dependencies match the template exactly', () => {
-    const fromTemplate = { ...templatePackage.dependencies, ...templatePackage.devDependencies };
+  it('declared dependencies match the package.json actually generated', () => {
+    // Compared against the composed result rather than the template, because
+    // as of Stage 5 they no longer come from one place: the framework template
+    // carries React's and Vite's, and the styling adapter merges its own in.
+    // Asserting on the end result is both correct and stronger - it catches a
+    // declaration drifting from either source.
+    const pkg = planReact().plan.operations.find((operation) => operation.path === 'package.json');
+    const generated = JSON.parse(pkg?.type === 'write' ? pkg.content : '{}') as {
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+    const fromGenerated = { ...generated.dependencies, ...generated.devDependencies };
     const fromAdapters = Object.fromEntries(
       contributionsOf()
         .flatMap((c) => c.dependencies)
         .map((d) => [d.name, d.version]),
     );
-    expect(fromAdapters).toEqual(fromTemplate);
+    expect(fromAdapters).toEqual(fromGenerated);
+  });
+
+  it('the framework template carries only the framework and build-tool packages', () => {
+    // The Stage 5 decoupling: a styling package here would mean every React
+    // project installed it whatever styling was selected.
+    const fromTemplate = { ...templatePackage.dependencies, ...templatePackage.devDependencies };
+    expect(Object.keys(fromTemplate).sort()).toEqual([
+      '@types/react',
+      '@types/react-dom',
+      '@vitejs/plugin-react',
+      'react',
+      'react-dom',
+      'typescript',
+      'vite',
+    ]);
   });
 
   it('classifies prod and dev the way the template does', () => {
