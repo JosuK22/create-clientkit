@@ -10,7 +10,17 @@ const hasSocial = SOCIAL.some((link) => link.label !== '' && link.href !== '');
 const hasLaunch = LAUNCH.enabled && LAUNCH.date !== '';
 ---
 
-{/* The page carries its own brand lockup, so a header would only repeat it. */}
+{
+  /*
+  No header here: the page carries its own brand lockup below, and repeating it
+  in a bar would say the same thing twice on one screen. A launch page also has
+  nowhere to navigate to yet.
+
+  This is why NAV in src/config/site.config.ts does not show on this page - it
+  drives the header, and there is no header. It still applies to the 404 page.
+  Delete showHeader={false} if you want a header and menu here too.
+*/
+}
 <BaseLayout showHeader={false} measure="narrow">
   <div class="hero">
     <div class="glow" aria-hidden="true"></div>

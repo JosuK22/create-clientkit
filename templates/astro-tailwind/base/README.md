@@ -24,7 +24,8 @@ npm run dev
 1. **`src/config/site.config.ts`** - the single source of truth, and the only
    file you need for most client changes:
    - `SITE` - name, description, production URL, locale, author
-   - `NAV` - header links (empty means no menu is rendered at all)
+   - `NAV` - header links (empty means no menu is rendered at all; in
+     coming-soon mode the home page has no header, so they show on the 404 only)
    - `SOCIAL` - social profiles (empty means no links are rendered)
    - `CONTACT` - email, phone, location; each is optional
    - `LAUNCH` - optional launch date and countdown

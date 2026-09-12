@@ -106,6 +106,12 @@ export const SITE: SiteIdentity = {
 /**
  * Site navigation. Empty by default: the header renders no menu at all rather
  * than inventing links. Add items once real pages or sections exist.
+ *
+ * NAV drives the header, so it shows up only on pages that render one. In
+ * coming-soon mode the home page deliberately has no header - it carries its
+ * own brand lockup instead - so there these links appear on the 404 page only.
+ * Delete `showHeader={false}` from src/pages/index.astro if you want a header
+ * and menu on the launch page too.
  */
 export const NAV: NavItem[] = [];
 

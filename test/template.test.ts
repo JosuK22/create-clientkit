@@ -349,6 +349,75 @@ describe('M3 structure in both modes', () => {
     }
   });
 
+  // NAV reaches the page through exactly one route: BaseLayout renders
+  // <Header items={nav} />, and only when showHeader is true. That makes
+  // showHeader the switch that decides whether NAV is visible at all, and the
+  // two modes answer it differently on purpose.
+  //
+  // A real-device pass noticed the asymmetry - configured NAV entries appear
+  // on a coming-soon site's 404 page but not its home page - and it is
+  // deliberate: the launch page carries its own brand lockup, and a menu
+  // pointing at pages that do not exist yet works against the point of it.
+  //
+  // These assertions exist so the decision stays a decision. If someone later
+  // removes showHeader={false}, or drops the NAV-aware override in full mode,
+  // that is a behaviour change for every generated site and should fail here
+  // rather than surprise a user.
+  describe('navigation contract', () => {
+    /**
+     * The opening <BaseLayout ...> tag only.
+     *
+     * Matching the whole file is not good enough: these pages carry comments
+     * explaining the showHeader decision, and those comments quote the prop
+     * verbatim. A naive /showHeader=\{false\}/ over the file therefore passes
+     * on the prose alone - which it did, until deleting the real prop failed
+     * to fail this test.
+     */
+    const layoutTag = (mode: (typeof modes)[number], file: string): string => {
+      const match = read(mode, file).match(/<BaseLayout\b[^>]*>/s);
+      return match ? match[0] : '';
+    };
+
+    it('coming-soon opts its home page out of the header deliberately', () => {
+      const tag = layoutTag('coming-soon', 'src/pages/index.astro');
+      expect(tag, 'no <BaseLayout> tag found').not.toBe('');
+      expect(tag).toMatch(/showHeader=\{false\}/);
+      // and the reason has to travel with the decision, in the file itself
+      expect(read('coming-soon', 'src/pages/index.astro')).toMatch(/NAV/);
+    });
+
+    it('full leaves its home page header on, and lets NAV win when set', () => {
+      const index = read('full', 'src/pages/index.astro');
+      expect(index).not.toBe('');
+      expect(layoutTag('full', 'src/pages/index.astro')).not.toMatch(/showHeader=\{false\}/);
+      // NAV.length > 0 ? NAV : <section anchors> - the user's config wins
+      expect(index).toMatch(/NAV\.length\s*>\s*0/);
+      expect(index).toMatch(/nav=\{pageNav\}/);
+    });
+
+    it.each(modes)('%s keeps the header on its 404 page', (mode) => {
+      expect(read(mode, 'src/pages/404.astro')).not.toBe('');
+      expect(layoutTag(mode, 'src/pages/404.astro')).not.toMatch(/showHeader=\{false\}/);
+    });
+
+    it('BaseLayout is the only thing that mounts the header, and defaults it on', () => {
+      const layout = read('coming-soon', 'src/layouts/BaseLayout.astro');
+      expect(layout).toMatch(/showHeader\s*=\s*true/);
+      expect(layout).toMatch(/showHeader\s*&&\s*<Header items=\{nav\}\s*\/>/);
+      expect(layout).toMatch(/nav\s*=\s*NAV/);
+    });
+
+    it('the header renders no menu when NAV is empty', () => {
+      const header = read('coming-soon', 'src/components/Header.astro');
+      expect(header).toMatch(/items\.length\s*>\s*0/);
+    });
+
+    it('documents in site.config.ts where NAV does and does not appear', () => {
+      const config = read('coming-soon', 'src/config/site.config.ts');
+      expect(config).toMatch(/coming-soon mode the home page deliberately has no header/i);
+    });
+  });
+
   it.each(modes)('%s index page uses the layout and the config', (mode) => {
     const page = read(mode, 'src/pages/index.astro');
     expect(page).toContain('BaseLayout');
