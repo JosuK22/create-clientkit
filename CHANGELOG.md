@@ -161,3 +161,35 @@ Also added, affecting the repository rather than the published package:
 `CONTRIBUTING.md`, GitHub issue templates, release-recovery procedures in
 `RELEASING.md`, a preflight artifact-fingerprint stamp that stops the release
 gates running twice, and a self-test for the dependency-drift probe.
+
+## 1.0.2 — 2026-09-12
+
+A documentation patch. No functional change: the CLI generates the same files
+1.0.1 generated, and no flag, command, template output or rendered markup
+differs. Every change here is comment or prose that ships inside the package.
+
+### Where NAV does and does not appear
+
+`NAV` reaches a page through one route — `BaseLayout` renders the header, and
+the header renders the menu — so a page without a header shows no menu. The
+coming-soon home page deliberately has no header: it carries its own brand
+lockup, and a launch page has nowhere to navigate to yet.
+
+That was intentional but undocumented, so setting `NAV` on a coming-soon site
+appeared to work on the 404 page and do nothing on the page being launched.
+`src/config/site.config.ts` now says where the links appear and how to change
+it, the coming-soon page explains the decision where it is made, and the
+generated README notes it alongside the other config keys.
+
+Behaviour is unchanged, and a contract test now covers it so the decision
+cannot drift silently.
+
+### A clearer package README
+
+The README that renders on the npm page leads with the install command and the
+badges, and now covers three things it previously never mentioned: the
+URL-less configuration as a named state rather than a side effect of leaving
+`SITE.url` empty, the CLI's zero runtime dependencies as distinct from the
+generated site's own pinned dependencies, and that releases are published from
+CI with provenance. Installation states a recommended path instead of listing
+alternatives as equals.
