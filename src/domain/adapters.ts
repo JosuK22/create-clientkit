@@ -2,7 +2,7 @@ import type { Capability, Constraint } from './capabilities.js';
 import type { Contribution } from './contributions.js';
 import type { ArchitectureId, BuildToolId, LanguageId, RouterId } from './dimensions.js';
 import type { ProjectManifest } from './manifest.js';
-import type { ResolvedProject } from './resolved.js';
+import type { ResolvedProject, SourceExtensions } from './resolved.js';
 import type { ArchitectureDefinition } from './roles.js';
 
 /**
@@ -82,6 +82,16 @@ export interface AdapterResolution {
    */
   readonly capabilities?: readonly Capability[];
   readonly minNode?: string;
+  /**
+   * Source extensions this adapter decides.
+   *
+   * Partial because the decision is genuinely shared: a language adapter owns
+   * `.ts` versus `.js`, while the framework owns whether a component is
+   * `.astro` or `.tsx`. Two adapters supplying different values for the same
+   * key is a conflict the orchestrator reports rather than resolving by
+   * whichever ran last.
+   */
+  readonly extensions?: Partial<SourceExtensions>;
 }
 
 /**

@@ -81,3 +81,22 @@ export type {
   StylingAdapter,
   UiLibraryAdapter,
 } from './adapters.js';
+
+export {
+  evaluateCombination,
+  evaluateDeclaration,
+  filterCandidates,
+  formatReport,
+  formatViolation,
+  indexCapabilities,
+} from './compatibility.js';
+export type {
+  Candidate,
+  CapabilityIndex,
+  CompatibilityReport,
+  FilterResult,
+  Violation,
+} from './compatibility.js';
+
+export { compareNodeFloor, highestNodeFloor, mergeResolutions } from './resolution.js';
+export type { MergedResolution, ResolutionInput } from './resolution.js';

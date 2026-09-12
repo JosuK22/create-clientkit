@@ -1080,7 +1080,7 @@ V1's `mode` is not a dimension. It was an Astro template detail that reached
 `src/types.ts`; in this vocabulary it is `starter:coming-soon` /
 `starter:full`, two feature ids.
 
-### Stage 2 — Astro adapter (landed)
+### Stage 2 — Astro adapter (landed, `3366f62`)
 
 The first concrete adapter. Its purpose is not to add capability — ClientKit
 already generates Astro projects — but to prove the contract can describe that
@@ -1122,3 +1122,59 @@ change, and the golden snapshots cover it.
 **Still not supported:** React, Next.js, Angular, Bootstrap, MUI, Chakra. Their
 ids exist in the dimension vocabulary; no adapter implements them, and the
 registry says so.
+
+### Stage 3 — compatibility engine and selection (landed)
+
+The decision layer. Given a manifest, it determines which adapters are
+eligible, which choices survive, why a rejected one was rejected, and folds
+what the selected adapters resolved into a `ResolvedProject`.
+
+```
+src/domain/compatibility.ts   pure: declarations → verdict + diagnostics
+src/domain/resolution.ts      pure: AdapterResolution[] → merged facts
+src/adapters/selection.ts     orchestration: registry → check → resolve
+```
+
+**Capability-based, not a matrix.** Every judgement comes from `provides` and
+`requires`; nothing inspects an adapter id. `evaluateCombination` takes the
+union of everything provided and checks each declaration against it, so a chain
+(A provides X; B requires X and provides Y; C requires Y) resolves with no
+ordering, and the verdict is identical whichever order the declarations arrive
+in. Adding a framework needs no edit to any existing declaration — asserted by
+a test that introduces a hypothetical Vue-like framework and checks an existing
+consumer's declaration is untouched and both verdicts stay correct.
+
+**One subtlety worth knowing.** A `conflicts` constraint ignores the
+declaring adapter's own contribution. Bootstrap will both _provide_
+`css-framework` and refuse to sit beside another one; without self-exclusion it
+would reject every combination, including the one where it is the only CSS
+framework present.
+
+**Fixed vs choice.** `filterCandidates` returns the options for a dimension
+that survive what is already selected, judging the whole combination rather
+than the candidate alone — so an option that would break an earlier choice is
+rejected too. This is what a prompt would render; no prompt exists yet.
+
+**Known id ≠ implemented adapter.** `react`, `mui`, `bootstrap` and the rest
+exist in the dimension vocabulary. The registry implements `astro` and
+`tailwind` and nothing else, exposes `hasFramework`/`implementedFrameworks` so
+callers can tell the difference, and refuses anything else by name. There is no
+fallback: a manifest asking for React gets an error, never an Astro project.
+
+**Resolution order** is `framework → build-tool → language → styling →
+ui-library → architecture → feature`, chosen and recorded here because the
+architecture did not prescribe one. It runs most-determining first. Compatibility
+does **not** depend on it — that is order-independent by construction — so the
+order matters only for stable reporting and for the day a later adapter needs an
+earlier one's resolved facts.
+
+**Merging is explicit about disagreement.** Two adapters resolving different
+values for the same source extension is a `CliError` naming both adapters and
+both values, not last-one-wins. Node floors are compared numerically, so
+`>=9.0.0` cannot outrank `>=22.12.0`.
+
+**Unchanged.** The CLI still runs the V1 path; the four golden baselines are
+byte-identical; no prompts, no new flags, no template changes. Still no React,
+Next.js, Angular, Bootstrap, MUI or Chakra — the engine is proven against
+hypothetical declarations in `test/compatibility.test.ts`, which is the only
+honest way to show it generalises while one framework is implemented.

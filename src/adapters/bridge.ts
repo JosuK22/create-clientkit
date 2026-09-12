@@ -1,4 +1,3 @@
-import type { Capability } from '../domain/capabilities.js';
 import type { Contribution } from '../domain/contributions.js';
 import { manifestFromProjectContext } from '../domain/manifest.js';
 import type { ProjectManifest } from '../domain/manifest.js';
@@ -8,6 +7,7 @@ import { plan, type PlanFs, type PlanLayer } from '../generate/plan.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext } from '../types.js';
 import { createAdapterRegistry } from './registry.js';
+import { resolveProject } from './selection.js';
 
 /**
  * The narrow bridge between V1 generation and the V2 adapter model.
@@ -67,60 +67,18 @@ export function resolveWithAdapters(
   manifest: ProjectManifest,
   templateRoot: string,
 ): { project: ResolvedProject; contributions: readonly Contribution[] } {
-  const adapters = createAdapterRegistry(templateRoot);
-  const framework = adapters.framework(manifest.framework);
-  const styling = adapters.styling(manifest.styling);
+  const registry = createAdapterRegistry(templateRoot);
 
-  const frameworkResolution = framework.resolve(manifest);
-  const stylingResolution = styling.resolve(manifest);
+  // Stage 3 moved the selection, compatibility check and resolution merge into
+  // the orchestrator. This bridge no longer decides any of it - it asks for a
+  // resolved project and collects what the selected adapters contribute, in the
+  // order they were selected.
+  const { project, selection } = resolveProject(manifest, registry);
 
-  const capabilities = new Set<Capability>([
-    ...framework.declaration.provides,
-    ...(frameworkResolution.capabilities ?? []),
-    ...styling.declaration.provides,
-    ...(stylingResolution.capabilities ?? []),
-  ]);
-
-  // The highest floor any selected adapter asks for. With two adapters this is
-  // barely arithmetic, but the rule has to live somewhere and it is not the
-  // kind of thing to discover late.
-  const minNode = [
-    frameworkResolution.minNode,
-    stylingResolution.minNode,
-    framework.declaration.minNode,
-    styling.declaration.minNode,
-  ]
-    .filter((value): value is string => value !== undefined)
-    .sort()
-    .at(-1);
-
-  const architecture = framework.architectureDefinitions.find(
-    (definition) => definition.id === manifest.architecture,
-  );
-  if (architecture === undefined) {
-    throw new Error(
-      `Framework "${manifest.framework}" does not define architecture "${manifest.architecture}".`,
-    );
-  }
-
-  const project: ResolvedProject = {
-    manifest,
-    capabilities,
-    architecture,
-    extensions: { source: '.ts', component: '.astro', config: '.mjs' },
-    minNode: minNode ?? '>=22.12.0',
-    selection: {
-      framework: framework.declaration.id,
-      buildTool: manifest.buildTool,
-      language: manifest.language,
-      styling: styling.declaration.id,
-      uiLibrary: manifest.uiLibrary,
-      router: manifest.router,
-      features: [...manifest.features],
-    },
+  return {
+    project,
+    contributions: selection.adapters.map(({ adapter }) => adapter.contribute(project)),
   };
-
-  return { project, contributions: [framework.contribute(project), styling.contribute(project)] };
 }
 
 /** Every template layer the contributions ask for, in a deterministic order. */

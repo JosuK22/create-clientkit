@@ -112,13 +112,25 @@ export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
     architectureDefinitions: [ASTRO_ARCHITECTURE],
 
     /**
-     * Astro fixes every dimension it owns, so there is nothing here that varies
-     * with the manifest yet. Returning the Node floor rather than nothing keeps
-     * the resolution path exercised, and it is the value that actually differs
-     * from the CLI's own floor.
+     * Astro fixes every dimension it owns, so little here varies with the
+     * manifest - but the extensions are resolved rather than assumed, and
+     * `source` follows the selected language rather than being pinned to `.ts`.
+     *
+     * All three extensions are owned here for now. `source` properly belongs to
+     * a language adapter, which does not exist yet; when it does, `source`
+     * moves there and the orchestrator's conflict detection catches any overlap
+     * rather than letting one silently win.
      */
-    resolve(_manifest: ProjectManifest): AdapterResolution {
-      return { minNode: ASTRO_DECLARATION.minNode ?? '>=22.12.0' };
+    resolve(manifest: ProjectManifest): AdapterResolution {
+      return {
+        minNode: ASTRO_DECLARATION.minNode ?? '>=22.12.0',
+        extensions: {
+          source: manifest.language === 'js' ? '.js' : '.ts',
+          // Not .tsx: an Astro component is a .astro file whatever the language.
+          component: '.astro',
+          config: '.mjs',
+        },
+      };
     },
 
     contribute(project: ResolvedProject): Contribution {

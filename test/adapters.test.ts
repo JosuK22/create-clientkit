@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { ASTRO_ARCHITECTURE, ASTRO_DECLARATION, starterLayerFor } from '../src/adapters/astro.js';
 import { layersFrom, planWithAdapters, resolveWithAdapters } from '../src/adapters/bridge.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
+import { checkCompatibility, resolveProject, selectAdapters } from '../src/adapters/selection.js';
 import { TAILWIND_DECLARATION } from '../src/adapters/tailwind.js';
 import { manifestFromProjectContext } from '../src/domain/index.js';
 import { definesRole, resolveRole } from '../src/domain/index.js';
@@ -344,5 +345,87 @@ describe('the bridge keeps its direction and its limits', () => {
         );
       }
     }
+  });
+});
+
+describe('adapter selection and compatibility for the real stack', () => {
+  it('Astro + Tailwind is a compatible combination', () => {
+    const report = checkCompatibility(manifestOf(), adapters);
+    expect(report.compatible).toBe(true);
+    expect(report.violations).toEqual([]);
+  });
+
+  it("Tailwind's vite-plugins requirement is satisfied by Astro, not by a rule", () => {
+    // The requirement and the provision are declared independently; this is the
+    // engine joining them up.
+    const report = checkCompatibility(manifestOf(), adapters);
+    expect(report.index.providers.get('vite-plugins')).toEqual(['framework:astro']);
+  });
+
+  it('selects the framework first, then styling', () => {
+    const selection = selectAdapters(manifestOf(), adapters);
+    expect(selection.adapters.map((entry) => entry.ref)).toEqual([
+      'framework:astro',
+      'styling:tailwind',
+    ]);
+  });
+
+  it('selection is deterministic', () => {
+    const a = selectAdapters(manifestOf(), adapters);
+    const b = selectAdapters(manifestOf(), adapters);
+    expect(a.adapters.map((entry) => entry.ref)).toEqual(b.adapters.map((entry) => entry.ref));
+    expect(a.declarations).toEqual(b.declarations);
+  });
+
+  it('treats styling "none" as no adapter rather than a missing one', () => {
+    const selection = selectAdapters({ ...manifestOf(), styling: 'none' }, adapters);
+    expect(selection.adapters.map((entry) => entry.ref)).toEqual(['framework:astro']);
+  });
+
+  it('resolves extensions from the adapter, not from a hardcoded value', () => {
+    const { project } = resolveProject(manifestOf(), adapters);
+    expect(project.extensions).toEqual({ source: '.ts', component: '.astro', config: '.mjs' });
+    // and follows the language when it differs
+    const asJs = resolveProject({ ...manifestOf(), language: 'js' }, adapters);
+    expect(asJs.project.extensions.source).toBe('.js');
+    expect(asJs.project.extensions.component).toBe('.astro');
+  });
+
+  it('resolution is deterministic', () => {
+    const a = resolveProject(manifestOf(), adapters);
+    const b = resolveProject(manifestOf(), adapters);
+    expect(a.project.extensions).toEqual(b.project.extensions);
+    expect(a.project.minNode).toBe(b.project.minNode);
+    expect([...a.project.capabilities].sort()).toEqual([...b.project.capabilities].sort());
+  });
+
+  it('refuses an unimplemented framework instead of falling back to Astro', () => {
+    // The failure mode that would be worst: silently generating an Astro
+    // project for someone who asked for React.
+    expect(() => resolveProject({ ...manifestOf(), framework: 'react' }, adapters)).toThrow(
+      CliError,
+    );
+    try {
+      resolveProject({ ...manifestOf(), framework: 'react' }, adapters);
+    } catch (error) {
+      const cli = error as CliError & { hint?: string };
+      const text = `${cli.message} ${cli.hint ?? ''}`;
+      expect(text).toContain('react');
+      expect(text).toContain('does not support');
+      expect(text).toContain('astro');
+    }
+  });
+
+  it('distinguishes a known id from an implemented adapter', () => {
+    expect(adapters.hasFramework('astro')).toBe(true);
+    expect(adapters.hasFramework('react')).toBe(false);
+    expect(adapters.implementedFrameworks()).toEqual(['astro']);
+    expect(adapters.implementedStyling()).toEqual(['tailwind']);
+  });
+
+  it('rejects an architecture the framework does not offer', () => {
+    expect(() =>
+      resolveProject({ ...manifestOf(), architecture: 'react-standard' }, adapters),
+    ).toThrow(CliError);
   });
 });
