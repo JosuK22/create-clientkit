@@ -1,0 +1,2093 @@
+== PLAN ==
+templateId       astro-tailwind
+templateVersion  0.1.0
+mode             coming-soon
+targetDir        <TARGET_DIR>
+operationCount   22
+
+== ORDER ==
+write  .client-site.json
+copy   .gitattributes
+write  .gitignore
+write  astro.config.mjs
+write  package.json
+write  public/favicon.svg
+write  README.md
+write  src/components/Brand.astro
+write  src/components/Footer.astro
+write  src/components/Header.astro
+write  src/components/LaunchNotice.astro
+write  src/components/Seo.astro
+write  src/components/SocialLinks.astro
+write  src/components/StructuredData.astro
+write  src/config/site.config.ts
+write  src/layouts/BaseLayout.astro
+write  src/lib/seo.ts
+write  src/pages/404.astro
+write  src/pages/index.astro
+write  src/pages/robots.txt.ts
+write  src/styles/global.css
+write  tsconfig.json
+
+== FILES ==
+
+---- .client-site.json ----
+type    write
+origin  cli
+----
+{
+  "$schema": "https://create-clientkit.dev/schema/client-site.json",
+  "cliVersion": "9.9.9",
+  "template": {
+    "id": "astro-tailwind",
+    "version": "0.1.0",
+    "framework": "astro",
+    "frameworkVersion": "7.3.2"
+  },
+  "mode": "coming-soon",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "config": {
+    "projectName": "acme-website",
+    "siteName": "Acme Ltd",
+    "siteUrl": "https://acme.example",
+    "locale": "en",
+    "packageManager": "npm",
+    "features": []
+  }
+}
+
+
+---- .gitattributes ----
+type    copy
+origin  base
+source  <TEMPLATES>/astro-tailwind/base/_gitattributes
+(binary; copied byte-for-byte, never token-substituted)
+
+---- .gitignore ----
+type    write
+origin  base
+----
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# environment
+.env
+.env.production
+
+# editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+
+---- astro.config.mjs ----
+type    write
+origin  base
+----
+import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
+import tailwindcss from '@tailwindcss/vite';
+
+import { SEO, SITE } from './src/config/site.config.ts';
+import { siteOrigin } from './src/lib/seo.ts';
+
+// '' when no production URL is configured. Astro rejects an empty or malformed
+// `site`, and an absolute sitemap cannot exist without a real domain, so both
+// are switched on by the same condition rather than guessing a URL.
+const origin = siteOrigin(SITE.url);
+
+// A site asking not to be indexed should not also publish a sitemap listing
+// every page it wants ignored.
+const wantsSitemap = origin !== '' && !SEO.noindex;
+
+export default defineConfig({
+  ...(origin ? { site: origin } : {}),
+  integrations: [
+    ...(wantsSitemap
+      ? [
+          sitemap({
+            // 404 is a status page, not content to be crawled.
+            filter: (page) => !page.includes('/404'),
+          }),
+        ]
+      : []),
+  ],
+  vite: {
+    plugins: [tailwindcss()],
+  },
+});
+
+
+---- package.json ----
+type    write
+origin  base + modes/coming-soon
+----
+{
+  "name": "acme-website",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "keywords": [
+    "astro",
+    "client-site",
+    "landing-page"
+  ],
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "3.7.4",
+    "astro": "7.3.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}
+
+
+---- public/favicon.svg ----
+type    write
+origin  base
+----
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M20 40V24h6.4c4.8 0 7.6 2.7 7.6 7s-2.8 7-7.6 7H20Zm4.4-3.4h1.9c2.6 0 4-1.4 4-3.6s-1.4-3.6-4-3.6h-1.9v7.2Z" fill="#f8fafc" />
+  <circle cx="42" cy="38" r="3" fill="#38bdf8" />
+</svg>
+
+
+---- README.md ----
+type    write
+origin  base
+----
+# Acme Ltd
+
+Bespoke widgets.
+
+Scaffolded with [create-clientkit](https://www.npmjs.com/package/create-clientkit).
+This is your code now - edit anything.
+
+## Getting started
+
+```sh
+npm install
+npm run dev
+```
+
+| Script            | What it does                           |
+| ----------------- | -------------------------------------- |
+| `npm run dev`     | Start the dev server                   |
+| `npm run check`   | Type-check `.astro` files and the site |
+| `npm run build`   | Build the production site to `dist/`   |
+| `npm run preview` | Preview the production build           |
+
+## Where to start
+
+1. **`src/config/site.config.ts`** - the single source of truth, and the only
+   file you need for most client changes:
+   - `SITE` - name, description, production URL, locale, author
+   - `NAV` - header links (empty means no menu is rendered at all; in
+     coming-soon mode the home page has no header, so they show on the 404 only)
+   - `SOCIAL` - social profiles (empty means no links are rendered)
+   - `CONTACT` - email, phone, location; each is optional
+   - `LAUNCH` - optional launch date and countdown
+   - `THEME` - `appearance` (`system`/`light`/`dark`) and a brand `accent` hex
+   - `SEO` - social preview `image`, `twitterCard`, and `noindex`
+
+   An empty string or empty array means "not set", and the UI omits that piece
+   rather than showing a placeholder. Nothing is ever invented for you.
+
+2. **`src/pages/index.astro`** - the home page.
+3. **`src/pages/404.astro`** - the custom not-found page.
+4. **`src/layouts/BaseLayout.astro`** - the shared shell: `<head>`, skip link,
+   header, footer, and the `measure` prop that sets the page column width.
+5. **`src/components/`** - `Header`, `Footer`, `Brand`, `SocialLinks`,
+   `LaunchNotice`.
+6. **`src/styles/global.css`** - the design system. Tailwind v4 is configured in
+   CSS via `@theme`; there is no `tailwind.config.js`. Colours, type scale,
+   radii, shadows and spacing all live here, and light/dark are one block of
+   custom properties rather than duplicated components.
+7. **`public/favicon.svg`** - replace with the client's mark.
+
+## SEO
+
+Metadata is generated into the static HTML at build time - nothing depends on
+JavaScript, so crawlers and social platforms get the full picture from the
+source.
+
+`src/components/Seo.astro` is the single place that emits `<title>`,
+description, canonical, robots, Open Graph and Twitter tags, and
+`src/layouts/BaseLayout.astro` renders it for every page. A page only passes
+what it needs to override:
+
+```astro
+<BaseLayout title="About" description="Something specific to this page." />
+```
+
+**Everything derives from `SITE`.** You never repeat the site name,
+description or URL.
+
+### Set the URL before the final build
+
+`SITE.url` is read at **build time**, so canonical tags, `og:url` and the
+sitemap are baked into the output. Moving a built site to a different domain
+leaves them pointing at the old one - rebuild after changing it.
+
+### Before you have a domain
+
+`SITE.url` starts empty and that is a supported state, not a broken one. While
+it is empty the site omits every absolute tag - canonical, `og:url`, the
+sitemap and the sitemap line in `robots.txt` - rather than pointing them at a
+domain nobody owns yet. Fill `SITE.url` in and they all appear. Only the
+origin is used; a subpath deployment also needs Astro's `base` option.
+
+### Social previews and the description
+
+`SITE.description` arrives as `Official website of Acme Ltd.` That is a
+placeholder, not a suggestion. It was generated without knowing anything about
+the business, and it becomes the meta description, `og:description` and the X
+card description - so it is worth replacing with real copy, roughly 120-160
+characters, before launch.
+
+`SEO.image` starts empty and no `og:image` is emitted while it is. The X card
+stays `summary` in that state rather than claiming `summary_large_image` with
+no image to show, which renders as an empty card. Drop a 1200x630 image into
+`public/`, point `SEO.image` at it, and the card switches to the large format
+on its own.
+
+### Indexing
+
+`SEO.noindex` controls it, and it is `false` by default so a launched site is
+findable. Set it to `true` while a holding page is up if you would rather it
+stayed out of search - and remember to switch it back at launch.
+
+| `SITE.url` | `SEO.noindex` | Result                                                       |
+| ---------- | ------------- | ------------------------------------------------------------ |
+| set        | `false`       | Canonical, `og:url`, sitemap, `Sitemap:` line in robots.txt  |
+| set        | `true`        | `noindex, nofollow`, no canonical, no sitemap, `Disallow: /` |
+| empty      | `false`       | No absolute tags, no sitemap, permissive robots.txt          |
+| empty      | `true`        | No absolute tags, no sitemap, `Disallow: /`                  |
+
+The 404 page is always `noindex, nofollow` and carries no structured data,
+whatever the site setting says.
+
+### Social preview image
+
+`SEO.image` is empty by default, so no `og:image` is emitted at all - better
+than pointing Facebook and X at a file that isn't there. Drop a 1200x630 PNG
+into `public/` and set `image: '/og.png'`.
+
+### Structured data
+
+`src/components/StructuredData.astro` emits a schema.org `Organization` block
+built only from values you have actually configured. No logo, address, rating
+or review is invented - fields you leave empty simply do not appear.
+
+## Design notes
+
+- **Zero client-side JavaScript by default.** The only script in the project is
+  a ~20-line countdown, and it ships only when you set a launch date. Without
+  JavaScript the launch date still renders; only the ticking numbers are lost.
+- **Dark mode needs no JavaScript.** It follows the visitor's system preference,
+  or you can force one via `THEME.appearance`.
+- **Set `THEME.accent`** to the client's brand hex and buttons, focus rings and
+  the background wash all follow. Readable text on the accent is chosen for you.
+- **Motion is opt-out-aware**: entrance animation only runs under
+  `prefers-reduced-motion: no-preference`, so content is never hidden behind an
+  animation that may not play.
+
+## Stack
+
+- [Astro](https://astro.build) 7 - static output, zero client JS by default
+- [Tailwind CSS](https://tailwindcss.com) 4 - loaded through `@tailwindcss/vite`
+- TypeScript in strict mode
+
+Requires Node.js 22.12 or newer.
+
+## Notes
+
+`.client-site.json` records how this project was generated. Leave it in place -
+future `create-clientkit` tooling reads it. It contains no secrets.
+
+This project is private and unlicensed by default (`"private": true`,
+`"license": "UNLICENSED"`), because client work is normally proprietary. Change
+that in `package.json` if the site is meant to be open source.
+
+
+---- src/components/Brand.astro ----
+type    write
+origin  base
+----
+---
+import { SITE } from '../config/site.config.ts';
+
+interface Props {
+  /** 'sm' for header and footer, 'lg' for a page's own brand lockup. */
+  size?: 'sm' | 'lg';
+  /** Wrap in a link home. Off when the brand already sits on the home page. */
+  href?: string;
+}
+
+const { size = 'sm', href } = Astro.props;
+
+// A compact mark derived from the site name: up to two initials. It is a
+// neutral stand-in until the client's real logo is dropped in.
+const initials = SITE.name
+  .split(/\s+/)
+  .filter((word) => /[a-z0-9]/i.test(word))
+  .slice(0, 2)
+  .map((word) => word[0]?.toUpperCase() ?? '')
+  .join('');
+
+const Tag = href ? 'a' : 'div';
+---
+
+<Tag class:list={['brand', size]} href={href} aria-label={href ? SITE.name : undefined}>
+  <span class="mark" aria-hidden="true">{initials}</span>
+  <span class="name">{SITE.name}</span>
+</Tag>
+
+<style>
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--color-foreground);
+    text-decoration: none;
+    min-width: 0;
+  }
+
+  .mark {
+    display: grid;
+    place-items: center;
+    flex: none;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .name {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    /* Long names truncate in the header rather than pushing the layout apart. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sm .mark {
+    width: 1.875rem;
+    height: 1.875rem;
+    font-size: 0.75rem;
+  }
+
+  .sm .name {
+    font-size: 0.9375rem;
+  }
+
+  .lg {
+    gap: 0.875rem;
+  }
+
+  .lg .mark {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .lg .name {
+    font-size: 1.0625rem;
+    white-space: normal;
+  }
+
+  a.brand:hover .mark {
+    border-color: var(--color-foreground);
+  }
+</style>
+
+
+---- src/components/Footer.astro ----
+type    write
+origin  base
+----
+---
+import SocialLinks from './SocialLinks.astro';
+import { CONTACT, SITE, SOCIAL } from '../config/site.config.ts';
+
+// Computed at build time rather than frozen in at scaffold time, so the notice
+// stays correct for as long as the site is rebuilt.
+//
+// Built as one string rather than as adjacent `{year} {SITE.name}` expressions
+// in the markup: a formatter may put those on separate lines, and Astro drops
+// the newline between two adjacent expressions, which silently renders
+// "2026Acme Studio" with no space.
+const copyright = `© ${new Date().getFullYear()} ${SITE.name}`;
+
+const hasSocial = SOCIAL.some((link) => link.label !== '' && link.href !== '');
+const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
+---
+
+<footer class="site-footer">
+  <div class="container-page inner">
+    <p class="copyright">{copyright}</p>
+
+    {
+      (hasContact || hasSocial) && (
+        <div class="links">
+          {CONTACT.email !== '' && (
+            <a href={`mailto:${CONTACT.email}`} class="contact">
+              {CONTACT.email}
+            </a>
+          )}
+          {CONTACT.phone !== '' && (
+            <a href={`tel:${CONTACT.phone.replace(/[^+\d]/g, '')}`} class="contact">
+              {CONTACT.phone}
+            </a>
+          )}
+          {hasSocial && <SocialLinks label="Social links in the footer" />}
+        </div>
+      )
+    }
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--color-border);
+    padding-block: 2rem;
+  }
+
+  .inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 2rem;
+  }
+
+  .copyright {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1.25rem;
+  }
+
+  .contact {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .contact:hover {
+    color: var(--color-foreground);
+  }
+
+  @media (max-width: 40rem) {
+    .inner {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
+
+
+---- src/components/Header.astro ----
+type    write
+origin  base
+----
+---
+import Brand from './Brand.astro';
+import type { NavItem } from '../config/site.config.ts';
+
+interface Props {
+  items?: NavItem[];
+}
+
+const { items = [] } = Astro.props;
+const currentPath = Astro.url.pathname;
+const isHome = currentPath === '/' || currentPath === '';
+
+// No links means no menu. A header with an invented nav is worse than none.
+const hasNav = items.length > 0;
+---
+
+<header class="site-header">
+  <div class="container-page inner">
+    <Brand size="sm" href={isHome ? undefined : '/'} />
+
+    {
+      hasNav && (
+        <nav aria-label="Primary">
+          <ul>
+            {items.map((item) => (
+              <li>
+                <a href={item.href} aria-current={item.href === currentPath ? 'page' : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+  </div>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--color-border);
+    background-color: color-mix(in oklab, var(--color-background) 88%, transparent);
+    backdrop-filter: saturate(1.4) blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 4rem;
+  }
+
+  nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.25rem 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0.25rem 0;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  nav a:hover,
+  nav a[aria-current='page'] {
+    color: var(--color-foreground);
+  }
+
+  nav a[aria-current='page'] {
+    box-shadow: inset 0 -1px 0 0 var(--color-accent);
+  }
+
+  /* Below 480px the brand keeps the top line to itself and the links wrap
+     underneath, which reads better than squeezing both onto one row. */
+  @media (max-width: 30rem) {
+    .inner {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+      padding-block: 0.75rem;
+    }
+
+    nav ul {
+      justify-content: flex-start;
+      gap: 0.25rem 1rem;
+    }
+  }
+</style>
+
+
+---- src/components/LaunchNotice.astro ----
+type    write
+origin  base
+----
+---
+import { LAUNCH, SITE } from '../config/site.config.ts';
+
+// Render nothing at all unless a launch is configured *and* the date parses.
+// A broken date must never produce an empty box or fail the build.
+const parsed = LAUNCH.enabled && LAUNCH.date !== '' ? new Date(LAUNCH.date) : null;
+const launchDate = parsed !== null && !Number.isNaN(parsed.getTime()) ? parsed : null;
+
+const formatted =
+  launchDate === null
+    ? ''
+    : new Intl.DateTimeFormat(SITE.locale || 'en', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(launchDate);
+
+const iso = launchDate === null ? '' : launchDate.toISOString();
+---
+
+{
+  launchDate !== null && (
+    <div class="launch">
+      <p class="line">
+        Launching <time datetime={iso}>{formatted}</time>
+      </p>
+
+      {/*
+        The date above is the real content and is always present. The countdown
+        is a progressive enhancement: it stays hidden without JavaScript, and it
+        is hidden from assistive technology because it repeats what the date
+        already says.
+      */}
+      <div class="countdown" data-launch={iso} hidden aria-hidden="true">
+        <span class="unit">
+          <>
+            <b data-unit="days">0</b>
+            <small>days</small>
+          </>
+        </span>
+        <span class="unit">
+          <>
+            <b data-unit="hours">0</b>
+            <small>hrs</small>
+          </>
+        </span>
+        <span class="unit">
+          <>
+            <b data-unit="minutes">0</b>
+            <small>min</small>
+          </>
+        </span>
+        <span class="unit">
+          <>
+            <b data-unit="seconds">0</b>
+            <small>sec</small>
+          </>
+        </span>
+      </div>
+
+      {LAUNCH.note !== '' && <p class="note">{LAUNCH.note}</p>}
+    </div>
+  )
+}
+
+<script>
+  // ~20 lines, no framework, no hydration. Runs once on the page that uses it.
+  const root = document.querySelector<HTMLElement>('.countdown[data-launch]');
+  const target = root ? Date.parse(root.dataset.launch ?? '') : Number.NaN;
+
+  if (root && !Number.isNaN(target)) {
+    const cells = new Map<string, HTMLElement>();
+    for (const cell of root.querySelectorAll<HTMLElement>('[data-unit]')) {
+      cells.set(cell.dataset.unit ?? '', cell);
+    }
+
+    const tick = (): void => {
+      const remaining = target - Date.now();
+      if (remaining <= 0) {
+        root.hidden = true;
+        return;
+      }
+      const seconds = Math.floor(remaining / 1000);
+      const parts: Record<string, number> = {
+        days: Math.floor(seconds / 86400),
+        hours: Math.floor(seconds / 3600) % 24,
+        minutes: Math.floor(seconds / 60) % 60,
+        seconds: seconds % 60,
+      };
+      for (const [unit, cell] of cells) {
+        cell.textContent = String(parts[unit] ?? 0).padStart(2, '0');
+      }
+      root.hidden = false;
+    };
+
+    tick();
+    window.setInterval(tick, 1000);
+  }
+</script>
+
+<style>
+  .launch {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .line {
+    margin: 0;
+    color: var(--color-foreground);
+    font-size: var(--text-body);
+  }
+
+  time {
+    font-weight: 600;
+  }
+
+  .countdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    min-width: 3.75rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+  }
+
+  .unit b {
+    font-size: 1.125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  .unit small {
+    color: var(--color-muted);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+  }
+</style>
+
+
+---- src/components/Seo.astro ----
+type    write
+origin  base
+----
+---
+import { SEO, SITE } from '../config/site.config.ts';
+import { absoluteUrl, assetUrl, siteOrigin } from '../lib/seo.ts';
+
+/**
+ * Every <head> tag that describes the page lives here, so there is exactly one
+ * place that decides titles, canonical URLs and social metadata - and exactly
+ * one of each tag in the output.
+ *
+ * Everything defaults from src/config/site.config.ts. A page only passes what
+ * it genuinely needs to override.
+ */
+interface Props {
+  /** Page name. Omit on the home page so the title is just the site name. */
+  title?: string;
+  /** Overrides SITE.description for this page. */
+  description?: string;
+  /** Force this page out of the index regardless of the site setting. */
+  noindex?: boolean;
+  /** Open Graph type. 'website' suits every page this template ships. */
+  type?: 'website' | 'article';
+  /** Overrides SEO.image for this page. */
+  image?: string;
+}
+
+const { title, description, noindex = false, type = 'website', image } = Astro.props;
+
+// '' means no production URL is configured. Every absolute tag below is then
+// skipped rather than pointed at a domain nobody has bought yet.
+const origin = siteOrigin(SITE.url);
+
+const pageTitle = title ? `${title} - ${SITE.name}` : SITE.name;
+
+// page description -> site description -> no tag at all. Nothing invented.
+const metaDescription = (description ?? SITE.description).trim();
+
+// A page may opt out on its own (the 404 does); the site setting covers the rest.
+const blocked = noindex || SEO.noindex;
+const robots = blocked ? 'noindex, nofollow' : 'index, follow';
+
+// A canonical tag says "this is the definitive URL for this content" while
+// noindex says "do not index it". Emitting both is contradictory, so a blocked
+// page gets no canonical at all.
+const canonical = origin === '' || blocked ? '' : absoluteUrl(origin, Astro.url.pathname);
+
+const socialImage = assetUrl(origin, image ?? SEO.image);
+
+// og:locale wants language_TERRITORY. A bare 'en' is not valid, so it is
+// omitted rather than emitted in a form crawlers will discard.
+const ogLocale = /^[a-z]{2,3}-[A-Za-z0-9]{2,8}$/.test(SITE.locale)
+  ? SITE.locale.replace('-', '_')
+  : '';
+---
+
+<title>{pageTitle}</title>
+{metaDescription !== '' && <meta name="description" content={metaDescription} />}
+<meta name="robots" content={robots} />
+{canonical !== '' && <link rel="canonical" href={canonical} />}
+
+{/* Open Graph. Only tags whose value actually exists are emitted. */}
+<meta property="og:type" content={type} />
+<meta property="og:title" content={pageTitle} />
+<meta property="og:site_name" content={SITE.name} />
+{metaDescription !== '' && <meta property="og:description" content={metaDescription} />}
+{canonical !== '' && <meta property="og:url" content={canonical} />}
+{ogLocale !== '' && <meta property="og:locale" content={ogLocale} />}
+{socialImage !== '' && <meta property="og:image" content={socialImage} />}
+
+{/* Twitter/X. No handle is required and none is invented. */}
+<meta name="twitter:card" content={socialImage !== '' ? SEO.twitterCard : 'summary'} />
+<meta name="twitter:title" content={pageTitle} />
+{metaDescription !== '' && <meta name="twitter:description" content={metaDescription} />}
+{socialImage !== '' && <meta name="twitter:image" content={socialImage} />}
+
+
+---- src/components/SocialLinks.astro ----
+type    write
+origin  base
+----
+---
+import { SOCIAL } from '../config/site.config.ts';
+
+interface Props {
+  /** Accessible name for the list, since a page may show it more than once. */
+  label?: string;
+  align?: 'start' | 'center';
+}
+
+const { label = 'Social links', align = 'start' } = Astro.props;
+
+// Nothing configured means nothing rendered - never an empty container.
+const links = SOCIAL.filter((link) => link.label !== '' && link.href !== '');
+const isExternal = (href: string) => /^https?:\/\//i.test(href);
+---
+
+{
+  links.length > 0 && (
+    <ul class:list={['social', align]} aria-label={label}>
+      {links.map((link) => (
+        <li>
+          <a
+            href={link.href}
+            rel={isExternal(link.href) ? 'me noopener noreferrer' : undefined}
+            target={isExternal(link.href) ? '_blank' : undefined}
+          >
+            {link.label}
+            {isExternal(link.href) && <span class="sr-only"> (opens in a new tab)</span>}
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .social {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .center {
+    justify-content: center;
+  }
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  a:hover {
+    color: var(--color-foreground);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
+
+
+---- src/components/StructuredData.astro ----
+type    write
+origin  base
+----
+---
+import { CONTACT, SITE, SOCIAL } from '../config/site.config.ts';
+import { jsonLdScript, siteOrigin } from '../lib/seo.ts';
+
+/**
+ * schema.org Organization data, built only from values the developer has
+ * actually configured.
+ *
+ * Search engines consume structured data automatically, so a fabricated field
+ * here is worse than a missing one: every property below is omitted unless it
+ * has a real value. No logo, address, rating, review or founding date is
+ * invented, and none is emitted at all until the config carries one.
+ */
+const origin = siteOrigin(SITE.url);
+
+const sameAs = SOCIAL.filter((link) => link.href.trim() !== '').map((link) => link.href.trim());
+
+const organization: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: SITE.name,
+};
+
+if (origin !== '') organization['url'] = origin;
+if (SITE.description.trim() !== '') organization['description'] = SITE.description.trim();
+if (CONTACT.email.trim() !== '') organization['email'] = CONTACT.email.trim();
+if (CONTACT.phone.trim() !== '') organization['telephone'] = CONTACT.phone.trim();
+if (sameAs.length > 0) organization['sameAs'] = sameAs;
+
+// `location` is free text, so it maps to a plain Place name rather than a
+// PostalAddress - claiming a structured address we do not have would be wrong.
+if (CONTACT.location.trim() !== '') {
+  organization['location'] = { '@type': 'Place', name: CONTACT.location.trim() };
+}
+
+const payload = jsonLdScript(organization);
+---
+
+<script type="application/ld+json" is:inline set:html={payload} />
+
+
+---- src/config/site.config.ts ----
+type    write
+origin  base
+----
+/**
+ * The single source of truth for this site.
+ *
+ * Every component reads from here, so updating a client's details is a
+ * one-file change. Nothing below is required to be filled in: an empty string
+ * or an empty array means "not set", and the UI omits that piece entirely
+ * rather than rendering a placeholder.
+ */
+
+export type Appearance = 'light' | 'dark' | 'system';
+export type SiteMode = 'coming-soon' | 'full';
+
+export interface NavItem {
+  label: string;
+  /** Internal path ('/about') or in-page anchor ('#services'). */
+  href: string;
+}
+
+export interface SocialLink {
+  /** Shown as the link text, so name the platform: 'Instagram', 'LinkedIn'. */
+  label: string;
+  href: string;
+}
+
+export interface SiteIdentity {
+  name: string;
+  description: string;
+  /**
+   * Production URL, as an origin: 'https://example.com'.
+   *
+   * Empty until the domain is decided - nothing is invented, and every
+   * absolute tag (canonical, og:url, sitemap) is simply omitted until it is
+   * set. Only the origin is used; to deploy under a subpath such as
+   * example.com/client, also set `base` in astro.config.mjs.
+   */
+  url: string;
+  /** BCP-47 language tag, used for <html lang> and date formatting. */
+  locale: string;
+  author: string;
+  /** How this project was scaffolded. Informational; edit the pages, not this. */
+  mode: SiteMode;
+}
+
+export interface ContactDetails {
+  email: string;
+  phone: string;
+  /** Free text, e.g. 'Manchester, UK'. */
+  location: string;
+}
+
+export interface LaunchSettings {
+  enabled: boolean;
+  /** ISO date or date-time, e.g. '2026-11-01' or '2026-11-01T09:00:00Z'. */
+  date: string;
+  /** Optional line shown beneath the date. */
+  note: string;
+}
+
+export interface ThemeSettings {
+  /** 'system' follows the visitor's OS preference. No JavaScript either way. */
+  appearance: Appearance;
+  /** Brand colour as a hex value, e.g. '#1d4ed8'. Empty keeps the neutral ink. */
+  accent: string;
+}
+
+export type TwitterCard = 'summary' | 'summary_large_image';
+
+export interface SeoSettings {
+  /**
+   * Social preview image, 1200x630 works everywhere. Either a path in
+   * `public/` ('/og.png') or an absolute URL.
+   *
+   * Empty by default and empty is safe: no `og:image` tag is emitted at all,
+   * which is better than pointing social platforms at a file that isn't there.
+   * Drop a real image in `public/` and name it here when you have one.
+   */
+  image: string;
+
+  /** 'summary_large_image' shows a wide preview; 'summary' shows a thumbnail. */
+  twitterCard: TwitterCard;
+
+  /**
+   * Ask search engines to stay away. Also suppresses the sitemap and its
+   * reference in robots.txt, so the site never advertises pages it has asked
+   * not to have indexed.
+   *
+   * Left `false` on purpose, including for coming-soon sites: a placeholder
+   * page that gets indexed is replaced at the next crawl, whereas a `noindex`
+   * left switched on after launch keeps the real site invisible for weeks.
+   * If you would rather the holding page stayed out of search, set this to
+   * true now and remember to turn it off when the real site goes live.
+   */
+  noindex: boolean;
+}
+
+/** Identity. These values are filled in from your answers at scaffold time. */
+export const SITE: SiteIdentity = {
+  name: 'Acme Ltd',
+  description: 'Bespoke widgets.',
+  url: 'https://acme.example',
+  locale: 'en',
+  author: '',
+  mode: 'coming-soon',
+};
+
+/**
+ * Site navigation. Empty by default: the header renders no menu at all rather
+ * than inventing links. Add items once real pages or sections exist.
+ *
+ * NAV drives the header, so it shows up only on pages that render one. In
+ * coming-soon mode the home page deliberately has no header - it carries its
+ * own brand lockup instead - so there these links appear on the 404 page only.
+ * Delete `showHeader={false}` from src/pages/index.astro if you want a header
+ * and menu on the launch page too.
+ */
+export const NAV: NavItem[] = [];
+
+/** Social profiles. Add only accounts that actually exist. */
+export const SOCIAL: SocialLink[] = [];
+
+/** Contact details. Each field is optional and hidden when empty. */
+export const CONTACT: ContactDetails = {
+  email: '',
+  phone: '',
+  location: '',
+};
+
+/**
+ * Launch date. While `enabled` is false, or `date` is empty or unparseable,
+ * no launch information and no countdown is rendered.
+ */
+export const LAUNCH: LaunchSettings = {
+  enabled: false,
+  date: '',
+  note: '',
+};
+
+export const THEME: ThemeSettings = {
+  appearance: 'system',
+  accent: '',
+};
+
+export const SEO: SeoSettings = {
+  image: '',
+  twitterCard: 'summary_large_image',
+  noindex: false,
+};
+
+
+---- src/layouts/BaseLayout.astro ----
+type    write
+origin  base
+----
+---
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import Seo from '../components/Seo.astro';
+import StructuredData from '../components/StructuredData.astro';
+import { NAV, SITE, THEME, type NavItem } from '../config/site.config.ts';
+import '../styles/global.css';
+
+interface Props {
+  /** Page title. The site name is appended automatically. */
+  title?: string;
+  description?: string;
+  /** Keep this page out of search results regardless of the site setting. */
+  noindex?: boolean;
+  /** Emit Organization structured data. On for content pages, off for the 404. */
+  structuredData?: boolean;
+  /** Overrides the navigation from site.config.ts for this page. */
+  nav?: NavItem[];
+  /** Hide the header entirely - used by pages that carry their own branding. */
+  showHeader?: boolean;
+  /**
+   * Column width shared by the header, content and footer.
+   * 'narrow' suits a single focused page; 'wide' suits content pages.
+   */
+  measure?: 'narrow' | 'wide';
+}
+
+const {
+  title,
+  description,
+  noindex = false,
+  structuredData = true,
+  nav = NAV,
+  showHeader = true,
+  measure = 'wide',
+} = Astro.props;
+
+// 'system' means no attribute at all, so the CSS media query decides.
+const appearance = THEME.appearance === 'system' ? undefined : THEME.appearance;
+
+// theme.accent is developer-authored, but it is interpolated into a stylesheet,
+// so only a well-formed hex value is ever emitted.
+const accent = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(THEME.accent) ? THEME.accent : '';
+
+// Pick readable text for the accent using its perceived luminance, so a brand
+// colour can be dropped in without also hand-picking a foreground.
+function accentForeground(hex: string): string {
+  const full = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
+  const value = Number.parseInt(full.slice(1), 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '#0f1216' : '#ffffff';
+}
+
+const accentCss = accent
+  ? `:root{--ck-accent:${accent};--ck-accent-foreground:${accentForeground(accent)}}`
+  : '';
+---
+
+<!doctype html>
+<html lang={SITE.locale} data-appearance={appearance}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    {
+      /* Every descriptive tag lives in one component, so there is exactly one
+        title, description, canonical and social tag per page. */
+    }
+    <Seo title={title} description={description} noindex={noindex} />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d10" />
+
+    {structuredData && <StructuredData />}
+    {accentCss && <style is:global set:html={accentCss} />}
+  </head>
+
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+
+    <div class="page-shell" data-measure={measure}>
+      {showHeader && <Header items={nav} />}
+
+      <main id="main" class="flex-1">
+        <slot />
+      </main>
+
+      <Footer />
+    </div>
+
+    <style>
+      .page-shell[data-measure='narrow'] {
+        --ck-measure: 48rem;
+      }
+
+      .skip-link {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 50;
+      }
+
+      .skip-link:focus-visible {
+        left: 1rem;
+        top: 1rem;
+        padding: 0.625rem 1rem;
+        border-radius: var(--radius-md);
+        background-color: var(--color-accent);
+        color: var(--color-accent-foreground);
+        font-size: var(--text-small);
+        font-weight: 500;
+        text-decoration: none;
+      }
+    </style>
+  </body>
+</html>
+
+
+---- src/lib/seo.ts ----
+type    write
+origin  base
+----
+/**
+ * Small URL helpers for the site's metadata.
+ *
+ * Deliberately not a general-purpose URL library: it solves exactly what
+ * canonical tags, Open Graph and the sitemap need, and nothing more.
+ */
+
+/**
+ * Returns the site's origin with any trailing slash removed, or '' when no
+ * usable production URL is configured.
+ *
+ * An empty result is the signal used throughout the site to omit absolute
+ * metadata entirely rather than invent a domain.
+ */
+export function siteOrigin(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed === '') return '';
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return '';
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+
+  // Origin only, so there is never a trailing slash to double up on. Astro
+  // resolves absolute routes against the origin, so keeping a path here would
+  // make the canonical tag and the sitemap disagree. Sites deployed under a
+  // subpath need Astro's `base` option too - see the note on SITE.url in
+  // src/config/site.config.ts.
+  return parsed.origin;
+}
+
+/**
+ * Joins a site-relative path onto the configured origin.
+ * Returns '' when there is no origin, so callers can omit the tag entirely.
+ */
+export function absoluteUrl(origin: string, path: string): string {
+  if (origin === '') return '';
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  // Collapse any accidental double slash in the path portion.
+  return `${origin}${suffix}`.replace(/([^:]\/)\/+/g, '$1');
+}
+
+/**
+ * Resolves a configured asset reference for use in metadata.
+ * Absolute URLs pass through; a site-relative path needs an origin, because
+ * social crawlers reject relative image URLs.
+ */
+export function assetUrl(origin: string, value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return absoluteUrl(origin, trimmed);
+}
+
+/**
+ * The three characters that can end a script element early or open a new tag,
+ * mapped to their JSON unicode escapes.
+ *
+ * Each value must be a six-character sequence starting with a real backslash,
+ * not the character itself. Writing the character instead turns the
+ * replacement below into a silent no-op, which is why `jsonLdScript` is
+ * covered by a test asserting the output contains no bare angle bracket.
+ */
+const JSON_LD_ESCAPES: Readonly<Record<string, string>> = {
+  '<': '\\u003c',
+  '>': '\\u003e',
+  '&': '\\u0026',
+};
+
+/**
+ * Serialises data for a <script type="application/ld+json"> block.
+ *
+ * JSON.stringify alone is not enough: the HTML parser ends a script element at
+ * the first '</script', whatever the JSON quoting says. Escaping '<', '>' and
+ * '&' keeps the payload valid JSON - the escapes decode back to the original
+ * characters when parsed - while making it impossible to close the element or
+ * open a new tag.
+ *
+ * HTML entity escaping must NOT be used here: script content is raw text, so
+ * '&amp;' would survive into the parsed JSON as a literal five-character run.
+ */
+export function jsonLdScript(data: unknown): string {
+  return JSON.stringify(data).replace(/[<>&]/g, (char) => JSON_LD_ESCAPES[char] ?? char);
+}
+
+
+---- src/pages/404.astro ----
+type    write
+origin  base
+----
+---
+import { CONTACT, NAV } from '../config/site.config.ts';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const hasEmail = CONTACT.email !== '';
+const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+---
+
+<BaseLayout
+  title="Page not found"
+  description="This page could not be found."
+  noindex={true}
+  structuredData={false}
+  measure="narrow"
+>
+  <div class="wrap">
+    <div class="container-page inner">
+      <p class="code rise" aria-hidden="true">404</p>
+
+      <h1 class="rise" style="animation-delay: 60ms">This page doesn't exist.</h1>
+
+      <p class="lead rise" style="animation-delay: 120ms">
+        The link may be out of date, or the address may have been mistyped.
+      </p>
+
+      <div class="actions rise" style="animation-delay: 180ms">
+        <a class="btn btn-primary" href="/">Return home</a>
+        {
+          hasEmail && (
+            <a class="btn btn-secondary" href={`mailto:${CONTACT.email}`}>
+              Report a broken link
+            </a>
+          )
+        }
+      </div>
+
+      {
+        links.length > 0 && (
+          <nav class="suggestions rise" style="animation-delay: 240ms" aria-label="Other pages">
+            <p class="eyebrow">Try instead</p>
+            <ul>
+              {links.map((item) => (
+                <li>
+                  <a class="link" href={item.href}>
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .wrap {
+    display: flex;
+    align-items: center;
+    min-height: calc(100dvh - 10rem);
+    padding-block: var(--spacing-section);
+  }
+
+  .inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  /* Oversized, quiet, and decorative - the real heading below carries the
+     meaning, so this is hidden from assistive technology. */
+  .code {
+    margin: 0 0 -0.5rem;
+    font-size: clamp(4.5rem, 2rem + 11vw, 9rem);
+    font-weight: 600;
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--color-border-strong);
+    user-select: none;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--text-h1);
+    line-height: var(--text-h1--line-height);
+    letter-spacing: var(--text-h1--letter-spacing);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .lead {
+    margin: 0;
+    max-width: 48ch;
+    color: var(--color-muted);
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+    text-wrap: pretty;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+    width: 100%;
+  }
+
+  .suggestions ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .suggestions a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    font-size: var(--text-small);
+  }
+
+  @media (max-width: 30rem) {
+    .actions {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .actions .btn {
+      width: 100%;
+    }
+  }
+</style>
+
+
+---- src/pages/index.astro ----
+type    write
+origin  base + modes/coming-soon
+----
+---
+import Brand from '../components/Brand.astro';
+import LaunchNotice from '../components/LaunchNotice.astro';
+import SocialLinks from '../components/SocialLinks.astro';
+import { CONTACT, LAUNCH, SITE, SOCIAL } from '../config/site.config.ts';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const hasEmail = CONTACT.email !== '';
+const hasSocial = SOCIAL.some((link) => link.label !== '' && link.href !== '');
+const hasLaunch = LAUNCH.enabled && LAUNCH.date !== '';
+---
+
+{
+  /*
+  No header here: the page carries its own brand lockup below, and repeating it
+  in a bar would say the same thing twice on one screen. A launch page also has
+  nowhere to navigate to yet.
+
+  This is why NAV in src/config/site.config.ts does not show on this page - it
+  drives the header, and there is no header. It still applies to the 404 page.
+  Delete showHeader={false} if you want a header and menu here too.
+*/
+}
+<BaseLayout showHeader={false} measure="narrow">
+  <div class="hero">
+    <div class="glow" aria-hidden="true"></div>
+
+    <div class="container-page inner">
+      <div class="brand rise">
+        <Brand size="lg" />
+      </div>
+
+      <p class="eyebrow rise" style="animation-delay: 60ms">Coming soon</p>
+
+      <h1 class="rise" style="animation-delay: 120ms">{SITE.name}</h1>
+
+      <p class="lead rise" style="animation-delay: 180ms">{SITE.description}</p>
+
+      {
+        hasLaunch && (
+          <div class="rise" style="animation-delay: 240ms">
+            <LaunchNotice />
+          </div>
+        )
+      }
+
+      {
+        (hasEmail || hasSocial) && (
+          <div class="actions rise" style="animation-delay: 300ms">
+            {hasEmail && (
+              <a class="btn btn-primary" href={`mailto:${CONTACT.email}`}>
+                Get in touch
+              </a>
+            )}
+            {hasSocial && <SocialLinks label="Social links" />}
+          </div>
+        )
+      }
+
+      {
+        CONTACT.location !== '' && (
+          <p class="location rise" style="animation-delay: 340ms">
+            {CONTACT.location}
+          </p>
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: calc(100dvh - 6rem);
+    padding-block: var(--spacing-section);
+    overflow: hidden;
+  }
+
+  /* One soft, very low-contrast wash tinted by the accent. No blobs and no
+     page-wide gradient - just enough that the page does not read as a blank
+     sheet of paper. */
+  .glow {
+    position: absolute;
+    inset-inline: 0;
+    top: -30vh;
+    height: 70vh;
+    background: radial-gradient(
+      55% 60% at 50% 50%,
+      color-mix(in oklab, var(--color-accent) 8%, transparent),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+
+  .brand {
+    margin-bottom: 0.5rem;
+  }
+
+  h1 {
+    margin: 0;
+    max-width: 16ch;
+    font-size: var(--text-display);
+    line-height: var(--text-display--line-height);
+    letter-spacing: var(--text-display--letter-spacing);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .lead {
+    margin: 0;
+    max-width: 52ch;
+    color: var(--color-muted);
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+    text-wrap: pretty;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .location {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-small);
+  }
+
+  /* On the narrowest screens the call to action goes full width so it is an
+     easy target, and the headline gets the full measure. */
+  @media (max-width: 30rem) {
+    .actions {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .actions :global(.btn) {
+      width: 100%;
+    }
+
+    h1 {
+      max-width: none;
+    }
+  }
+</style>
+
+
+---- src/pages/robots.txt.ts ----
+type    write
+origin  base
+----
+import type { APIRoute } from 'astro';
+
+import { SEO, SITE } from '../config/site.config.ts';
+import { absoluteUrl, siteOrigin } from '../lib/seo.ts';
+
+/**
+ * robots.txt is generated at build time rather than dropped in public/, so it
+ * always reflects the current site.config.ts instead of whatever was true when
+ * the project was scaffolded.
+ *
+ * The sitemap is only advertised when a production URL exists AND the site is
+ * indexable - the same condition that decides whether a sitemap is built at
+ * all (see astro.config.mjs). A URL-less site gets a valid, permissive
+ * robots.txt with no sitemap line, never a fabricated domain.
+ */
+export const GET: APIRoute = () => {
+  const origin = siteOrigin(SITE.url);
+  const lines = ['User-agent: *'];
+
+  if (SEO.noindex) {
+    lines.push('Disallow: /');
+  } else {
+    lines.push('Allow: /');
+    if (origin !== '') {
+      lines.push('', `Sitemap: ${absoluteUrl(origin, '/sitemap-index.xml')}`);
+    }
+  }
+
+  return new Response(`${lines.join('\n')}\n`, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+};
+
+
+---- src/styles/global.css ----
+type    write
+origin  base
+----
+@import 'tailwindcss';
+
+/* ===========================================================================
+   1. Palette
+   ---------------------------------------------------------------------------
+   Raw colour values live here as ordinary custom properties, and the Tailwind
+   theme below only points at them. That means the entire site re-themes from
+   this one block - light, dark and brand accent - without a single component
+   being duplicated or a line of JavaScript being shipped.
+
+   Neutral by design: the default look is ink on paper so it suits any client.
+   Set `theme.accent` in src/config/site.config.ts to introduce brand colour.
+   =========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --ck-background: #ffffff;
+  --ck-surface: #f7f8f9;
+  --ck-surface-strong: #eef0f2;
+  --ck-foreground: #0f1216;
+  --ck-muted: #5a616d;
+  --ck-border: #e4e6ea;
+  --ck-border-strong: #cfd3da;
+
+  /* Overridden per-site by BaseLayout when theme.accent is set. */
+  --ck-accent: #0f1216;
+  --ck-accent-foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-appearance='light']) {
+    color-scheme: dark;
+
+    --ck-background: #0b0d10;
+    --ck-surface: #12151a;
+    --ck-surface-strong: #1a1f26;
+    --ck-foreground: #eceef1;
+    --ck-muted: #9aa2b1;
+    --ck-border: #232830;
+    --ck-border-strong: #333a45;
+
+    --ck-accent: #eceef1;
+    --ck-accent-foreground: #0b0d10;
+  }
+}
+
+:root[data-appearance='dark'] {
+  color-scheme: dark;
+
+  --ck-background: #0b0d10;
+  --ck-surface: #12151a;
+  --ck-surface-strong: #1a1f26;
+  --ck-foreground: #eceef1;
+  --ck-muted: #9aa2b1;
+  --ck-border: #232830;
+  --ck-border-strong: #333a45;
+
+  --ck-accent: #eceef1;
+  --ck-accent-foreground: #0b0d10;
+}
+
+/* ===========================================================================
+   2. Design tokens
+   ---------------------------------------------------------------------------
+   Tailwind v4 is configured in CSS. There is no tailwind.config.js.
+   Everything declared here becomes a utility: `bg-surface`, `text-muted`,
+   `text-display`, `rounded-lg`, `shadow-lifted`, and so on.
+   =========================================================================== */
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Semantic colours - components never reference a raw hex. */
+  --color-background: var(--ck-background);
+  --color-surface: var(--ck-surface);
+  --color-surface-strong: var(--ck-surface-strong);
+  --color-foreground: var(--ck-foreground);
+  --color-muted: var(--ck-muted);
+  --color-border: var(--ck-border);
+  --color-border-strong: var(--ck-border-strong);
+  --color-accent: var(--ck-accent);
+  --color-accent-foreground: var(--ck-accent-foreground);
+
+  /* Type scale. Display and h1 are fluid so long client names stay readable
+     from 320px upwards without a pile of breakpoint overrides. */
+  --text-display: clamp(2.5rem, 1.35rem + 5.1vw, 4.75rem);
+  --text-display--line-height: 1.03;
+  --text-display--letter-spacing: -0.035em;
+
+  --text-h1: clamp(2rem, 1.35rem + 2.9vw, 3.25rem);
+  --text-h1--line-height: 1.08;
+  --text-h1--letter-spacing: -0.03em;
+
+  --text-h2: clamp(1.5rem, 1.25rem + 1.1vw, 2rem);
+  --text-h2--line-height: 1.18;
+  --text-h2--letter-spacing: -0.02em;
+
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.4;
+  --text-h3--letter-spacing: -0.01em;
+
+  --text-lead: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  --text-lead--line-height: 1.6;
+
+  --text-body: 1rem;
+  --text-body--line-height: 1.65;
+
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.55;
+
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.2;
+  --text-label--letter-spacing: 0.14em;
+
+  /* Restrained radii - nothing is a pill except deliberate controls. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Two shadows only, both subtle. Depth is used for hierarchy, not decoration. */
+  --shadow-subtle: 0 1px 2px 0 rgb(15 18 22 / 0.04), 0 1px 3px 0 rgb(15 18 22 / 0.06);
+  --shadow-lifted: 0 4px 12px -2px rgb(15 18 22 / 0.08), 0 12px 32px -8px rgb(15 18 22 / 0.1);
+
+  /* Vertical rhythm between major page blocks. */
+  --spacing-section: 4.5rem;
+  --spacing-section-lg: 7rem;
+}
+
+/* ===========================================================================
+   3. Base
+   =========================================================================== */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One consistent focus treatment everywhere, always visible. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+
+  /* Long client names and URLs should wrap, never overflow the viewport. */
+  h1,
+  h2,
+  h3,
+  p {
+    overflow-wrap: break-word;
+  }
+}
+
+/* ===========================================================================
+   4. Components
+   ---------------------------------------------------------------------------
+   Written as plain CSS against the tokens above so restyling a button is one
+   edit here rather than a search across every page.
+   =========================================================================== */
+
+@layer components {
+  .page-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  .container-page {
+    width: 100%;
+    /* Set by BaseLayout's `measure` prop, so header, content and footer all
+       share one column width instead of each choosing its own. */
+    max-width: var(--ck-measure, 72rem);
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Buttons ---------------------------------------------------------------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem; /* comfortable touch target */
+    padding: 0.625rem 1.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: var(--text-small);
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-primary {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+
+  .btn-primary:hover {
+    background-color: color-mix(in oklab, var(--color-accent) 86%, var(--color-background));
+  }
+
+  .btn-secondary {
+    background-color: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-foreground);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-foreground);
+  }
+
+  /* Eyebrow ---------------------------------------------------------------- */
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: var(--text-label--letter-spacing);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 1.75rem;
+    height: 1px;
+    background-color: var(--color-border-strong);
+  }
+
+  /* Inline text links ------------------------------------------------------ */
+
+  .link {
+    color: var(--color-foreground);
+    text-decoration: underline;
+    text-decoration-color: var(--color-border-strong);
+    text-underline-offset: 0.25em;
+    transition: text-decoration-color 160ms ease;
+  }
+
+  .link:hover {
+    text-decoration-color: var(--color-accent);
+  }
+
+  /* Hairline rule ---------------------------------------------------------- */
+
+  .rule {
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+/* ===========================================================================
+   5. Motion
+   ---------------------------------------------------------------------------
+   Entrance animation is applied only when the visitor has not asked for
+   reduced motion, so the default resting state is fully visible. Nothing is
+   ever hidden behind an animation that might not run.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    animation: ck-rise 640ms cubic-bezier(0.22, 0.68, 0.24, 1) both;
+  }
+
+  @keyframes ck-rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.625rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+---- tsconfig.json ----
+type    write
+origin  base
+----
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [
+    ".astro/types.d.ts",
+    "**/*"
+  ],
+  "exclude": [
+    "dist"
+  ],
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true
+  }
+}
+

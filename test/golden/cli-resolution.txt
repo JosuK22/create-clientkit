@@ -1,0 +1,33 @@
+== CONTEXT ==
+targetDir        <TARGET_DIR>
+projectName      acme-website
+site.name        Acme Ltd
+site.url         (null)
+site.description Official website of Acme Ltd.
+site.locale      en
+site.author      (null)
+template.id      astro-tailwind
+template.version 0.1.0
+template.mode    full
+features         []
+packageManager   npm
+git              true
+install          true
+cliVersion       9.9.9
+generatedAt      2026-01-01T00:00:00.000Z
+
+== SOURCES ==
+features         default
+git              default
+install          default
+packageManager   default
+projectName      derived
+site.author      default
+site.description default
+site.locale      template
+site.name        flag
+site.url         default
+targetDir        flag
+template.id      default
+template.mode    flag
+template.version template
