@@ -487,16 +487,24 @@ describe('the domain layer stays pure', () => {
   });
 
   it('is not imported by the V1 generation path', () => {
-    // Stage 1 adds vocabulary and changes no behaviour. If production code
-    // started importing it, the shipped bundle would change and the golden
-    // snapshots would be at risk.
+    // The dependency direction: V1 -> V2, never the reverse. If the resolver,
+    // the planner or the CLI started importing the domain model, the shipped
+    // bundle would change and the golden snapshots would be at risk.
+    //
+    // `src/adapters/` is excluded because adapters are V2 and importing the
+    // domain vocabulary is their entire job. That exclusion arrived with Stage
+    // 2; before it, this test walked everything outside `src/domain/`. The
+    // complementary half - that the V1 path does not import `src/adapters/`
+    // either - is asserted in adapters.test.ts, so the boundary is still
+    // covered from both sides rather than loosened.
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
+    const v2Directories = new Set(['domain', 'adapters']);
     const offenders: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-          if (entry.name !== 'domain') walk(full);
+          if (!v2Directories.has(entry.name)) walk(full);
           continue;
         }
         if (!entry.name.endsWith('.ts')) continue;

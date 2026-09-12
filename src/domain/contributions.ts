@@ -101,6 +101,34 @@ export interface FileContribution {
 // Scripts and configuration
 // ---------------------------------------------------------------------------
 
+/**
+ * A directory of template files an adapter wants composed, in order.
+ *
+ * Added in Stage 2, because the Astro migration surfaced a gap: V1 delivers
+ * files by walking a template directory, and expressing that as a list of
+ * `FileContribution`s would mean enumerating 22 files in code and giving up the
+ * "templates are inert data" property that makes them reviewable.
+ *
+ * Both forms are expected to coexist. An adapter that ships a template
+ * directory contributes layers; an adapter that generates content from the
+ * resolved project contributes files. What they share is that neither writes
+ * anything - a layer is a request to compose a directory, and the planner still
+ * decides what that means alongside everyone else's contributions.
+ *
+ * `order` is what makes layering explicit rather than implied by array
+ * position, which matters once more than one adapter contributes layers.
+ */
+export interface TemplateLayerContribution {
+  /** Diagnostic label, surfaced as `origin` on the resulting operations. */
+  readonly name: string;
+  /** Absolute path to the directory to compose. */
+  readonly root: string;
+  readonly owner: AdapterRef;
+  /** Lower composes first; later layers override earlier ones. */
+  readonly order: number;
+  readonly reason: string;
+}
+
 /** A `package.json` script. Two adapters claiming one name with different bodies is a conflict. */
 export interface ScriptContribution {
   readonly name: string;
@@ -144,6 +172,8 @@ export interface Contribution {
   readonly files: readonly FileContribution[];
   readonly scripts: readonly ScriptContribution[];
   readonly config: readonly ConfigContribution[];
+  /** Template directories to compose, in order. See TemplateLayerContribution. */
+  readonly templateLayers: readonly TemplateLayerContribution[];
   /** Directories to create even if nothing writes into them. */
   readonly directories: readonly string[];
 }
@@ -156,6 +186,7 @@ export function emptyContribution(owner: AdapterRef): Contribution {
     files: [],
     scripts: [],
     config: [],
+    templateLayers: [],
     directories: [],
   };
 }

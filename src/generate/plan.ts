@@ -41,10 +41,35 @@ export const realPlanFs: PlanFs = {
   },
 };
 
+/** One directory of template files, composed in order. Later layers override earlier ones. */
+export interface PlanLayer {
+  /** Diagnostic label, recorded as the operation's `origin`. */
+  readonly name: string;
+  readonly root: string;
+}
+
 export interface PlanOptions {
   readonly registry: TemplateRegistry;
   readonly fs?: PlanFs;
   readonly now?: Date;
+  /**
+   * Composition layers, in order.
+   *
+   * Omitted, the planner computes V1's `base` + `modes/<mode>` itself, which is
+   * what every existing caller does and why this is backwards-compatible. The
+   * V2 Astro adapter supplies them instead, so the layer list becomes something
+   * an adapter decides rather than something the planner assumes - that is the
+   * whole of the change this stage needed here.
+   */
+  readonly layers?: readonly PlanLayer[];
+}
+
+/** V1's layer list: the base template, then the selected mode on top. */
+export function defaultLayers(templateRoot: string, mode: string): readonly PlanLayer[] {
+  return [
+    { name: 'base', root: path.join(templateRoot, 'base') },
+    { name: `modes/${mode}`, root: path.join(templateRoot, 'modes', mode) },
+  ];
 }
 
 interface LayerFile {
@@ -106,13 +131,7 @@ export function plan(context: ProjectContext, options: PlanOptions): GenerationP
   }
 
   const templateRoot = options.registry.rootFor(manifest.id);
-  const layers: { name: string; root: string }[] = [
-    { name: 'base', root: path.join(templateRoot, 'base') },
-    {
-      name: `modes/${context.template.mode}`,
-      root: path.join(templateRoot, 'modes', context.template.mode),
-    },
-  ];
+  const layers = options.layers ?? defaultLayers(templateRoot, context.template.mode);
 
   // Later layers override earlier ones, so collect in order and keep all hits.
   const byDestination = new Map<string, LayerFile[]>();

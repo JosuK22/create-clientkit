@@ -59,6 +59,7 @@ export type {
   FilePayload,
   FileTarget,
   ScriptContribution,
+  TemplateLayerContribution,
 } from './contributions.js';
 
 export { manifestFromProjectContext } from './manifest.js';

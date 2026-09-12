@@ -1017,7 +1017,7 @@ the whole point.
 Four snapshots pin what 1.0.2 generates. See
 [golden-snapshots.md](./golden-snapshots.md).
 
-### Stage 1 — core domain types (landed)
+### Stage 1 — core domain types (landed, `bd6e84d`)
 
 The vocabulary described above now exists in `src/domain/`. Types and a few
 pure helpers only: no adapters, no compatibility engine, no planner changes.
@@ -1079,3 +1079,46 @@ additionally asserts no module under `src/domain/` imports `node:fs`,
 V1's `mode` is not a dimension. It was an Astro template detail that reached
 `src/types.ts`; in this vocabulary it is `starter:coming-soon` /
 `starter:full`, two feature ids.
+
+### Stage 2 — Astro adapter (landed)
+
+The first concrete adapter. Its purpose is not to add capability — ClientKit
+already generates Astro projects — but to prove the contract can describe that
+generation without changing it.
+
+```
+src/adapters/
+├── astro.ts      the framework adapter: declaration, architecture, layers, deps
+├── tailwind.ts   the styling adapter: declaration and dependencies
+├── registry.ts   astro + tailwind only; anything else fails by name
+└── bridge.ts     ProjectContext → manifest → resolve → contribute → plan()
+```
+
+**The gate.** The three plan snapshots from Stage 0 are asserted a second time
+against output produced through the adapter path, pointing at the same files,
+plus direct `V2 === V1` equality assertions. They pass without regeneration.
+
+**What is real.** Capability declarations, the architecture's role map, template
+layer selection driven by the adapter, and dependency and script contributions
+with their true versions — checked against the template's own `_package.json`,
+so the two cannot drift.
+
+**What is deliberately deferred.** Only template layers are consumed by the
+bridge; `package.json` is still composed from `_package.json` as in V1, because
+building it from contributions is the composition work a later stage covers and
+would change the one thing this stage must not change. Tailwind's _files_ also
+still live in the shared Astro template — its declaration and dependencies are
+separate, its content is not, and separating it needs the config-merging layer.
+
+**What has not changed.** The CLI runs the V1 path exactly as before. Nothing
+under `src/context/`, `src/generate/` or `src/templates/` imports the adapters,
+and a test fails if that changes. No framework selection exists: there is no
+`--framework` flag and no prompt.
+
+`plan()` gained one optional `layers` parameter, defaulting to the `base` +
+`modes/<mode>` list it previously computed inline. That is the only production
+change, and the golden snapshots cover it.
+
+**Still not supported:** React, Next.js, Angular, Bootstrap, MUI, Chakra. Their
+ids exist in the dimension vocabulary; no adapter implements them, and the
+registry says so.

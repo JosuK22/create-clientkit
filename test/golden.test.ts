@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { parseCliArgs } from '../src/args.js';
 import { NonInteractivePrompter } from '../src/context/prompts.js';
 import { resolveContext } from '../src/context/resolve.js';
+import { planWithAdapters } from '../src/adapters/bridge.js';
 import { plan } from '../src/generate/plan.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import type { GenerationPlan } from '../src/generate/files.js';
@@ -235,5 +236,48 @@ describe('golden: determinism', () => {
         );
       }
     }
+  });
+});
+
+/**
+ * The Stage 2 migration gate.
+ *
+ * These assert the same four baselines against output produced through the V2
+ * adapter path. Pointing them at the identical snapshot files is the strongest
+ * available statement of the requirement: whatever the adapters do, what comes
+ * out the other end is what 1.0.2 produced.
+ *
+ * The direct equality assertions exist alongside them because a snapshot
+ * failure says "the output changed" while an equality failure says "the two
+ * paths disagree", and during a migration the second is the more useful diff.
+ */
+describe('golden: the V2 adapter path reproduces V1 byte for byte', () => {
+  for (const scenario of scenarios) {
+    it(`golden via adapters: ${scenario.name}`, async () => {
+      const { plan: generated } = planWithAdapters(scenario.context, { registry });
+      await expect(render(generated)).toMatchFileSnapshot(scenario.file);
+    });
+
+    it(`V2 output is identical to V1 for ${scenario.name}`, () => {
+      const viaAdapters = render(planWithAdapters(scenario.context, { registry }).plan);
+      const viaV1 = render(plan(scenario.context, { registry }));
+      expect(viaAdapters).toBe(viaV1);
+    });
+  }
+
+  it('the adapter path drives the layers rather than letting plan() assume them', () => {
+    // If the bridge stopped supplying layers, plan() would fall back to its own
+    // defaults and the snapshots above would still pass - proving nothing. This
+    // asserts the layers actually came from the adapter.
+    const { contributions } = planWithAdapters(scenarios[0]!.context, { registry });
+    const layers = contributions.flatMap((contribution) => contribution.templateLayers);
+    expect(layers.map((layer) => layer.name)).toEqual(['base', 'modes/coming-soon']);
+    expect(layers.every((layer) => layer.owner === 'framework:astro')).toBe(true);
+  });
+
+  it('the full starter selects the other mode layer', () => {
+    const { contributions } = planWithAdapters(scenarios[1]!.context, { registry });
+    const layers = contributions.flatMap((contribution) => contribution.templateLayers);
+    expect(layers.map((layer) => layer.name)).toEqual(['base', 'modes/full']);
   });
 });
