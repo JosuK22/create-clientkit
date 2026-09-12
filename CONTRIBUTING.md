@@ -56,6 +56,9 @@ npm run smoke       # pack, install into a clean dir, generate, check, build
 `npm run smoke:audit` additionally runs axe and Lighthouse against the
 generated sites. It is slower, and it is what CI runs.
 
+Validation that cannot be automated — real-device mobile passes, and what was
+and was not covered — is recorded in [TESTING.md](./TESTING.md).
+
 | Script                  | What it does                                                |
 | ----------------------- | ----------------------------------------------------------- |
 | `npm test`              | Unit and integration tests                                  |
