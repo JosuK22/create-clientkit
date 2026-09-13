@@ -1644,3 +1644,145 @@ of `origin base`. Its content did not change.
   API and its tests, not through `npm create clientkit@latest`. The prompt and
   flag surface belongs to a later stage.
 - Astro's styling dimension remains inert, unchanged from Stage 5.
+
+### Stage 8 — the feature dimension, through `not-found` (landed)
+
+The first feature adapter, and the stage that had to settle what a feature
+actually owns.
+
+```
+src/adapters/not-found.ts     feature: the capability requirement + the guarantee
+src/domain/adapters.ts        AdapterResolution.requiredRoles
+src/domain/resolution.ts      the union every selected adapter contributes to
+src/adapters/registry.ts      the feature dimension is selectable
+```
+
+**Support matrix — supported means generated, installed and built:**
+
+| Stack                                 | Result                                                                     |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `astro + tailwind`                    | supported                                                                  |
+| `astro + tailwind + not-found`        | **supported** — new in this stage                                          |
+| `react + vite + tailwind`             | supported                                                                  |
+| `react + vite + bootstrap`            | supported                                                                  |
+| `react + vite + tailwind + mui`       | supported                                                                  |
+| `react + vite + tailwind + not-found` | **refused** — React provides `spa-routing`, not `file-based-routing`       |
+| hypothetical framework + `not-found`  | compatible when it provides `file-based-routing`; refused when it does not |
+
+`seo`, `sitemap`, `structured-data`, `social-metadata` and `robots` remain names
+in the feature vocabulary with no adapter behind them; the registry refuses them
+by name and never falls back to `not-found`.
+
+**What a feature owns.** The question this stage existed to answer, and the
+answer is narrower than it first looks.
+
+A not-found _page_ is framework-specific by nature. Astro's is `.astro` markup
+importing an Astro layout; a React one would be a component behind a router; a
+Next one would be a file with a reserved name. Putting any of those inside the
+feature would mean shipping one implementation per framework — `Astro404`,
+`React404`, `Next404` — which is exactly the matrix the design exists to
+prevent. So the feature does not own the markup.
+
+It owns the two things that genuinely are framework-independent:
+
+| Owns                | Meaning                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| the **requirement** | a not-found page must be _routable_, which is a capability, not a file              |
+| the **guarantee**   | selecting it means the finished project has one, checked before anything is written |
+
+The framework supplies the implementation, the architecture decides where it
+lives, and the feature decides whether the project may claim to have one at all.
+`not-found` names no framework and no framework names `not-found`.
+
+**Why `file-based-routing`.** It is the smallest correct requirement. A framework
+that routes by file serves `/anything-at-all` from its not-found page with no
+router package and no configuration — which is what makes the page real rather
+than a component nothing renders.
+
+`spa-routing` deliberately does not satisfy it. React with Vite provides
+`spa-routing` and ships no router, so an unmatched path returns the host's own
+404 and never reaches the application. Generating a `404.tsx` there would produce
+a file that looks like a feature and is dead code, so the combination is refused
+and the error names the missing capability:
+
+```
+That combination will not work.
+  - Not-found page requires file-based-routing
+    (an unmatched path has to reach the page for it to be a 404
+     rather than an unreachable file)
+```
+
+Adding a router to make that pass is a later stage's work, not a way around the
+boundary.
+
+**One new generic mechanism.** `AdapterResolution.requiredRoles`. Since Stage 6
+an _architecture_ could say the project cannot ship without a role — React needs
+a global stylesheet — but only an architecture could. A feature needs the same
+sentence, so the field moved onto the resolution every adapter already returns,
+and `ResolvedProject.requiredRoles` is now the union of the architecture's and
+every selected adapter's. One check enforces both.
+
+It is deliberately not a promise to _supply_ the role. Whoever fills it satisfies
+it, because the check runs against the finished plan by resolved path — which is
+what lets the same feature work for Astro, whose template ships the page, and
+for a framework that would contribute one instead.
+
+**What it contributes:**
+
+| Contribution   | `not-found`                                                                                                      |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| dependencies   | none — a feature that quietly installed a package to render a 404 would be the worst version of this abstraction |
+| scripts        | none                                                                                                             |
+| configuration  | none                                                                                                             |
+| files          | none — see ownership above                                                                                       |
+| template layer | none, so it cannot override anyone's files                                                                       |
+| required roles | `page.notFound`, requested as a semantic role                                                                    |
+
+**Evidence, from a real generated project.** Generated through the production
+path — manifest → selection → compatibility → resolution → contributions →
+composition → plan → apply:
+
+| Step                            | Result                                              |
+| ------------------------------- | --------------------------------------------------- |
+| `npm install`                   | 291 packages                                        |
+| `astro check`                   | 15 files, 0 errors, 0 warnings, 0 hints             |
+| `npm run build`                 | 2 pages, `dist/404.html` emitted, sitemap generated |
+| `GET /`                         | 200                                                 |
+| `GET /nonexistent-stage8-route` | **404**, 3,993 bytes                                |
+
+The served body is byte-identical to `dist/404.html` and carries the real
+heading, the 404 element, the return-home action and the `noindex` robots meta.
+That is a genuine 404 status on an unmatched route, not a file that happens to
+exist. No unresolved `{{tokens}}` and no machine paths anywhere in the output.
+
+Astro, React + Tailwind, React + Bootstrap and React + Tailwind + MUI were all
+regenerated and rebuilt, every one to the same asset hashes as before this stage.
+
+**Unchanged.** The four V1 golden files are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+`templates/astro-tailwind/` was not touched, no existing V2 golden moved, and the
+CLI has no new flags or prompts.
+
+**Known limitations, stated rather than implied:**
+
+- **For Astro the feature is a gate and a guarantee, not the file's author.**
+  Astro's template ships `src/pages/404.astro` and keeps ownership of it, so
+  selecting `not-found` changes the adapter set and the required-role set
+  without changing a byte. Two reasons, both real: framework-specific `.astro`
+  markup cannot live in a framework-agnostic feature without recreating the
+  per-framework matrix, and moving it would change the V1 golden that is a
+  standing compatibility contract. `page.notFound` is listed in Astro's
+  `templateOwnedRoles`, the same legacy arrangement Stage 2 recorded for the
+  stylesheet. When the Astro template is generalised, this shortens.
+  The pair of composition goldens records the difference the selection makes.
+- **A feature that contributes files is untested by a real adapter.** The
+  mechanism exists and the guarantee is enforced, but every current path has the
+  framework supplying the page. The first feature that genuinely contributes
+  source will exercise the other half.
+- **No public CLI selection.** `features` is reachable through the V2 planning
+  API and its tests, not through `npm create clientkit@latest`. The prompt and
+  flag surface belongs to a later stage.
+- **`starter:*` is not an adapter.** It selects a template layer — the
+  arrangement V1's `mode` became — and selection skips it rather than asking the
+  registry for an adapter that was never one.
+- Astro's styling dimension remains inert, unchanged from Stage 5.

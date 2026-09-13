@@ -1,5 +1,6 @@
 import type { AdapterResolution } from './adapters.js';
 import type { Capability } from './capabilities.js';
+import type { FileRole } from './roles.js';
 import { CliError } from '../errors.js';
 import type { SourceExtensions } from './resolved.js';
 
@@ -23,6 +24,8 @@ export interface ResolutionInput {
 
 export interface MergedResolution {
   readonly capabilities: ReadonlySet<Capability>;
+  /** Union of every selected adapter's required roles. Order-independent. */
+  readonly requiredRoles: ReadonlySet<FileRole>;
   readonly extensions: Partial<SourceExtensions>;
   readonly minNode: string | undefined;
 }
@@ -62,6 +65,7 @@ type MutableExtensions = { -readonly [K in keyof SourceExtensions]?: SourceExten
 
 export function mergeResolutions(inputs: readonly ResolutionInput[]): MergedResolution {
   const capabilities = new Set<Capability>();
+  const requiredRoles = new Set<FileRole>();
   const extensions: MutableExtensions = {};
   /** Which adapter set each extension key, so a conflict can name it. */
   const extensionOwners = new Map<string, string>();
@@ -69,6 +73,7 @@ export function mergeResolutions(inputs: readonly ResolutionInput[]): MergedReso
 
   for (const { owner, resolution } of inputs) {
     for (const capability of resolution.capabilities ?? []) capabilities.add(capability);
+    for (const role of resolution.requiredRoles ?? []) requiredRoles.add(role);
     if (resolution.minNode !== undefined) floors.push(resolution.minNode);
 
     for (const key of EXTENSION_KEYS) {
@@ -89,5 +94,5 @@ export function mergeResolutions(inputs: readonly ResolutionInput[]): MergedReso
     }
   }
 
-  return { capabilities, extensions, minNode: highestNodeFloor(floors) };
+  return { capabilities, requiredRoles, extensions, minNode: highestNodeFloor(floors) };
 }

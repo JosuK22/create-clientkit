@@ -420,6 +420,7 @@ describe('the adapter contract', () => {
       extensions: { source: '.ts', component: '.tsx', config: '.ts' },
       minNode: '>=22.12.0',
       templateOwnedRoles: [],
+      requiredRoles: [],
       selection: {
         framework: 'astro',
         buildTool: 'astro',

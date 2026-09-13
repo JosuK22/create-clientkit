@@ -531,6 +531,12 @@ export function composePackageOperation(
  * stylesheet unconditionally, so `styling: 'none'` would generate a tree that
  * installs cleanly and then fails on the first build with a missing import.
  *
+ * Since Stage 8 the set is the architecture's plus every selected adapter's, so
+ * a feature can make the same kind of statement. Selecting `not-found` means
+ * the finished project has a not-found page; if nothing produces one the plan
+ * fails here rather than shipping a site whose 404s are the framework's
+ * default.
+ *
  * Checked by resolved path rather than by contribution, so a template-owned
  * file counts. Astro satisfies `styles.global` from its own template and would
  * pass this check unchanged if it declared the requirement.
@@ -542,7 +548,7 @@ export function assertRequiredRoles(
   project: ResolvedProject,
   operations: readonly FileOperation[],
 ): void {
-  const required = project.architecture.requiredRoles ?? [];
+  const required = project.requiredRoles;
   if (required.length === 0) return;
 
   const present = new Set(operations.map((operation) => operation.path));

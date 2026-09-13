@@ -57,6 +57,16 @@ export interface ResolvedProject {
    * have to reach back into the framework adapter to find out.
    */
   readonly templateOwnedRoles: readonly FileRole[];
+  /**
+   * Every role the finished plan must contain, from the architecture and from
+   * whichever adapters were selected.
+   *
+   * The architecture's own `requiredRoles` is the structural half - React
+   * cannot ship without a global stylesheet. Adapters add to it: selecting a
+   * feature is a statement about what the finished project contains, and this
+   * is where that statement is recorded so one check can enforce both.
+   */
+  readonly requiredRoles: readonly FileRole[];
 
   /** Which adapter was selected for each dimension, by id. */
   readonly selection: AdapterSelection;

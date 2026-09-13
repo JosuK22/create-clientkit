@@ -76,6 +76,7 @@ export type ArchitectureId = (typeof ARCHITECTURE_IDS)[number];
  * an Astro template detail that reached `src/types.ts` and stayed there.
  */
 export const FEATURE_IDS = [
+  'not-found',
   'seo',
   'robots',
   'sitemap',

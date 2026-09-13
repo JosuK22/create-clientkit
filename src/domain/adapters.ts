@@ -93,6 +93,20 @@ export interface AdapterResolution {
    * whichever ran last.
    */
   readonly extensions?: Partial<SourceExtensions>;
+  /**
+   * Roles the project must end up with because this adapter was selected.
+   *
+   * The architecture has said this since Stage 6 - React cannot ship without a
+   * global stylesheet - but only an architecture could say it. A feature needs
+   * the same sentence: selecting `not-found` means the finished project has a
+   * not-found page, and a plan that quietly produces none is the exact failure
+   * the guarantee exists to prevent.
+   *
+   * Deliberately not a promise to *supply* the role. Whoever fills it - a
+   * framework template, another adapter's contribution - satisfies it equally,
+   * because the check runs against the finished plan by resolved path.
+   */
+  readonly requiredRoles?: readonly FileRole[];
 }
 
 /**

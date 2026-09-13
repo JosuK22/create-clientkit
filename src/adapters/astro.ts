@@ -109,7 +109,13 @@ export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
      * with no template arrangement here - incompatible rather than silently
      * ignored.
      */
-    templateOwnedRoles: ['styles.global', 'config.framework', 'package'],
+    // `page.notFound` is here because Astro's template ships a complete 404 of
+    // its own. A feature contributing one would collide with it, and the
+    // framework-specific `.astro` markup could not live in a framework-agnostic
+    // feature anyway without recreating the per-framework matrix the design
+    // exists to avoid. Same legacy arrangement Stage 2 recorded for the
+    // stylesheet: when the Astro template is generalised, this shortens.
+    templateOwnedRoles: ['styles.global', 'config.framework', 'package', 'page.notFound'],
 
     /**
      * Astro fixes every dimension it owns, so little here varies with the

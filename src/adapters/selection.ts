@@ -102,6 +102,16 @@ export function selectAdapters(manifest: ProjectManifest, registry: AdapterRegis
     adapters.push({ ref: adapterRef(uiLibrary.declaration), adapter: uiLibrary });
   }
 
+  // Features are a list rather than a single choice, and `starter:*` is not an
+  // adapter at all - it picks a template layer. De-duplicated, because asking
+  // for the same feature twice is one request, not two, and letting it through
+  // would contribute everything twice.
+  for (const feature of [...new Set(manifest.features)].sort()) {
+    if (feature.startsWith('starter:')) continue;
+    const adapter = registry.feature(feature);
+    adapters.push({ ref: adapterRef(adapter.declaration), adapter });
+  }
+
   const rank = (ref: string): number => {
     const kind = ref.split(':')[0] ?? '';
     const index = (RESOLUTION_ORDER as readonly string[]).indexOf(kind);
@@ -189,6 +199,11 @@ export function resolveProject(
     architecture,
     extensions: { source, component, config },
     templateOwnedRoles: framework.templateOwnedRoles ?? [],
+    // Architecture first, then anything a selected adapter asked for. Sorted so
+    // the set is identical however the adapters happened to be ordered.
+    requiredRoles: [
+      ...new Set([...(architecture.requiredRoles ?? []), ...merged.requiredRoles]),
+    ].sort(),
     minNode: merged.minNode ?? declaredFloors[0] ?? '>=20.19',
     selection: {
       framework: manifest.framework,

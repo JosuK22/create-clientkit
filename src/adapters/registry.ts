@@ -2,12 +2,19 @@ import path from 'node:path';
 
 import { CliError } from '../errors.js';
 import type { Adapter, FrameworkAdapter } from '../domain/adapters.js';
-import type { BuildToolId, FrameworkId, StylingId, UiLibraryId } from '../domain/dimensions.js';
+import type {
+  BuildToolId,
+  FeatureId,
+  FrameworkId,
+  StylingId,
+  UiLibraryId,
+} from '../domain/dimensions.js';
 import { createAstroAdapter } from './astro.js';
 import { createBootstrapAdapter } from './bootstrap.js';
 import { createReactAdapter } from './react.js';
 import { createTailwindAdapter } from './tailwind.js';
 import { createMuiAdapter } from './mui.js';
+import { createNotFoundAdapter } from './not-found.js';
 import { createViteAdapter } from './vite.js';
 
 /**
@@ -35,15 +42,18 @@ export interface AdapterRegistry {
   buildTool(id: BuildToolId): Adapter;
   styling(id: StylingId): Adapter;
   uiLibrary(id: UiLibraryId): Adapter;
+  feature(id: FeatureId): Adapter;
   /** Whether an adapter exists, without throwing. */
   hasFramework(id: FrameworkId): boolean;
   hasBuildTool(id: BuildToolId): boolean;
   hasStyling(id: StylingId): boolean;
   hasUiLibrary(id: UiLibraryId): boolean;
+  hasFeature(id: FeatureId): boolean;
   implementedFrameworks(): readonly FrameworkId[];
   implementedBuildTools(): readonly BuildToolId[];
   implementedStyling(): readonly StylingId[];
   implementedUiLibraries(): readonly UiLibraryId[];
+  implementedFeatures(): readonly FeatureId[];
 }
 
 function unsupported(kind: string, id: string, available: readonly string[]): never {
@@ -70,12 +80,17 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     ['bootstrap', createBootstrapAdapter(templatesRoot)],
   ]);
   const uiLibraries = new Map<UiLibraryId, Adapter>([['mui', createMuiAdapter(templatesRoot)]]);
+  // `starter:*` is not here on purpose. It selects a template layer rather than
+  // an adapter - the arrangement V1's `mode` became - and asking the registry
+  // for it would report a missing adapter for something that was never one.
+  const features = new Map<FeatureId, Adapter>([['not-found', createNotFoundAdapter()]]);
 
   // Sorted so the list in an error message is stable.
   const frameworkIds = [...frameworks.keys()].sort();
   const buildToolIds = [...buildTools.keys()].sort();
   const stylingIds = [...styling.keys()].sort();
   const uiLibraryIds = [...uiLibraries.keys()].sort();
+  const featureIds = [...features.keys()].sort();
 
   return {
     framework(id) {
@@ -90,13 +105,18 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     uiLibrary(id) {
       return uiLibraries.get(id) ?? unsupported('UI library', id, uiLibraryIds);
     },
+    feature(id) {
+      return features.get(id) ?? unsupported('feature', id, featureIds);
+    },
     hasFramework: (id) => frameworks.has(id),
     hasBuildTool: (id) => buildTools.has(id),
     hasStyling: (id) => styling.has(id),
     hasUiLibrary: (id) => uiLibraries.has(id),
+    hasFeature: (id) => features.has(id),
     implementedFrameworks: () => frameworkIds,
     implementedBuildTools: () => buildToolIds,
     implementedStyling: () => stylingIds,
     implementedUiLibraries: () => uiLibraryIds,
+    implementedFeatures: () => featureIds,
   };
 }

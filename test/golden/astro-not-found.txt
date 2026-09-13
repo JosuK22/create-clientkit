@@ -1,0 +1,48 @@
+== MANIFEST ==
+framework   astro
+styling     tailwind
+uiLibrary   none
+features    not-found, starter:coming-soon
+
+== SELECTED ADAPTERS ==
+framework:astro          framework
+styling:tailwind         styling
+feature:not-found        feature
+
+== REQUIRED ROLES ==
+page.notFound            -> src/pages/404.astro
+
+== TEMPLATE-OWNED ROLES ==
+config.framework
+package
+page.notFound
+styles.global
+
+== CONTRIBUTIONS ==
+feature:not-found        deps=0 scripts=0 config=0 files=0 layers=0
+framework:astro          deps=4 scripts=5 config=0 files=0 layers=2
+styling:tailwind         deps=2 scripts=0 config=1 files=1 layers=0
+
+== OWNERSHIP ==
+.client-site.json                        cli
+.gitattributes                           base
+.gitignore                               base
+astro.config.mjs                         base
+package.json                             base + modes/coming-soon
+public/favicon.svg                       base
+README.md                                base
+src/components/Brand.astro               base
+src/components/Footer.astro              base
+src/components/Header.astro              base
+src/components/LaunchNotice.astro        base
+src/components/Seo.astro                 base
+src/components/SocialLinks.astro         base
+src/components/StructuredData.astro      base
+src/config/site.config.ts                base
+src/layouts/BaseLayout.astro             base
+src/lib/seo.ts                           base
+src/pages/404.astro                      base
+src/pages/index.astro                    base + modes/coming-soon
+src/pages/robots.txt.ts                  base
+src/styles/global.css                    base
+tsconfig.json                            base
