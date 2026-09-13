@@ -1786,3 +1786,144 @@ CLI has no new flags or prompts.
   arrangement V1's `mode` became — and selection skips it rather than asking the
   registry for an adapter that was never one.
 - Astro's styling dimension remains inert, unchanged from Stage 5.
+
+### Stage 9 — SEO, and metadata as composable data (landed)
+
+The second feature adapter, and a deliberately different shape from the first.
+
+```
+src/domain/seo.ts        the contract: what a head must say, as data
+src/adapters/seo.ts      feature: the capability requirement + the contract
+src/domain/capabilities  document-metadata
+scripts/smoke.mjs        the contract asserted against a freshly built project
+test/fixtures/           the head a real astro build emitted, for both URL states
+```
+
+**Support matrix — supported means generated, installed, checked and built:**
+
+| Stack                                      | Result                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------- |
+| `astro + tailwind`                         | supported (metadata is baseline framework behaviour)                      |
+| `astro + tailwind + seo` (with a site URL) | **supported** — new in this stage                                         |
+| `astro + tailwind + seo` (no site URL)     | **supported** — canonical and `og:url` omitted, nothing fabricated        |
+| `astro + tailwind + seo + not-found`       | supported; the two features compose                                       |
+| `react + vite + tailwind + seo`            | **refused** — React provides no `document-metadata`                       |
+| hypothetical framework + `seo`             | compatible when it provides `document-metadata`; refused when it does not |
+
+`sitemap`, `structured-data`, `social-metadata` and `robots` remain names in the
+feature vocabulary with no adapter behind them, and never fall back to `seo`.
+
+**A feature is not one shape.** Stage 8's `not-found` owns a requirement and a
+guarantee and contributes no data, because a 404 page is markup and markup is
+framework-specific. SEO is the other case: what a head must _say_ is entirely
+framework-independent, so this feature owns that as data and leaves each
+framework to render it. Both are features; neither pattern is the rule, and a
+test asserts the two differ.
+
+| Layer            | Owns                                                              |
+| ---------------- | ----------------------------------------------------------------- |
+| the feature      | the contract — title, description, robots, canonical, OG, Twitter |
+| the framework    | the head, and how tags reach it before the response is sent       |
+| the architecture | which file is the layout                                          |
+
+**Why `document-metadata`.** The smallest correct requirement, and the timing is
+the whole content of the claim: metadata must reach the document head _before
+the response is sent_. An SPA that sets `document.title` after hydration has a
+head and does not have this — a crawler reading the initial response sees the
+entry HTML and nothing the feature contributed. React's own template says as
+much in a comment, so it does not claim the capability and the combination is
+refused:
+
+```
+That combination will not work.
+  - Search-engine metadata requires document-metadata
+    (the contract has to reach the document head before the response is
+     sent, or crawlers never see it)
+```
+
+Server rendering is the fix. A runtime metadata package would produce tags that
+look right in a browser and are invisible to the machines the feature exists
+for, so none was added.
+
+**Nothing is invented.** The rule the project runs on applies here with
+particular force, because SEO is where a generator is most tempted to guess.
+With no configured site URL there is no canonical and no `og:url` — not
+`localhost`, not `example.com`, not an empty attribute, which would resolve to
+the current page and be worse than no tag. Anything that is not an absolute
+http(s) URL is treated as absent rather than repaired. A golden snapshots the
+URL-less contract so the omission is a recorded contract rather than a
+coincidence.
+
+**The contract is checked against reality.** This is what stops a generic model
+and a framework implementation drifting apart while both look correct alone:
+
+| Check                                    | Where                                        |
+| ---------------------------------------- | -------------------------------------------- |
+| contract ↔ emitted HTML, both URL states | `test/fixtures/`, captured from a real build |
+| contract ↔ freshly built project         | `scripts/smoke.mjs`, every CI run            |
+
+All thirteen fields agree in both states: title, description, robots, canonical,
+`og:type`, `og:title`, `og:site_name`, `og:description`, `og:url`, `og:locale`,
+`twitter:card`, `twitter:title`, `twitter:description`.
+
+**Evidence, from real generated projects.** Both scenarios generated through the
+production path, then installed, checked and built:
+
+| Scenario           | install      | astro check | build   | canonical               |
+| ------------------ | ------------ | ----------- | ------- | ----------------------- |
+| with a site URL    | 291 packages | 0 errors    | 2 pages | `https://acme.example/` |
+| without a site URL | 291 packages | 0 errors    | 2 pages | absent, as is `og:url`  |
+
+**What it contributes:**
+
+| Contribution        | `seo`                                                               |
+| ------------------- | ------------------------------------------------------------------- |
+| dependencies        | none — an SEO package would be weight for tags a framework can emit |
+| scripts             | none                                                                |
+| configuration files | none — no `seo.config.ts`; the values come from site metadata       |
+| files               | none                                                                |
+| config entries      | one, the contract, addressed at `app.layout` / `metadata`           |
+| required roles      | `app.layout`, requested as a semantic role                          |
+
+The contract travels as an ordinary `ConfigContribution` — it already carries a
+target role, a slot, a value, an owner and a reason, which is exactly what this
+needs, so no `SeoContribution` type was invented.
+
+**Conflicts are refused, not resolved.** Two adapters describing the head
+identically de-duplicate and both are kept as provenance; two describing it
+_differently_ is an error naming both owners and both titles, because there is
+one `<title>` and picking a winner silently is how a site ends up with metadata
+nobody chose. The check runs during planning even though nothing consumes the
+claims yet — a conflict nobody notices is the failure it exists to prevent.
+
+**Unchanged.** The four V1 golden files are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+`templates/astro-tailwind/` was not touched, no existing V2 golden moved, and
+the three React stacks rebuild to the same asset hashes as before. Astro's
+existing structured data and sitemap behaviour are untouched and were verified
+still present in a real build.
+
+**Known limitations, stated rather than implied:**
+
+- **For Astro, metadata is baseline behaviour and the feature is a contract over
+  it.** The template's `Seo.astro` already emits every tag, reading the same
+  site metadata, and it keeps ownership — selecting `seo` changes the adapter
+  set, the required-role set and the recorded contract without changing a byte
+  of output. Converting baseline behaviour into optional behaviour would mean
+  rewriting the template and changing V1 output, which is a standing
+  compatibility contract. The value the feature adds today is the framework
+  -independent contract and the drift check against it.
+- **No adapter consumes the metadata claim yet.** The slot, the conflict rule
+  and the provenance are real and tested, but Astro satisfies the contract from
+  its own template rather than by reading the claim. The first framework whose
+  head is composed rather than templated will exercise the other half.
+- **The contract covers one page.** `resolveSeoContract` takes a page title, a
+  path and a noindex flag, but only the site-level contract is contributed;
+  per-page metadata composition is not part of this stage.
+- **`og:image` and the Twitter card type are not modelled.** They are choices a
+  developer makes after generation, in `site.config.ts`, and modelling them
+  would duplicate configuration the project already owns.
+- **Structured data and sitemap are untouched and out of scope**, as is
+  per-framework SEO for React. A correct rejection was preferred to fake
+  support.
+- **No public CLI selection.** `features` remains V2 manifest territory.

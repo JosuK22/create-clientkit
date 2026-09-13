@@ -15,16 +15,17 @@ import { createReactAdapter } from './react.js';
 import { createTailwindAdapter } from './tailwind.js';
 import { createMuiAdapter } from './mui.js';
 import { createNotFoundAdapter } from './not-found.js';
+import { createSeoAdapter } from './seo.js';
 import { createViteAdapter } from './vite.js';
 
 /**
  * The adapter registry, holding exactly what exists.
  *
- * Two frameworks, one build tool, two styling systems, one UI library -
- * because those are what is implemented. The id unions in
- * `domain/dimensions.ts` name more (`nextjs`, `angular`, `chakra`, `scss`), and
- * asking for any of them fails here rather than resolving to a stub or, far
- * worse, quietly falling back to something that happens to work.
+ * Two frameworks, one build tool, two styling systems, one UI library and two
+ * features - because those are what is implemented. The id unions in
+ * `domain/dimensions.ts` name more (`nextjs`, `angular`, `chakra`, `scss`,
+ * `sitemap`), and asking for any of them fails here rather than resolving to a
+ * stub or, far worse, quietly falling back to something that happens to work.
  *
  * That distinction is the registry's job and nobody else's: a **domain id** is
  * a name the vocabulary knows, an **implemented adapter** is code that exists.
@@ -83,7 +84,10 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   // `starter:*` is not here on purpose. It selects a template layer rather than
   // an adapter - the arrangement V1's `mode` became - and asking the registry
   // for it would report a missing adapter for something that was never one.
-  const features = new Map<FeatureId, Adapter>([['not-found', createNotFoundAdapter()]]);
+  const features = new Map<FeatureId, Adapter>([
+    ['not-found', createNotFoundAdapter()],
+    ['seo', createSeoAdapter()],
+  ]);
 
   // Sorted so the list in an error message is stable.
   const frameworkIds = [...frameworks.keys()].sort();

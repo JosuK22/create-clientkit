@@ -41,7 +41,13 @@ const ASTRO_DECLARATION: AdapterDeclaration = {
    * Astro", which is why the same Tailwind declaration will hold for React +
    * Vite without being edited.
    */
-  provides: ['static-output', 'file-based-routing', 'typescript', 'vite-plugins'],
+  provides: [
+    'static-output',
+    'file-based-routing',
+    'document-metadata',
+    'typescript',
+    'vite-plugins',
+  ],
   requires: [],
   /** Astro 7's own floor, matching templates/astro-tailwind/template.json. */
   minNode: '>=22.12.0',

@@ -8,6 +8,8 @@ import {
 } from '../domain/app-composition.js';
 import { collectBuildPlugins, emitViteConfig } from '../domain/build-config.js';
 import { composePackage } from '../domain/package-composition.js';
+import { collectMetadata } from '../domain/seo.js';
+import type { MetadataClaim } from '../domain/seo.js';
 import type { ComposedPackage } from '../domain/package-composition.js';
 import { deepMergeJson, stringifyJson } from '../generate/compose.js';
 import type { ConfigContribution, Contribution } from '../domain/contributions.js';
@@ -71,6 +73,11 @@ export interface AdapterPlanResult {
    * is answered.
    */
   readonly composedPackage?: ComposedPackage;
+  /**
+   * What the selected adapters say the page head must express, with the owner
+   * and reason behind each claim. Empty when no adapter describes metadata.
+   */
+  readonly metadata: readonly MetadataClaim[];
   readonly manifest: ProjectManifest;
   readonly project: ResolvedProject;
   readonly contributions: readonly Contribution[];
@@ -621,11 +628,16 @@ export function planManifest(
   );
 
   const packageResult = composePackageOperation(project, contributions, operations);
+  // Refuses two adapters describing the head differently, before anything is
+  // written. Runs even when nothing consumes the claims, because a conflict
+  // nobody notices is the failure this exists to prevent.
+  const metadata = collectMetadata(contributions.flatMap((entry) => entry.config));
   assertRequiredRoles(project, packageResult.operations);
 
   return {
     plan: { ...generated, operations: packageResult.operations },
     ...(packageResult.composed === undefined ? {} : { composedPackage: packageResult.composed }),
+    metadata,
     manifest,
     project,
     contributions,

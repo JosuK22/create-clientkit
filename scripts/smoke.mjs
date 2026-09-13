@@ -182,16 +182,19 @@ try {
     {
       name: 'coming-soon',
       args: ['--mode', 'coming-soon', '--name', 'Acme Ltd', '--url', 'https://acme.example'],
+      siteName: 'Acme Ltd',
       url: true,
     },
     {
       name: 'full',
       args: ['--mode', 'full', '--name', 'A & B Design Studio', '--url', 'https://acme.example'],
+      siteName: 'A & B Design Studio',
       url: true,
     },
     {
       name: 'no-url',
       args: ['--mode', 'coming-soon', '--name', 'Acme Ltd'],
+      siteName: 'Acme Ltd',
       url: false,
     },
   ];
@@ -291,6 +294,68 @@ try {
       `${scenario.name}: copyright notice is missing a space: ${notice.slice(0, 60)}`,
     );
 
+    /*
+     * The SEO contract, against the head a real build emitted.
+     *
+     * Stage 9 made the metadata contract a framework-independent value that the
+     * SEO feature computes. This is the other end of that: the tags Astro
+     * actually produced. The two are written independently - one in TypeScript
+     * from the site metadata, one here from the arguments the CLI was called
+     * with - so if the contract and the template ever disagree, one of them
+     * fails against the same build.
+     *
+     * Entity-decoded because the site name in one scenario contains an
+     * ampersand, which is correctly escaped in the attribute.
+     */
+    const decode = (value) =>
+      value
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+    const tag = (re) => {
+      const match = head.match(re);
+      return match === null ? null : decode(match[1]);
+    };
+
+    const expected = scenario.siteName;
+    expect(
+      tag(/<title>([^<]*)<\/title>/) === expected,
+      `${scenario.name}: <title> should be the site name, found ${tag(/<title>([^<]*)<\/title>/)}`,
+    );
+    for (const [label, re] of [
+      ['og:title', /<meta property="og:title" content="([^"]*)"/],
+      ['og:site_name', /<meta property="og:site_name" content="([^"]*)"/],
+      ['twitter:title', /<meta name="twitter:title" content="([^"]*)"/],
+    ]) {
+      expect(tag(re) === expected, `${scenario.name}: ${label} should be the site name`);
+    }
+
+    expect(
+      tag(/<meta property="og:type" content="([^"]*)"/) === 'website',
+      `${scenario.name}: og:type should be website`,
+    );
+    expect(
+      tag(/<meta name="robots" content="([^"]*)"/) === 'index, follow',
+      `${scenario.name}: an ordinary page should be indexable`,
+    );
+    for (const [label, re] of [
+      ['description', /<meta name="description" content="([^"]*)"/],
+      ['og:description', /<meta property="og:description" content="([^"]*)"/],
+      ['twitter:description', /<meta name="twitter:description" content="([^"]*)"/],
+    ]) {
+      const value = tag(re);
+      expect(
+        value !== null && value.trim() !== '',
+        `${scenario.name}: ${label} is missing or empty`,
+      );
+    }
+    expect(
+      tag(/<meta name="twitter:card" content="([^"]*)"/) !== null,
+      `${scenario.name}: twitter:card is missing`,
+    );
+
     // The safety guarantee that matters most: nothing fabricated.
     const fabricated = /yourdomain|your-domain|client-site\.com|example\.com/i;
     expect(!fabricated.test(head), `${scenario.name}: fabricated domain in metadata`);
@@ -300,6 +365,15 @@ try {
 
     if (scenario.url) {
       expect(head.includes('rel="canonical"'), `${scenario.name}: canonical missing despite a URL`);
+      const canonical = tag(/<link rel="canonical" href="([^"]*)"/);
+      expect(
+        canonical === tag(/<meta property="og:url" content="([^"]*)"/),
+        `${scenario.name}: og:url disagrees with the canonical URL`,
+      );
+      expect(
+        canonical !== null && canonical.startsWith('https://'),
+        `${scenario.name}: canonical is not an absolute https URL`,
+      );
       expect(hasSitemap, `${scenario.name}: sitemap missing despite a URL`);
       expect(
         robots.includes('Sitemap:'),

@@ -111,10 +111,11 @@ describe('not-found is a feature, not a framework concern', () => {
     expect(() => adapters.uiLibrary('not-found' as never)).toThrow(CliError);
   });
 
-  it('reports itself as the only implemented feature', () => {
-    expect(adapters.implementedFeatures()).toEqual(['not-found']);
+  it('is one of the implemented features', () => {
+    // 'seo' moved to the other side of this line in Stage 9.
+    expect(adapters.implementedFeatures()).toEqual(['not-found', 'seo']);
     expect(adapters.hasFeature('not-found')).toBe(true);
-    expect(adapters.hasFeature('seo')).toBe(false);
+    expect(adapters.hasFeature('sitemap')).toBe(false);
   });
 });
 
@@ -335,7 +336,8 @@ describe('selection', () => {
   });
 
   it('refuses a known but unimplemented feature, with no fallback', () => {
-    for (const id of ['seo', 'sitemap', 'structured-data'] as const) {
+    // 'seo' is implemented as of Stage 9; these three are not.
+    for (const id of ['sitemap', 'structured-data', 'social-metadata'] as const) {
       expect(() => adapters.feature(id)).toThrow(CliError);
       expect(() => selectAdapters(astro(['starter:coming-soon', id]), adapters)).toThrow(CliError);
     }
@@ -344,7 +346,7 @@ describe('selection', () => {
   it('an unimplemented feature never becomes not-found', () => {
     let refs: readonly string[];
     try {
-      refs = selectAdapters(astro(['starter:coming-soon', 'seo']), adapters).adapters.map(
+      refs = selectAdapters(astro(['starter:coming-soon', 'sitemap']), adapters).adapters.map(
         (entry) => entry.ref,
       );
     } catch {

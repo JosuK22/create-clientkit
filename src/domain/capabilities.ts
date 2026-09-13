@@ -43,6 +43,17 @@ export const CAPABILITIES = [
   'ssr',
   'static-output',
   'file-based-routing',
+  /**
+   * The application has a document head that per-page metadata can be rendered
+   * into *before the response is sent*.
+   *
+   * The timing is the whole content of the claim. A single-page application
+   * that sets `document.title` after hydration has a head, and does not have
+   * this: a crawler reading the initial response sees the entry HTML and
+   * nothing else. Declaring it there would produce metadata that looks correct
+   * in a browser and is invisible to the machines it exists for.
+   */
+  'document-metadata',
   'spa-routing',
 
   /**

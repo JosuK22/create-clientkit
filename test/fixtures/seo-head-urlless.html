@@ -1,0 +1,33 @@
+<!--
+  The metadata tags from dist/index.html of a real `astro build`.
+
+  Not hand-written and not reformatted - test/fixtures/ is in .prettierignore
+  for exactly this reason. Captured verbatim from the head Astro emitted for
+  the site metadata named in test/seo-feature.test.ts, with only the inline
+  <style> and <script> blocks removed: they carry no metadata and would break
+  the fixture on any unrelated CSS change. Every <title>, <meta> and <link>
+  the head contained is here, in the order Astro emitted them.
+
+  The contract the SEO feature computes is asserted against this, so the
+  generic model and the framework implementation cannot drift apart unnoticed.
+  scripts/smoke.mjs re-checks the same agreement against a freshly built
+  project on every CI run.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Astro v7.3.2">
+<title>Acme Ltd</title>
+<meta name="description" content="Bespoke widgets for discerning clients.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Acme Ltd">
+<meta property="og:site_name" content="Acme Ltd">
+<meta property="og:description" content="Bespoke widgets for discerning clients.">
+<meta property="og:locale" content="en_GB">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Acme Ltd">
+<meta name="twitter:description" content="Bespoke widgets for discerning clients.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d10">
+<link rel="stylesheet" href="/_astro/BaseLayout.SXIaXGvz.css">
