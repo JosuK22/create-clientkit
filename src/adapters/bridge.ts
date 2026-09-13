@@ -1,5 +1,11 @@
 import path from 'node:path';
 
+import {
+  appRootEntry,
+  composesAppRoot,
+  emitAppRoot,
+  importSpecifier,
+} from '../domain/app-composition.js';
 import { collectBuildPlugins, emitViteConfig } from '../domain/build-config.js';
 import { composePackage } from '../domain/package-composition.js';
 import type { ComposedPackage } from '../domain/package-composition.js';
@@ -207,6 +213,88 @@ export function composedFiles(
       path: project.architecture.roles['config.build'] ?? 'vite.config.ts',
       content: emitViteConfig(plugins),
       origin: `composed from ${plugins.map(({ owner }) => owner).join(' + ')}`,
+    },
+  ];
+}
+
+/**
+ * The application root, composed from role mappings and contributions.
+ *
+ * Emitted for any architecture that maps both `app.root` and `page.home`, and
+ * for none that does not - Astro maps neither, so nothing is composed for it
+ * and no branch on the framework appears here.
+ *
+ * The provider slot is filled only when the architecture maps `app.providers`
+ * *and* some adapter actually produced a file there. That is what lets the UI
+ * library dimension be genuinely optional: React alone emits the plain root it
+ * always had, byte for byte, and React with MUI emits the same root wrapped.
+ */
+export function composedAppRoot(
+  project: ResolvedProject,
+  contributions: readonly Contribution[],
+  operations: readonly FileOperation[],
+): readonly FileOperation[] {
+  if (!composesAppRoot(project.architecture)) return [];
+
+  const rootPath = resolveRole(project.architecture, 'app.root');
+  const rootExportName = project.architecture.rootExportName;
+  if (rootExportName === undefined) {
+    throw new CliError(
+      `Architecture "${project.architecture.id}" maps app.root but does not say what it exports.`,
+      { hint: 'Set rootExportName; the entry point imports that binding by name.' },
+    );
+  }
+
+  const config = contributions.flatMap((contribution) => contribution.config);
+  const page = appRootEntry(config, 'page');
+  if (page === undefined) {
+    throw new CliError('Nothing told the application root which page to render.', {
+      hint: `The framework adapter is expected to contribute an "app.root" page entry.`,
+    });
+  }
+
+  const providers = appRootEntry(config, 'providers');
+  const providersPath = definesRole(project.architecture, 'app.providers')
+    ? resolveRole(project.architecture, 'app.providers')
+    : undefined;
+  const providersExists =
+    providersPath !== undefined && operations.some((entry) => entry.path === providersPath);
+
+  if (providers !== undefined && !providersExists) {
+    // A wrapper nothing produced would emit an import of a file that does not
+    // exist - a project that installs and then fails to build, which is the
+    // failure mode this codebase treats most seriously.
+    throw new CliError(
+      `${providers.owner} wraps the application root but contributes no provider file.`,
+      {
+        hint:
+          providersPath === undefined
+            ? `Architecture "${project.architecture.id}" maps no app.providers role for it to fill.`
+            : `Nothing produces "${providersPath}".`,
+      },
+    );
+  }
+
+  const owners = [page.owner, ...(providers === undefined ? [] : [providers.owner])];
+
+  return [
+    {
+      type: 'write',
+      path: rootPath,
+      content: emitAppRoot(
+        rootExportName,
+        {
+          importName: page.entry.importName,
+          from: importSpecifier(rootPath, resolveRole(project.architecture, 'page.home')),
+        },
+        providers === undefined || providersPath === undefined
+          ? undefined
+          : {
+              importName: providers.entry.importName,
+              from: importSpecifier(rootPath, providersPath),
+            },
+      ),
+      origin: `composed from ${owners.join(' + ')}`,
     },
   ];
 }
@@ -515,13 +603,15 @@ export function planManifest(
   });
 
   const readText = (options.fs ?? realPlanFs).readText;
+  const withContributions = mergeComposed(generated.operations, [
+    ...contributedFiles(project, contributions, readText),
+    ...composedFiles(project, contributions),
+  ]);
+
   const operations = applyMerges(
     project,
     contributions,
-    mergeComposed(generated.operations, [
-      ...contributedFiles(project, contributions, readText),
-      ...composedFiles(project, contributions),
-    ]),
+    mergeComposed(withContributions, composedAppRoot(project, contributions, withContributions)),
   );
 
   const packageResult = composePackageOperation(project, contributions, operations);

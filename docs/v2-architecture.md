@@ -1503,3 +1503,144 @@ asserts.
 - `styling: none` is refused for React rather than producing an unstyled
   project. Making it genuinely optional needs the entry point to be composed
   rather than templated, which is a larger change than this stage warranted.
+
+### Stage 7 — Material UI and the UI-library dimension (landed)
+
+The first UI-library adapter, and the stage that proves a component library is
+independent of the styling system rather than a variety of one.
+
+```
+src/adapters/mui.ts                        ui-library: deps + provider + wrapper
+src/domain/app-composition.ts              app.root composed from contributions
+templates/ui-library/mui/AppProviders.tsx  the component MUI contributes
+src/adapters/registry.ts                   the ui-library dimension is selectable
+```
+
+**Support matrix — every row marked supported was generated, installed and
+built; the rest say only what was actually checked:**
+
+| Framework | Build tool | Styling     | UI library | Result                                                               |
+| --------- | ---------- | ----------- | ---------- | -------------------------------------------------------------------- |
+| `astro`   | own        | `tailwind`  | `none`     | supported                                                            |
+| `react`   | `vite`     | `tailwind`  | `none`     | supported                                                            |
+| `react`   | `vite`     | `bootstrap` | `none`     | supported                                                            |
+| `react`   | `vite`     | `tailwind`  | `mui`      | **supported** — new in this stage                                    |
+| `react`   | `vite`     | `bootstrap` | `mui`      | capability-compatible, **not** generated or built, **not** supported |
+| `react`   | `vite`     | `none`      | `mui`      | refused before writing — the architecture still needs a stylesheet   |
+| `astro`   | own        | `tailwind`  | `mui`      | refused — Astro provides no `react-runtime`                          |
+
+`chakra`, `angular-material`, `nextjs`, `angular` and `scss` remain names in the
+vocabulary with no adapter behind them; the registry refuses them by name.
+Compatibility is not support: a combination is documented as supported only
+once it has been generated and built.
+
+**A UI library is not a styling system.** Tailwind and Bootstrap answer "what do
+the classes on my markup mean". MUI answers "where do my components come from".
+A project can want both, and this one does — the generated starter keeps its
+styling system's global stylesheet and its semantic classes untouched, and adds
+MUI above them. Collapsing the two would make `tailwind + mui` unrepresentable.
+
+Emotion is the case that is easiest to get wrong, so it is worth stating
+plainly: `@emotion/react` and `@emotion/styled` are MUI's styling **engine** and
+are owned by MUI as an implementation detail. They are not the project's styling
+**choice**, which remains whatever the styling adapter contributed. A dependency
+and a dimension are different things, and a test asserts the distinction.
+
+**MUI requires one capability and names nothing.** `react-runtime`, and that is
+the whole of it:
+
+- Not the build tool. MUI ships compiled JavaScript and needs no bundler plugin,
+  so requiring `vite-plugins` would have quietly excluded every other bundler.
+- Not a styling system. MUI works with any of them or none, and requiring one
+  would encode a product combination as a technical constraint.
+
+The proof is hypothetical rather than circumstantial. A test builds a framework
+that does not exist, gives it `react-runtime`, and MUI works with it unmodified
+and unaware; a second framework without that capability is refused, naming the
+capability. A hypothetical build tool that is not Vite is accepted, and a second
+hypothetical component library works against React with no change to React. The
+compatibility engine was not modified in this stage.
+
+**The application root became composed.** This is the one new mechanism, and it
+existed because every alternative was worse. MUI has to mount a theme, a style
+engine and a CSS reset above the whole tree, and the root component belonged to
+React's template — so MUI could either overwrite a file another adapter owns, or
+ship a component nothing renders, which installs a dependency and proves
+nothing.
+
+Two roles carry it. `app.root` is where the composed module goes; `app.providers`
+is an optional slot above it. The architecture supplies both **paths**, so MUI
+never learns that React keeps components in `src/components/ui`, and each
+adapter names only its own export. React contributes `{ importName: 'HomePage' }`
+and MUI contributes `{ importName: 'AppProviders' }`; the composer resolves the
+import specifiers and emits the file.
+
+With no UI library selected the emitted root is byte-for-byte the file React's
+template used to ship. That is why adding a whole dimension moved six existing
+golden lines and no generated bytes.
+
+**What MUI contributes, and what it does not:**
+
+| Contribution       | MUI                                                                                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| dependencies       | `@mui/material@9.4.0`, `@emotion/react@11.14.0`, `@emotion/styled@11.14.1`, all `prod`                                        |
+| files              | one, the provider component, addressed by role                                                                                |
+| config             | one entry, asking to wrap the application root                                                                                |
+| scripts            | none — Vite owns `dev`, `build` and `preview`, and MUI needs no others                                                        |
+| configuration file | none — MUI is configured by editing the provider it contributes; a `mui.config.ts` would be an abstraction with nothing in it |
+| template layer     | none, so it cannot override anyone's files                                                                                    |
+
+**Evidence, from a real generated project rather than unit tests.** Generated
+through `planManifest` → `apply()`, then installed and built:
+
+| Stack                           | install      | typecheck | build | JS        | CSS       |
+| ------------------------------- | ------------ | --------- | ----- | --------- | --------- |
+| `react + vite + tailwind + mui` | 115 packages | clean     | clean | 313.53 kB | 7.52 kB   |
+| `react + vite + tailwind`       | 40 packages  | clean     | clean | 222.85 kB | 7.52 kB   |
+| `react + vite + bootstrap`      | 25 packages  | clean     | clean | 222.85 kB | 233.01 kB |
+| `astro + tailwind` (real CLI)   | 291 packages | 0 errors  | clean | —         | —         |
+
+"Installed" is not "used", so the discriminators were measured rather than
+assumed. The emitted JS bundle contains `MuiBox` and `MuiCssBaseline` — the two
+MUI components the provider renders — plus the Emotion runtime, and grows by
+90.7 kB against the same project without MUI. The emitted CSS is byte-identical
+to the non-MUI Tailwind build, same content hash: MUI did not displace Tailwind
+or add a stylesheet of its own.
+
+The built project was then loaded in a headless browser. The live DOM carries
+`MuiBox-root` on a real element, Emotion injected two `<style data-emotion>`
+tags, and the Tailwind classes `app-shell`, `site-header` and `page-title` are
+present on the same page with the heading rendering at 40px. No console errors.
+That is both systems demonstrably active in one document, which is the claim the
+stage rests on.
+
+**Unchanged.** The four V1 golden files are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), the CLI has
+no new flags or prompts, and both existing React stacks build to the same asset
+hashes as before this stage. Six V2 React and Bootstrap goldens changed by one
+line each: `src/App.tsx` now reads `origin composed from framework:react` instead
+of `origin base`. Its content did not change.
+
+**Known limitations, stated rather than implied:**
+
+- **`react + vite + bootstrap + mui` is compatible but unsupported.** Nothing in
+  the capability model objects to it and a test records that, but it has not
+  been generated or built, so it is not documented as supported. Bootstrap's CSS
+  and MUI's baseline would both style the same elements, and that interaction is
+  unexamined.
+- **The demonstration is a provider, not a showcase.** MUI's visible surface in
+  the generated project is `ThemeProvider`, `CssBaseline` and one `Box`. A demo
+  button would have been more obvious, but injecting decorative UI into a client
+  starter is the wrong default, and a component nothing renders would prove
+  nothing. The browser check above is what establishes that MUI really renders.
+- **The MUI theme is not wired to the site config.** Reading the accent colour
+  out of `src/config/site.config.ts` would couple MUI to React's config shape,
+  which is exactly the coupling this stage exists to avoid. The theme is a
+  starting point to edit.
+- **`app.providers` has one filler.** The slot is generic and a second UI library
+  would need no change to React, but only MUI exercises it today, so the claim
+  rests on the hypothetical-adapter tests rather than on a second real one.
+- **No public CLI selection.** `uiLibrary` is reachable through the V2 planning
+  API and its tests, not through `npm create clientkit@latest`. The prompt and
+  flag surface belongs to a later stage.
+- Astro's styling dimension remains inert, unchanged from Stage 5.

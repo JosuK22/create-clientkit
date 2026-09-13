@@ -38,6 +38,10 @@ const ALLOWED = [
   // the two patterns above - one level deep, CSS only - because nothing else
   // has any business living there.
   /^templates\/styling\/[^/]+\/[^/]+\.css$/,
+  // The UI-library tree, same shape and same reasoning as the styling tree
+  // above: one directory per library, holding the source that library
+  // contributes. One level deep, TSX only.
+  /^templates\/ui-library\/[^/]+\/[^/]+\.tsx$/,
 ];
 
 /** Nothing shipped may match one of these, whatever the allow-list says. */
@@ -85,6 +89,9 @@ const REQUIRED = [
   // read the repository rather than the tarball.
   'templates/styling/tailwind/styles.global.css',
   'templates/styling/bootstrap/styles.global.css',
+  // A UI library contributes this by role. If it stops shipping, every project
+  // built with that library imports a file that is not there.
+  'templates/ui-library/mui/AppProviders.tsx',
 ];
 
 const packed = JSON.parse(

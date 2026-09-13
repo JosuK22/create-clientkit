@@ -1,9 +1,9 @@
 == PLAN ==
 templateId       react-vite
 templateVersion  0.1.0
-mode             full
+mode             coming-soon
 targetDir        <TARGET_DIR>
-operationCount   21
+operationCount   22
 
 == ORDER ==
 write  .client-site.json
@@ -17,6 +17,7 @@ write  src/App.tsx
 write  src/components/common/Brand.tsx
 write  src/components/layout/Footer.tsx
 write  src/components/layout/Header.tsx
+write  src/components/ui/AppProviders.tsx
 write  src/components/ui/Container.tsx
 write  src/config/site.config.ts
 write  src/hooks/useDocumentMeta.ts
@@ -43,12 +44,12 @@ origin  cli
     "framework": "react",
     "frameworkVersion": "19.3.0"
   },
-  "mode": "full",
+  "mode": "coming-soon",
   "generatedAt": "2026-01-01T00:00:00.000Z",
   "config": {
     "projectName": "acme-app",
     "siteName": "Acme Ltd",
-    "siteUrl": "https://acme.example",
+    "siteUrl": null,
     "locale": "en",
     "packageManager": "npm",
     "features": []
@@ -106,7 +107,7 @@ origin  base
 
 ---- package.json ----
 type    write
-origin  base + modes/full
+origin  base + modes/coming-soon
 ----
 {
   "name": "acme-app",
@@ -120,7 +121,7 @@ origin  base + modes/full
   "keywords": [
     "react",
     "client-site",
-    "website"
+    "landing-page"
   ],
   "scripts": {
     "dev": "vite",
@@ -129,6 +130,9 @@ origin  base + modes/full
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/material": "9.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
@@ -230,8 +234,9 @@ Stated plainly so you can decide what to add rather than discover a gap later.
 
 ---- src/App.tsx ----
 type    write
-origin  composed from framework:react
+origin  composed from framework:react + ui-library:mui
 ----
+import { AppProviders } from './components/ui/AppProviders';
 import { HomePage } from './pages/HomePage';
 
 /**
@@ -241,7 +246,11 @@ import { HomePage } from './pages/HomePage';
  * one when the site needs a second page, and this is where it goes.
  */
 export function App() {
-  return <HomePage />;
+  return (
+    <AppProviders>
+      <HomePage />
+    </AppProviders>
+  );
 }
 
 
@@ -356,6 +365,61 @@ export function Header() {
 }
 
 
+---- src/components/ui/AppProviders.tsx ----
+type    write
+origin  ui-library:mui
+----
+import { Box, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import type { ReactNode } from 'react';
+
+/**
+ * Material UI, mounted above the application.
+ *
+ * Three things have to be true for MUI components to behave anywhere in the
+ * tree, and all three live here:
+ *
+ *   - `ThemeProvider` supplies the theme every MUI component reads. Without it
+ *     components fall back to the default theme and any customisation below is
+ *     silently ignored.
+ *   - `CssBaseline` applies MUI's reset. It is scoped to MUI's own baseline and
+ *     deliberately does not fight the global stylesheet - see the note below.
+ *   - `Box` is an ordinary MUI component, rendered so the styling engine is
+ *     exercised on a real element rather than only configured.
+ *
+ * ## MUI and your styling system are separate choices
+ *
+ * This file is contributed by the UI library you picked. The global stylesheet
+ * is contributed by the styling system you picked, and neither knows about the
+ * other. Utility and layout classes on the markup inside still apply normally;
+ * MUI components are styled by this theme. That is the intended arrangement,
+ * not an accident of ordering.
+ *
+ * If the two ever disagree about a specific element, prefer changing the theme
+ * here over adding `!important` anywhere.
+ *
+ * ## Making it yours
+ *
+ * Edit `theme` below. Palette, typography and component defaults all belong
+ * there, and everything under this provider picks them up. This file is yours
+ * now - the generator will not touch it again.
+ */
+
+const theme = createTheme({
+  // Deliberately close to MUI's defaults. A generated starter should not invent
+  // a brand; set the palette once the client's colours are known.
+  cssVariables: true,
+});
+
+export function AppProviders({ children }: { children: ReactNode }) {
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box className="app-providers">{children}</Box>
+    </ThemeProvider>
+  );
+}
+
+
 ---- src/components/ui/Container.tsx ----
 type    write
 origin  base
@@ -418,7 +482,7 @@ export interface ContactDetails {
 export const SITE: SiteIdentity = {
   name: 'Acme Ltd',
   description: 'Bespoke widgets.',
-  url: 'https://acme.example',
+  url: '',
   locale: 'en',
   author: '',
 };
@@ -531,58 +595,42 @@ createRoot(container).render(
 
 ---- src/pages/HomePage.tsx ----
 type    write
-origin  modes/full
+origin  modes/coming-soon
 ----
+import { Brand } from '../components/common/Brand';
 import { Container } from '../components/ui/Container';
 import { BaseLayout } from '../layouts/BaseLayout';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { CONTACT, SITE } from '../config/site.config';
 
-/** Placeholder structure, not placeholder claims - replace the copy, keep the shape. */
-const SECTIONS = [
-  {
-    id: 'about',
-    title: 'About',
-    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
-  },
-  {
-    id: 'work',
-    title: 'Work',
-    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
-  },
-  {
-    id: 'contact',
-    title: 'Contact',
-    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
-  },
-];
-
+/**
+ * The launch page.
+ *
+ * No header: the page carries its own brand lockup below, and repeating it in
+ * a bar would say the same thing twice on one screen. A launch page also has
+ * nowhere to navigate to yet.
+ */
 export function HomePage() {
   useDocumentMeta(SITE.name, SITE.description);
 
   return (
-    <BaseLayout>
-      <Container className="intro">
-        <div className="intro-inner">
+    <BaseLayout showHeader={false}>
+      <Container className="hero">
+        <div className="hero-inner">
+          <Brand size="lg" />
+
+          <p className="eyebrow">Coming soon</p>
+
           <h1 className="page-title">{SITE.name}</h1>
+
           <p className="lead">{SITE.description}</p>
+
           {CONTACT.email !== '' && (
             <a href={`mailto:${CONTACT.email}`} className="button-primary">
               Get in touch
             </a>
           )}
         </div>
-      </Container>
-
-      <Container className="sections">
-        {SECTIONS.map((section) => (
-          <section key={section.id} id={section.id} aria-labelledby={`${section.id}-heading`}>
-            <h2 id={`${section.id}-heading`} className="section-title">
-              {section.title}
-            </h2>
-            <p className="section-body">{section.body}</p>
-          </section>
-        ))}
       </Container>
     </BaseLayout>
   );

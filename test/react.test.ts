@@ -257,8 +257,18 @@ describe('React file roles', () => {
     const paths = new Set(planReact().plan.operations.map((operation) => operation.path));
     for (const [role, target] of Object.entries(REACT_ARCHITECTURE.roles)) {
       if (role === 'assets.public') continue; // a directory
+      // app.providers is a slot, not a promise. Mapping it says where a UI
+      // library's provider wrapper would go; with no UI library selected
+      // nothing fills it, and the composed root correctly omits it. The MUI
+      // suite asserts the filled case.
+      if (role === 'app.providers') continue;
       expect(paths.has(target), `role "${role}" -> ${target} is not generated`).toBe(true);
     }
+  });
+
+  it('leaves the provider slot empty when no UI library is selected', () => {
+    const paths = new Set(planReact().plan.operations.map((operation) => operation.path));
+    expect(paths.has(REACT_ARCHITECTURE.roles['app.providers'] ?? '')).toBe(false);
   });
 
   it('claims only directories the generated project really has', () => {

@@ -2,21 +2,22 @@ import path from 'node:path';
 
 import { CliError } from '../errors.js';
 import type { Adapter, FrameworkAdapter } from '../domain/adapters.js';
-import type { BuildToolId, FrameworkId, StylingId } from '../domain/dimensions.js';
+import type { BuildToolId, FrameworkId, StylingId, UiLibraryId } from '../domain/dimensions.js';
 import { createAstroAdapter } from './astro.js';
 import { createBootstrapAdapter } from './bootstrap.js';
 import { createReactAdapter } from './react.js';
 import { createTailwindAdapter } from './tailwind.js';
+import { createMuiAdapter } from './mui.js';
 import { createViteAdapter } from './vite.js';
 
 /**
  * The adapter registry, holding exactly what exists.
  *
- * Two frameworks, one build tool, two styling systems - because those are what
- * is implemented. The id unions in `domain/dimensions.ts` name more (`nextjs`,
- * `angular`, `mui`, `scss`), and asking for any of them fails here rather
- * than resolving to a stub or, far worse, quietly falling back to something
- * that happens to work.
+ * Two frameworks, one build tool, two styling systems, one UI library -
+ * because those are what is implemented. The id unions in
+ * `domain/dimensions.ts` name more (`nextjs`, `angular`, `chakra`, `scss`), and
+ * asking for any of them fails here rather than resolving to a stub or, far
+ * worse, quietly falling back to something that happens to work.
  *
  * That distinction is the registry's job and nobody else's: a **domain id** is
  * a name the vocabulary knows, an **implemented adapter** is code that exists.
@@ -33,13 +34,16 @@ export interface AdapterRegistry {
   framework(id: FrameworkId): FrameworkAdapter;
   buildTool(id: BuildToolId): Adapter;
   styling(id: StylingId): Adapter;
+  uiLibrary(id: UiLibraryId): Adapter;
   /** Whether an adapter exists, without throwing. */
   hasFramework(id: FrameworkId): boolean;
   hasBuildTool(id: BuildToolId): boolean;
   hasStyling(id: StylingId): boolean;
+  hasUiLibrary(id: UiLibraryId): boolean;
   implementedFrameworks(): readonly FrameworkId[];
   implementedBuildTools(): readonly BuildToolId[];
   implementedStyling(): readonly StylingId[];
+  implementedUiLibraries(): readonly UiLibraryId[];
 }
 
 function unsupported(kind: string, id: string, available: readonly string[]): never {
@@ -65,11 +69,13 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     ['tailwind', createTailwindAdapter(templatesRoot)],
     ['bootstrap', createBootstrapAdapter(templatesRoot)],
   ]);
+  const uiLibraries = new Map<UiLibraryId, Adapter>([['mui', createMuiAdapter(templatesRoot)]]);
 
   // Sorted so the list in an error message is stable.
   const frameworkIds = [...frameworks.keys()].sort();
   const buildToolIds = [...buildTools.keys()].sort();
   const stylingIds = [...styling.keys()].sort();
+  const uiLibraryIds = [...uiLibraries.keys()].sort();
 
   return {
     framework(id) {
@@ -81,11 +87,16 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     styling(id) {
       return styling.get(id) ?? unsupported('styling system', id, stylingIds);
     },
+    uiLibrary(id) {
+      return uiLibraries.get(id) ?? unsupported('UI library', id, uiLibraryIds);
+    },
     hasFramework: (id) => frameworks.has(id),
     hasBuildTool: (id) => buildTools.has(id),
     hasStyling: (id) => styling.has(id),
+    hasUiLibrary: (id) => uiLibraries.has(id),
     implementedFrameworks: () => frameworkIds,
     implementedBuildTools: () => buildToolIds,
     implementedStyling: () => stylingIds,
+    implementedUiLibraries: () => uiLibraryIds,
   };
 }

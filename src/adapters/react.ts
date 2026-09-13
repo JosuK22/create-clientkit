@@ -91,6 +91,9 @@ const REACT_ARCHITECTURE: ArchitectureDefinition = {
   roles: {
     'app.entry': 'src/main.tsx',
     'app.root': 'src/App.tsx',
+    // Where a UI library's provider wrapper goes, if one is selected. React
+    // decides the location; the library that fills it never learns the path.
+    'app.providers': 'src/components/ui/AppProviders.tsx',
     'app.layout': 'src/layouts/BaseLayout.tsx',
     'page.home': 'src/pages/HomePage.tsx',
     // No `page.notFound`. A client-side 404 needs a router to detect an
@@ -109,6 +112,7 @@ const REACT_ARCHITECTURE: ArchitectureDefinition = {
   // does not build. Declared rather than assumed: an architecture that composed
   // its entry point could drop this and legitimately support `styling: 'none'`.
   requiredRoles: ['styles.global'],
+  rootExportName: 'App',
 };
 
 const OWNER = adapterRef(REACT_DECLARATION);
@@ -171,6 +175,16 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
          * adapter has to know the other exists.
          */
         config: [
+          {
+            // The page the application root renders. React names its own
+            // export and nothing else: the composer resolves the path from the
+            // architecture, so this says nothing about where pages live.
+            target: 'app.root',
+            at: 'page',
+            value: { importName: 'HomePage' },
+            owner: OWNER,
+            reason: 'the page the application root renders',
+          },
           {
             target: 'config.build',
             at: 'plugins',

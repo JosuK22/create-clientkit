@@ -229,7 +229,7 @@ Stated plainly so you can decide what to add rather than discover a gap later.
 
 ---- src/App.tsx ----
 type    write
-origin  base
+origin  composed from framework:react
 ----
 import { HomePage } from './pages/HomePage';
 

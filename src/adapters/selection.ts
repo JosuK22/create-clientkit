@@ -36,8 +36,9 @@ import type { AdapterRegistry } from './registry.js';
  * for the day a later adapter legitimately needs an earlier one's resolved
  * facts.
  *
- * Only `framework` and `styling` have implemented adapters today; the rest are
- * listed because the order is a decision, not a consequence of what exists.
+ * Only `framework`, `build-tool`, `styling` and `ui-library` have implemented
+ * adapters today; the rest are listed because the order is a decision, not a
+ * consequence of what exists.
  */
 export const RESOLUTION_ORDER = [
   'framework',
@@ -92,6 +93,13 @@ export function selectAdapters(manifest: ProjectManifest, registry: AdapterRegis
   if (manifest.styling !== 'none') {
     const styling = registry.styling(manifest.styling);
     adapters.push({ ref: adapterRef(styling.declaration), adapter: styling });
+  }
+
+  // `none` is a real answer here too - a project with no component library is
+  // the common case, not a missing adapter.
+  if (manifest.uiLibrary !== 'none') {
+    const uiLibrary = registry.uiLibrary(manifest.uiLibrary);
+    adapters.push({ ref: adapterRef(uiLibrary.declaration), adapter: uiLibrary });
   }
 
   const rank = (ref: string): number => {

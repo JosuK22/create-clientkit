@@ -28,6 +28,21 @@ export const FILE_ROLES = [
   'app.entry',
   /** Root component or shell the entry renders. */
   'app.root',
+  /**
+   * The component that wraps the application in context providers.
+   *
+   * Added in Stage 7 for the UI-library dimension. A UI library that needs a
+   * theme context, a style engine or a CSS reset has to sit above the whole
+   * tree, and there was no way to express that: the root component belonged to
+   * the framework's template, so the only options were for the library to
+   * overwrite someone else's file or to be installed and never rendered.
+   *
+   * Mapping it is optional. An architecture that maps it says "there is a place
+   * above the application where a provider can live, and it is here"; the root
+   * composer wires it in when some adapter actually fills it, and emits the
+   * plain root when nobody does.
+   */
+  'app.providers',
   /** The shared page shell: `<head>`, header, footer. */
   'app.layout',
   /** Home page. */
@@ -89,6 +104,15 @@ export interface ArchitectureDefinition {
    * every file comes from its own template.
    */
   readonly requiredRoles?: readonly FileRole[];
+  /**
+   * What the composed `app.root` module exports.
+   *
+   * Required when `app.root` is mapped, because the entry point imports this
+   * binding by name and the composer must not guess it. Architecture data
+   * rather than adapter data: it is a convention of the ecosystem's folder
+   * shape, which is exactly what an architecture is for.
+   */
+  readonly rootExportName?: string;
 }
 
 /**
