@@ -550,11 +550,17 @@ describe('choosing a preset interactively', () => {
     }
   });
 
-  it('is not offered once anything about the stack is settled', async () => {
-    // A menu whose choices would be silently overridden is a menu that lies.
+  it('survives a partial configuration, because it can still contribute', async () => {
+    /*
+     * Stage 17 hid the menu the moment any dimension was settled. Stage 18
+     * replaced that with a question about usefulness, so a flag that overlaps a
+     * preset no longer suppresses it - the preset still has the rest to give.
+     * The composability suite covers the rule; this holds the specific
+     * regression.
+     */
     for (const input of [{ framework: 'react' }, { styling: 'bootstrap' }]) {
       const { asked } = await menus(input);
-      expect(asked, JSON.stringify(input)).not.toContain('preset');
+      expect(asked, JSON.stringify(input)).toContain('preset');
     }
   });
 

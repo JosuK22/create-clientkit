@@ -279,10 +279,34 @@ A preset can also be named in a configuration file, alongside overrides:
 }
 ```
 
+**Presets compose with partial configuration.** Configure the parts you care
+about and let a preset fill the rest:
+
+```sh
+npm create clientkit@latest acme-app --router react-router
+```
+
+then choose **React + Material UI** when asked. The router stays as you set it
+and the preset supplies the framework, the styling system and the component
+library:
+
+```
+Framework          react          [preset]
+Styling            tailwind       [preset]
+Component library  mui            [preset]
+Routing            react-router   [flag]
+```
+
 Choosing one interactively is offered as the first stack question, with
-**Custom** to answer everything yourself. It appears only when you have not
-already configured part of the stack, since a menu whose choices would be
-overridden would be misleading.
+**Custom** to answer everything yourself. A preset is listed while it can still
+contribute something you have not already decided, and disappears once it
+cannot — so `--framework react --styling tailwind` leaves only `react-mui` on
+the menu, and adding `--ui-library mui` removes the question altogether. Where
+a preset would fill only some of what its name suggests, the menu says which
+dimensions it would actually set.
+
+Nothing is ever chosen for you: the default is always **Custom**, and flags that
+happen to resemble a preset do not silently become one.
 
 **A preset does not become a default.** A bare run still resolves Astro +
 Tailwind, and `--yes` without `--preset` produces exactly what it did before.

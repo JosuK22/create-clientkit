@@ -101,6 +101,8 @@ export function helpText(): string {
   Presets
     A named starting point. Everything it sets can still be overridden by the
     flags below, and anything it leaves out resolves exactly as it would have.
+    Configure part of the stack and a preset will fill the rest - interactively,
+    only presets that can still contribute something are offered.
 
         --preset <id>     Start from one of these:
 

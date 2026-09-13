@@ -99,6 +99,14 @@ export interface InteractiveResult {
   readonly input: DimensionInput;
   /** Which dimensions were actually asked about, in order. Read by tests. */
   readonly asked: readonly string[];
+  /**
+   * Dimensions a chosen preset filled in, so the caller can attribute them.
+   *
+   * They were neither stated by the user nor asked about, so without this they
+   * would render with no source at all - and a stack the user did not type is
+   * exactly the case where "where did this come from" needs an answer.
+   */
+  readonly presetSeeded: readonly string[];
 }
 
 /**
@@ -146,10 +154,28 @@ function candidates<T extends string>(options: DimensionOptions<T>): readonly T[
   return options.kind === 'fixed' ? [options.value] : options.options;
 }
 
+/** How many dimensions a preset states at all, settled or not. */
+function countStated(dimensions: DimensionInput): number {
+  return Object.values(dimensions).filter((value) => value !== undefined && value.length > 0)
+    .length;
+}
+
 export async function promptDimensions(options: InteractiveOptions): Promise<InteractiveResult> {
   const { adapters, prompter, mode } = options;
   const answers: Record<string, string | readonly string[] | undefined> = { ...options.input };
   const asked: string[] = [];
+  const presetSeeded: string[] = [];
+
+  /**
+   * Whether some layer has already answered for this dimension.
+   *
+   * `features` arrives as an array that is empty rather than absent when
+   * nothing supplied it, so an emptiness check rather than a presence one.
+   */
+  const settled = (key: string): boolean => {
+    const value = answers[key];
+    return value !== undefined && value.length > 0;
+  };
   const names = displayNames(adapters);
 
   /** The dimensions as currently decided; re-read, since an answer changes them. */
@@ -228,41 +254,79 @@ export async function promptDimensions(options: InteractiveOptions): Promise<Int
   };
 
   /*
-   * The preset question, and the only new one this stage adds.
+   * The preset question.
    *
-   * It exists because it costs one keystroke instead of four, and it is cheap
-   * because it does not branch the flow: choosing one seeds `answers` with the
-   * dimensions it states, and every question below then skips itself through
-   * the check it already had. "Custom" seeds nothing and the flow continues as
-   * it always did - there is no second interactive path to keep in step.
+   * It costs one keystroke instead of four, and it is cheap because it does not
+   * branch the flow: choosing one seeds `answers` with the dimensions it
+   * states, and every question below then skips itself through the check it
+   * already had. "Custom" seeds nothing and the flow continues as it always did
+   * - there is no second interactive path to keep in step.
    *
-   * Asked only when nothing about the stack is settled. With a flag or a config
-   * value already in hand, a menu whose choices would be silently overridden is
-   * a menu that lies.
+   * ## When it is offered
+   *
+   * Stage 17 asked only when *nothing* about the stack was settled, which was
+   * too blunt: `--router react-router` hid a menu that could still have
+   * supplied a framework, a styling system and a component library. The test is
+   * now per-preset and about usefulness -
+   *
+   *     offer a preset if it states a dimension nothing has answered yet
+   *
+   * - so a preset survives a flag that overlaps it and disappears only when it
+   * has nothing left to give. A menu entry that could change no value is not a
+   * choice, and offering one would imply the user's own flags were negotiable.
    */
-  if (
-    options.presets !== undefined &&
-    prompter.interactive &&
-    Object.values(options.input).every((value) => value === undefined || value.length === 0)
-  ) {
-    const CUSTOM = 'custom';
-    const chosen = await prompter.selectDimension({
-      dimension: 'preset',
-      message: 'Start from',
-      options: [
-        ...options.presets.all().map((entry) => ({
-          value: entry.id,
-          label: entry.displayName,
-          hint: entry.description,
-        })),
-        { value: CUSTOM, label: 'Custom', hint: 'answer each question yourself' },
-      ],
-      initialValue: CUSTOM,
-    });
-    asked.push('preset');
-    if (chosen !== CUSTOM) {
-      for (const [key, value] of Object.entries(options.presets.get(chosen).dimensions)) {
-        if (value !== undefined) answers[key] = value;
+  if (options.presets !== undefined && prompter.interactive) {
+    /** What a preset would actually change, given what is already settled. */
+    const contribution = (entry: { dimensions: DimensionInput }): readonly string[] =>
+      Object.entries(entry.dimensions)
+        .filter(([key, value]) => value !== undefined && value.length > 0 && !settled(key))
+        .map(([key]) => key);
+
+    const useful = options.presets
+      .all()
+      .map((entry) => ({ entry, contributes: contribution(entry) }))
+      .filter(({ contributes }) => contributes.length > 0);
+
+    if (useful.length > 0) {
+      const CUSTOM = 'custom';
+      const chosen = await prompter.selectDimension({
+        dimension: 'preset',
+        message: 'Start from',
+        options: [
+          ...useful.map(({ entry, contributes }) => ({
+            value: entry.id,
+            label: entry.displayName,
+            /*
+             * A partial contribution says so, and names what it would set.
+             *
+             * Under `--framework react`, "Astro + Tailwind CSS" is still
+             * offered - it can supply the styling system - but its name would
+             * promise a framework the flag has already decided. Listing the
+             * dimensions it would actually fill keeps the menu truthful without
+             * inventing a second eligibility rule to hide it.
+             */
+            hint:
+              contributes.length === countStated(entry.dimensions)
+                ? entry.description
+                : `sets ${contributes.join(', ')}`,
+          })),
+          { value: CUSTOM, label: 'Custom', hint: 'answer each question yourself' },
+        ],
+        // Never a preset. Pressing Enter has to mean "I did not choose one",
+        // or the flow would select a stack on the user's behalf.
+        initialValue: CUSTOM,
+      });
+      asked.push('preset');
+
+      if (chosen !== CUSTOM) {
+        for (const [key, value] of Object.entries(options.presets.get(chosen).dimensions)) {
+          if (value === undefined || value.length === 0) continue;
+          // A preset fills gaps; it never overwrites. Anything already here
+          // came from a flag or a config file, both of which outrank it.
+          if (settled(key)) continue;
+          answers[key] = value;
+          presetSeeded.push(key);
+        }
       }
     }
   }
@@ -310,5 +374,5 @@ export async function promptDimensions(options: InteractiveOptions): Promise<Int
     }
   }
 
-  return { input: answers as DimensionInput, asked };
+  return { input: answers as DimensionInput, asked, presetSeeded };
 }

@@ -210,7 +210,9 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * produce. Flags beat the file's preset, the same way they beat everything
    * else the file says.
    */
-  const preset = presetDimensions(flags.preset ?? config.preset, options.presets ?? PRESETS);
+  const presets = options.presets ?? PRESETS;
+  const namedPreset = flags.preset ?? config.preset;
+  const preset = presetDimensions(namedPreset, presets);
 
   const dimensionInput: DimensionInput = {
     framework: flags.framework ?? config.stack.framework ?? preset.framework,
@@ -379,9 +381,12 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
     input: dimensionInput,
     adapters,
     prompter,
-    // Offered only when nothing is settled, which the interactive layer
-    // decides by looking at the input it was handed.
-    presets: options.presets ?? PRESETS,
+    /*
+     * No registry means no preset question, which is how a run that already
+     * named one says so. Whether any *remaining* preset is worth offering is
+     * the interactive layer's call, made per preset against what is unresolved.
+     */
+    presets: namedPreset === undefined ? presets : undefined,
     /*
      * A provisional starter, and provably inconsequential: `selectAdapters`
      * skips every `starter:*` feature, so no candidate manifest's compatibility
@@ -390,7 +395,23 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
      */
     mode: explicit.mode ?? DEFAULTS.mode,
   });
-  for (const dimension of interactiveDimensions.asked) mark(`dimension.${dimension}`, 'prompt');
+  /*
+   * `preset` is a question, not a dimension, so it earns no `dimension.*` row -
+   * marking one would put a source beside a value the summary never prints.
+   */
+  for (const dimension of interactiveDimensions.asked) {
+    if (dimension === 'preset') continue;
+    mark(`dimension.${dimension}`, 'prompt');
+  }
+  /*
+   * A dimension an interactively chosen preset filled in is a preset value,
+   * and says so. It was neither typed nor asked about, so without this it would
+   * render with no source at all - and a stack the user did not choose
+   * dimension by dimension is exactly where provenance earns its keep.
+   */
+  for (const dimension of interactiveDimensions.presetSeeded) {
+    mark(`dimension.${dimension}`, 'preset');
+  }
 
   /*
    * One normalisation, for both input mechanisms.
