@@ -25,7 +25,7 @@ import {
   resolveDimensions,
   type DimensionInput,
 } from './dimensions.js';
-import { loadConfigFile, type FileReader } from './fromFile.js';
+import { loadConfigFile, NO_CONFIG, type FileReader } from './fromFile.js';
 import { promptDimensions } from './interactive.js';
 import type { Prompter } from './prompts.js';
 import {
@@ -167,13 +167,14 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
     ...(options.fs === undefined ? {} : { fs: options.fs }),
   };
 
-  const fileLayer =
+  const config =
     flags.from === undefined
-      ? {}
+      ? NO_CONFIG
       : loadConfigFile(flags.from, {
           cwd,
           ...(options.readFile === undefined ? {} : { readFile: options.readFile }),
         });
+  const fileLayer = config.context;
   const flagLayer = flagsLayer(flags, cwd);
 
   /** Everything the user stated explicitly, flags beating the config file. */
@@ -181,16 +182,42 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
   const sourceOf = (key: keyof ContextInput): ValueSource =>
     flagLayer[key] !== undefined ? 'flag' : 'file';
 
-  // ---- dimensions stated as flags -----------------------------------------
+  // ---- dimensions stated up front -----------------------------------------
   /*
    * Validated before anything is prompted for, so a malformed `--framework`
    * fails immediately rather than after three questions. The result is
    * discarded: the dimensions that count are resolved once the interactive
    * answers are in, from this same input plus whatever was asked.
+   *
+   * Flags beat the config file, per dimension, which is the precedence the
+   * V1 layers already use one line above. Merging here rather than anywhere
+   * else is what makes `--from` a third way of filling the *same*
+   * `DimensionInput` the flags and the prompts fill, instead of a third
+   * configuration system.
    */
   const templatesRoot = options.templatesRoot ?? findTemplatesRoot();
   const adapters = createAdapterRegistry(templatesRoot);
   const dimensionInput: DimensionInput = {
+    framework: flags.framework ?? config.stack.framework,
+    buildTool: flags.buildTool ?? config.stack.buildTool,
+    language: flags.language ?? config.stack.language,
+    styling: flags.styling ?? config.stack.styling,
+    uiLibrary: flags.uiLibrary ?? config.stack.uiLibrary,
+    router: flags.router ?? config.stack.router,
+    architecture: flags.architecture ?? config.stack.architecture,
+    // `features` is an array that is empty rather than absent when the flag was
+    // never passed, so "did the user say anything" is a length check.
+    features: flags.features.length > 0 ? flags.features : config.stack.features,
+  };
+  /*
+   * The origin only changes the noun in a feature error. A duplicate in a JSON
+   * array should not be reported as a problem with a flag the user never typed.
+   */
+  const origin = { features: flags.features.length > 0 ? '--features' : '"stack.features"' };
+  resolveDimensions(dimensionInput, adapters, origin);
+
+  /** Only what the flags said, so `--dry-run` can attribute each dimension. */
+  const flagStack: DimensionInput = {
     framework: flags.framework,
     buildTool: flags.buildTool,
     language: flags.language,
@@ -200,7 +227,6 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
     architecture: flags.architecture,
     features: flags.features,
   };
-  resolveDimensions(dimensionInput, adapters);
 
   /*
    * Only dimensions the user actually stated are recorded.
@@ -212,7 +238,8 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * supplied", and it is what the conflict check below asks too.
    */
   for (const key of Object.keys(dimensionInput) as (keyof DimensionInput)[]) {
-    if (hasDimensionInput({ [key]: dimensionInput[key] })) mark(`dimension.${key}`, 'flag');
+    if (!hasDimensionInput({ [key]: dimensionInput[key] })) continue;
+    mark(`dimension.${key}`, hasDimensionInput({ [key]: flagStack[key] }) ? 'flag' : 'file');
   }
 
   // ---- template defaults layer -------------------------------------------
@@ -223,10 +250,16 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * never saw it.
    */
   if (explicit.templateId !== undefined && hasDimensionInput(dimensionInput)) {
+    /*
+     * Worded for either source. Since Stage 16 both halves of this conflict can
+     * arrive from a config file, and telling someone to "remove the dimension
+     * flags" when they passed none is an instruction they cannot follow.
+     */
     throw new CliError('A template and a set of dimensions both name what to build.', {
       hint:
-        `"template" selects a whole stack; ${DIMENSION_FLAGS.join(', ')} configure one.\n` +
-        'Remove the template, or remove the dimension flags.',
+        'A template selects a whole stack; the dimensions configure one. Remove either.\n' +
+        `On the command line the dimensions are ${DIMENSION_FLAGS.join(', ')};\n` +
+        'in a config file they are the "stack" block, and the template is "template".',
     });
   }
 
@@ -330,7 +363,7 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * applies the same defaults, the same validation and the same feature
    * ordering to both. There is no interactive branch below this line.
    */
-  const dimensions = resolveDimensions(interactiveDimensions.input, adapters);
+  const dimensions = resolveDimensions(interactiveDimensions.input, adapters, origin);
 
   // ---- template defaults layer -------------------------------------------
   /*
@@ -444,7 +477,18 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
         : 'default',
   );
 
-  mark('features', dimensions.features.length > 0 ? 'flag' : 'default');
+  /*
+   * Attributed the same way every other dimension is, rather than assumed.
+   *
+   * This said `'flag'` outright until Stage 16, which was true while a flag was
+   * the only way to ask for a feature. With three input mechanisms it became a
+   * summary line telling the user their features came from a flag they never
+   * typed - `sources['dimension.features']` already knows better.
+   */
+  mark(
+    'features',
+    dimensions.features.length === 0 ? 'default' : (sources['dimension.features'] ?? 'prompt'),
+  );
 
   const context: ProjectContext = deepFreeze({
     targetDir: targetCheck.absolutePath,

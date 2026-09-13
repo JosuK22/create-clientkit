@@ -90,6 +90,20 @@ export const DIMENSION_DEFAULTS = {
   uiLibrary: UiLibraryId;
 };
 
+/**
+ * Where a dimension came from, for error messages only.
+ *
+ * The same values arrive from three places now, and being told that
+ * `--features` lists something twice is unhelpful when the duplicate is in a
+ * JSON file. This changes no rule - only the noun the message uses.
+ */
+export interface InputOrigin {
+  /** How to refer to the feature list: `--features`, or `"stack.features"`. */
+  readonly features: string;
+}
+
+const FLAG_ORIGIN: InputOrigin = { features: '--features' };
+
 /** The raw strings a user supplied, before any of them mean anything. */
 export interface DimensionInput {
   readonly framework?: string | undefined;
@@ -193,6 +207,7 @@ function fromFramework<T extends string>(explicit: T | undefined, options: Dimen
 function parseFeatures(
   occurrences: readonly string[],
   implemented: readonly string[],
+  origin: InputOrigin,
 ): FeatureId[] {
   const seen = new Set<string>();
   const features: FeatureId[] = [];
@@ -202,7 +217,7 @@ function parseFeatures(
       const value = raw.trim();
 
       if (value === '') {
-        throw new CliError('--features contains an empty value.', {
+        throw new CliError(`${origin.features} contains an empty value.`, {
           exitCode: EXIT_USAGE,
           hint: 'Separate features with a single comma: --features seo,accessibility',
         });
@@ -220,10 +235,10 @@ function parseFeatures(
         });
       }
 
-      const feature = known(value, FEATURE_IDS, 'feature', '--features', implemented);
+      const feature = known(value, FEATURE_IDS, 'feature', origin.features, implemented);
 
       if (seen.has(feature)) {
-        throw new CliError(`--features lists "${feature}" more than once.`, {
+        throw new CliError(`${origin.features} lists "${feature}" more than once.`, {
           exitCode: EXIT_USAGE,
           hint: 'Name each feature once.',
         });
@@ -250,6 +265,7 @@ function parseFeatures(
 export function resolveDimensions(
   input: DimensionInput,
   adapters: AdapterRegistry,
+  origin: InputOrigin = FLAG_ORIGIN,
 ): ResolvedDimensions {
   const framework = known(
     input.framework ?? DIMENSION_DEFAULTS.framework,
@@ -321,7 +337,7 @@ export function resolveDimensions(
     [...adapters.implementedUiLibraries(), 'none'],
   );
 
-  const features = parseFeatures(input.features ?? [], adapters.implementedFeatures());
+  const features = parseFeatures(input.features ?? [], adapters.implementedFeatures(), origin);
 
   return {
     framework,

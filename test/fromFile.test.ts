@@ -4,8 +4,15 @@ import { loadConfigFile } from '../src/context/fromFile.js';
 import { CliError } from '../src/errors.js';
 import { TEST_CWD } from './helpers.js';
 
+/**
+ * The V1 half of a loaded file.
+ *
+ * Stage 16 split the return value into `context` and `stack`; every assertion
+ * below is about the first, so the helper keeps returning it and the existing
+ * tests stand unchanged. The second half has its own suite.
+ */
 function load(content: string) {
-  return loadConfigFile('preset.json', { cwd: TEST_CWD, readFile: () => content });
+  return loadConfigFile('preset.json', { cwd: TEST_CWD, readFile: () => content }).context;
 }
 
 describe('loadConfigFile', () => {

@@ -1,0 +1,20 @@
+{
+  "dir": "acme-app",
+  "site": {
+    "name": "Acme Ltd",
+    "url": "https://acme.example"
+  },
+  "stack": {
+    "framework": "react",
+    "buildTool": "vite",
+    "language": "typescript",
+    "styling": "tailwind",
+    "uiLibrary": "mui",
+    "router": "react-router",
+    "architecture": "react-standard",
+    "features": ["client-route-fallback"]
+  },
+  "packageManager": "npm",
+  "git": true,
+  "install": true
+}

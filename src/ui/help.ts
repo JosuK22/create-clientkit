@@ -65,14 +65,15 @@ export function helpText(): string {
     npx create-clientkit@latest [directory] [options]
 
     Run it with nothing and it asks. Every question below has a flag, and a
-    flag you pass is a question you are not asked.
+    flag you pass is a question you are not asked. A JSON file passed with
+    --from can supply the same answers, and a flag still beats the file.
 
   Options
         --name <name>     Client / site name
         --url <url>       Production URL (omit if not decided yet)
     -m, --mode <mode>     coming-soon | full
     -y, --yes             Accept all defaults; never prompt
-        --from <file>     Read answers from a JSON config file
+        --from <file>     Read answers from a JSON config file (see README)
         --dry-run         Resolve and print the plan; write nothing
         --no-git          Skip git initialisation
         --no-install      Skip dependency installation
@@ -107,12 +108,18 @@ export function helpText(): string {
     npm create clientkit@latest acme-website
     npm create clientkit@latest acme-website --yes --no-install
     npm create clientkit@latest --from ./agency-preset.json --dry-run
+    npm create clientkit@latest --from ./clientkit.json --yes
 
     npm create clientkit@latest acme-app \\
       --framework react --build-tool vite --language typescript \\
       --styling tailwind --ui-library mui --router react-router
 
   Notes
+    A config file describes the same project the flags do. Its "stack" block
+    takes the dimension names below without their dashes, every field is
+    optional, and anything it leaves out is asked for or defaulted exactly as
+    it would be otherwise.
+
     Only questions worth asking are asked. A dimension with one possible answer
     is derived rather than offered as a menu of one, and a choice that cannot be
     built with what you have already picked is not shown - Bootstrap does not

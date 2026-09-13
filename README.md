@@ -240,7 +240,59 @@ rather than hanging.
 ### Config file (`--from`)
 
 Strictly JSON — never executed, and never a way around validation. Unknown keys
-and wrong types are errors. See [`example.preset.json`](./example.preset.json).
+and wrong types are errors.
+
+```jsonc
+{
+  "dir": "acme-app",
+  "site": {
+    "name": "Acme Ltd",
+    "url": "https://acme.example",
+  },
+  "stack": {
+    "framework": "react",
+    "buildTool": "vite",
+    "language": "typescript",
+    "styling": "tailwind",
+    "uiLibrary": "mui",
+    "router": "react-router",
+    "architecture": "react-standard",
+    "features": ["client-route-fallback"],
+  },
+  "packageManager": "npm",
+  "git": true,
+  "install": true,
+}
+```
+
+```sh
+npm create clientkit@latest -- --from clientkit.json --yes
+```
+
+Two complete examples ship with the repository:
+[`example.stack.json`](./example.stack.json) for the form above, and
+[`example.preset.json`](./example.preset.json) for the older template-based
+form, which still works unchanged.
+
+**Every field is optional.** A file naming only `{"stack": {"framework":
+"react"}}` is valid: the rest is asked for interactively, or filled from the
+same defaults a bare run uses. There are no config-file-specific defaults.
+
+**`stack` uses the same names as the flags**, without the dashes, and takes the
+same values. `features` is a JSON array — one id per entry, no commas inside an
+entry — and is sorted and de-duplicated the same way `--features` is, with a
+repeated id rejected rather than collapsed.
+
+**Combinations are validated identically.** A file asking for React with `seo`
+fails with the same message `--framework react --features seo` produces, from
+the same compatibility engine. Unknown values are refused, and a known name
+with no adapter behind it — `nextjs`, `chakra` — reports that no adapter
+implements it rather than quietly substituting something else.
+
+**`stack` and `template` are alternatives.** A template names a whole stack and
+the dimensions configure one, so a file containing both is refused, as is a
+file with a `template` used alongside a stack flag. This is the same rule
+`--template` follows on the command line.
 
 ### Configuration precedence
 
@@ -248,7 +300,12 @@ and wrong types are errors. See [`example.preset.json`](./example.preset.json).
 CLI flags  >  --from file  >  interactive answers  >  template defaults  >  built-in defaults
 ```
 
-Prompts are only issued for values no higher-precedence source supplied.
+This holds per value, not per source: a file that sets `framework` and
+`styling` alongside `--styling bootstrap` contributes its framework and loses
+its styling. `--dry-run --debug` prints where each resolved value came from.
+
+Prompts are only issued for values no higher-precedence source supplied, so a
+fully specified file needs no terminal and `--yes` never discards it.
 
 ## Templates and modes
 
