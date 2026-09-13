@@ -467,21 +467,27 @@ describe('contributions', () => {
     expect(contribution()?.templateLayers).toEqual([]);
   });
 
-  it('contributes its component by role, never by path', () => {
-    const files = contribution()?.files ?? [];
-    expect(files.map((file) => file.target)).toEqual([{ kind: 'role', role: 'app.router' }]);
-    expect(files.every((file) => file.target.kind === 'role')).toBe(true);
+  it('contributes the home route rather than a file, since Stage 13', () => {
+    // The route table became composed when a second adapter needed to add a
+    // catch-all. The alternative was editing another owner's file by string
+    // replacement, which this codebase does not do.
+    expect(contribution()?.files).toEqual([]);
+    const routes = (contribution()?.config ?? []).filter((entry) => entry.at === 'routes');
+    expect(routes).toHaveLength(1);
+    expect(routes[0]?.value).toEqual({ path: '/', element: { kind: 'children' }, order: 0 });
   });
 
   it('asks to wrap the application root, naming only its own export and role', () => {
-    const config = contribution()?.config ?? [];
+    const config = (contribution()?.config ?? []).filter((entry) => entry.at !== 'routes');
     expect(config.map((entry) => ({ target: entry.target, at: entry.at }))).toEqual([
       { target: 'app.root', at: 'providers' },
     ]);
     const value = config[0]?.value as { importName: string; role: string; order: number };
     expect(value.importName).toBe('AppRouter');
     expect(value.role).toBe('app.router');
-    expect(value.order).toBe(0);
+    // Innermost. A wrapper inside the router wraps one route; the theme has to
+    // be outside it or a second route renders unthemed.
+    expect(value.order).toBe(100);
   });
 
   it('no other adapter smuggles in a router package', () => {
@@ -574,12 +580,17 @@ describe('the application root composes the router', () => {
     expect(fileAt('src/App.tsx', { router: 'none' })).toContain('ships without a router');
   });
 
-  it('nests inside-out with a UI library, router outermost', () => {
+  it('nests inside-out with a UI library, router innermost', () => {
+    // The router goes inside the theme, and the direction matters more than it
+    // looks. The page the router is handed becomes one route's element, so a
+    // wrapper inside the router wraps that route and no other. Put the theme
+    // there and a second route renders with no theme at all - which is exactly
+    // what Stage 13's fallback did before this order was corrected.
     const content = fileAt('src/App.tsx', { uiLibrary: 'mui' });
     expect(content).toContain('<AppRouter>');
     expect(content).toContain('<AppProviders>');
-    expect(content.indexOf('<AppRouter>')).toBeLessThan(content.indexOf('<AppProviders>'));
-    expect(content.indexOf('<HomePage />')).toBeGreaterThan(content.indexOf('<AppProviders>'));
+    expect(content.indexOf('<AppProviders>')).toBeLessThan(content.indexOf('<AppRouter>'));
+    expect(content.indexOf('<HomePage />')).toBeGreaterThan(content.indexOf('<AppRouter>'));
   });
 
   it('records all three contributors when a UI library is selected too', () => {
@@ -587,7 +598,7 @@ describe('the application root composes the router', () => {
       (entry) => entry.path === 'src/App.tsx',
     );
     expect(operation?.origin).toBe(
-      'composed from framework:react + router:react-router + ui-library:mui',
+      'composed from framework:react + ui-library:mui + router:react-router',
     );
   });
 
@@ -674,9 +685,13 @@ describe('wrappers nest rather than fight', () => {
   });
 
   it('refuses a wrapper whose role the architecture does not map', () => {
-    // React maps no `page.notFound`, so a wrapper claiming it has nowhere to
-    // live. The diagnostic has to say that rather than letting role resolution
-    // fail with a generic message about an unmapped role.
+    // React maps no `config.framework` - it has no framework config file - so
+    // a wrapper claiming it has nowhere to live. The diagnostic has to say that
+    // rather than letting role resolution fail with a generic message.
+    //
+    // This used `page.notFound` until Stage 13 mapped it. The role had to be
+    // one React genuinely does not map, or the test would pass against the
+    // dangling-provider guard instead and stop proving anything about this one.
     const { project } = resolveProject(react({ router: 'none' }), adapters);
     const page: Contribution = {
       ...emptyContribution('framework:react'),
@@ -696,7 +711,7 @@ describe('wrappers nest rather than fight', () => {
         {
           target: 'app.root',
           at: 'providers',
-          value: { importName: 'Nowhere', role: 'page.notFound', order: 0 },
+          value: { importName: 'Nowhere', role: 'config.framework', order: 0 },
           owner: 'router:nowhere',
           reason: 'a wrapper the architecture has nowhere to put',
         },
@@ -705,7 +720,7 @@ describe('wrappers nest rather than fight', () => {
 
     expect(() => composedAppRoot(project, [page, homeless], [])).toThrow(CliError);
     expect(() => composedAppRoot(project, [page, homeless], [])).toThrow(
-      /maps no "page\.notFound" role/,
+      /maps no "config\.framework" role/,
     );
   });
 

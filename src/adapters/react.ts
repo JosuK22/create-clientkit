@@ -100,10 +100,13 @@ const REACT_ARCHITECTURE: ArchitectureDefinition = {
     'app.router': 'src/routes/AppRouter.tsx',
     'app.layout': 'src/layouts/BaseLayout.tsx',
     'page.home': 'src/pages/HomePage.tsx',
-    // No `page.notFound`. A client-side 404 needs a router to detect an
-    // unmatched path, and this stage ships none - so rather than map the role
-    // to a component nothing can ever render, the architecture says it has
-    // nowhere to put one. Astro, which routes by file, maps it.
+    // Where a view for an unmatched address goes. Mapping the role is not a
+    // claim that React has a 404 - it has no such thing, and `not-found` stays
+    // refused here because it requires `file-based-routing`. It says only that
+    // if something fills the role, this is where the file belongs. Nothing does
+    // unless a client-side router and the fallback feature are both selected,
+    // which is why the role is optional rather than produced by the framework.
+    'page.notFound': 'src/pages/NotFoundPage.tsx',
     'config.site': 'src/config/site.config.ts',
     'config.build': 'vite.config.ts',
     'config.language': 'tsconfig.json',

@@ -115,6 +115,7 @@ describe('not-found is a feature, not a framework concern', () => {
     // 'seo' moved to the other side of this line in Stage 9.
     expect(adapters.implementedFeatures()).toEqual([
       'accessibility',
+      'client-route-fallback',
       'not-found',
       'seo',
       'structured-data',

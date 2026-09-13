@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import { adapterRef } from '../domain/adapters.js';
 import type { Adapter, AdapterDeclaration, AdapterResolution } from '../domain/adapters.js';
 import type { Contribution } from '../domain/contributions.js';
@@ -44,10 +42,10 @@ import type { ResolvedProject } from '../domain/resolved.js';
  *
  * ## What it contributes
  *
- * Its package, and one file: the component that mounts the router above the
- * application and declares the home route. Addressed by role, so it never
- * learns where the architecture keeps such a component, and it names only its
- * own export.
+ * Its package, a wrapper that mounts the router above the application, and the
+ * home route. Since Stage 13 the route table is composed rather than templated,
+ * because a second adapter needed to add a catch-all and the alternative was
+ * editing someone else's file with string replacement.
  */
 
 const REACT_ROUTER_DECLARATION: AdapterDeclaration = {
@@ -69,7 +67,7 @@ const REACT_ROUTER_DECLARATION: AdapterDeclaration = {
 
 const OWNER = adapterRef(REACT_ROUTER_DECLARATION);
 
-export function createReactRouterAdapter(templatesRoot: string): Adapter {
+export function createReactRouterAdapter(): Adapter {
   return {
     declaration: REACT_ROUTER_DECLARATION,
 
@@ -82,43 +80,49 @@ export function createReactRouterAdapter(templatesRoot: string): Adapter {
       return {
         ...emptyContribution(OWNER),
 
-        files: [
-          {
-            /**
-             * The routing composition root, addressed by role.
-             *
-             * A role of its own rather than the provider slot's, because a
-             * project can have both a router and a UI library and each needs a
-             * file. The architecture decides where it goes.
-             */
-            target: { kind: 'role', role: 'app.router' },
-            intent: 'create',
-            payload: {
-              kind: 'template',
-              source: path.join(templatesRoot, 'router', 'react-router', 'AppRouter.tsx'),
-            },
-            owner: OWNER,
-            order: 0,
-            reason: 'mounts the router above the application and declares the home route',
-          },
-        ],
-
         config: [
           {
             /**
-             * Wraps the application root, outermost.
+             * The home route.
              *
-             * Order 0 puts the router above anything else that wraps the tree,
-             * so route context is available to every wrapper inside it -
-             * including a UI library's theme, which may want to read the
-             * current location.
+             * Contributed rather than written into a template, because Stage 13
+             * needed a second adapter to add one. `children` is the application
+             * the wrapper was handed, so the framework's page renders at `/`
+             * without this adapter learning which page that is.
+             */
+            target: 'app.router',
+            at: 'routes',
+            value: { path: '/', element: { kind: 'children' }, order: 0 },
+            owner: OWNER,
+            reason: 'the application renders at the site root',
+          },
+          {
+            /**
+             * Wraps the application root, innermost.
+             *
+             * Stage 12 put the router outermost, reasoning that route context
+             * should be available to every wrapper inside it - a theme might
+             * want to read the current location. Stage 13 showed what that
+             * costs, the moment a second route existed.
+             *
+             * The page this wrapper is handed becomes the element of one route.
+             * So a wrapper *inside* the router is inside that one route too,
+             * and every other route renders outside it. With MUI selected, a
+             * client-side fallback rendered with no theme, no baseline and no
+             * styling engine, while the home page had all three. Nothing failed
+             * loudly; the second route was simply outside the application.
+             *
+             * A hypothetical benefit against a demonstrated defect, so: the
+             * router goes innermost, and everything that wraps "the
+             * application" genuinely wraps all of it. A wrapper that does need
+             * route context can still ask for a higher order than this one.
              */
             target: 'app.root',
             at: 'providers',
             value: {
               importName: 'AppRouter',
               role: 'app.router',
-              order: 0,
+              order: 100,
               note: [
                 ' * Routing lives in the component below - add routes there, not here.',
                 ' *',

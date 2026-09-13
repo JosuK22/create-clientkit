@@ -113,9 +113,12 @@ export function createMuiAdapter(templatesRoot: string): Adapter {
             // architecture's role mapping.
             target: 'app.root',
             at: 'providers',
-            // Order 10 leaves room outside it: a router belongs above the
-            // theme so route context is available to everything, including
-            // anything the theme renders.
+            // Order 10 leaves room on both sides. What matters is that the
+            // theme ends up *outside* the router rather than inside it: a
+            // wrapper inside the router only wraps the route it was handed to,
+            // and a theme that covers one route out of two is worse than none.
+            // See the router adapter, which explains what that cost looked
+            // like.
             value: { importName: 'AppProviders', role: 'app.providers', order: 10 },
             owner: OWNER,
             reason: 'MUI components need the theme and styling engine mounted above them',

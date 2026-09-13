@@ -241,7 +241,7 @@ describe('React file roles', () => {
   it('maps the roles Astro leaves unmapped, and leaves ones Astro maps', () => {
     // The asymmetry the role indirection exists to absorb. Astro has no entry
     // module and no separate build config; React has no framework config file
-    // and, without a router, no 404 page.
+    // at all.
     const astro = adapters.framework('astro').architectureDefinitions[0]!;
     expect(definesRole(REACT_ARCHITECTURE, 'app.entry')).toBe(true);
     expect(definesRole(astro, 'app.entry')).toBe(false);
@@ -249,8 +249,30 @@ describe('React file roles', () => {
     expect(definesRole(astro, 'config.build')).toBe(false);
     expect(definesRole(REACT_ARCHITECTURE, 'config.framework')).toBe(false);
     expect(definesRole(astro, 'config.framework')).toBe(true);
-    expect(definesRole(REACT_ARCHITECTURE, 'page.notFound')).toBe(false);
+  });
+
+  it('maps page.notFound as a slot without claiming React has a 404', () => {
+    // Both architectures map the role, and they mean different things by it.
+    // Astro's is produced by the framework's own template and is a real
+    // not-found document. React's is an empty slot: nothing fills it unless a
+    // client-side router and the fallback feature are both selected, and what
+    // fills it is a rendered view rather than a response.
+    //
+    // So mapping it must not make `not-found` reachable on React. That is
+    // decided by capability, and the assertion below is what would catch a
+    // future edit deciding the role mapping is close enough.
+    const astro = adapters.framework('astro').architectureDefinitions[0]!;
+    expect(definesRole(REACT_ARCHITECTURE, 'page.notFound')).toBe(true);
     expect(definesRole(astro, 'page.notFound')).toBe(true);
+
+    let error: CliError | undefined;
+    try {
+      resolveProject({ ...reactManifest(), features: ['not-found'] }, adapters);
+    } catch (thrown) {
+      error = thrown as CliError;
+    }
+    expect(error).toBeInstanceOf(CliError);
+    expect(`${error?.message ?? ''}\n${error?.hint ?? ''}`).toContain('file-based-routing');
   });
 
   it('every mapped role points at a file the plan actually produces', () => {
@@ -261,7 +283,11 @@ describe('React file roles', () => {
       // library's provider wrapper would go; with no UI library selected
       // nothing fills it, and the composed root correctly omits it. The MUI
       // suite asserts the filled case.
-      if (role === 'app.providers' || role === 'app.router') continue;
+      //
+      // `page.notFound` is the same kind of slot: it says where a view for an
+      // unmatched address belongs, and only the client-route-fallback feature
+      // puts one there. Its own suite asserts the filled case.
+      if (role === 'app.providers' || role === 'app.router' || role === 'page.notFound') continue;
       expect(paths.has(target), `role "${role}" -> ${target} is not generated`).toBe(true);
     }
   });

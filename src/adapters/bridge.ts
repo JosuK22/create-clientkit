@@ -8,6 +8,7 @@ import {
   importSpecifier,
 } from '../domain/app-composition.js';
 import { collectBuildPlugins, emitViteConfig } from '../domain/build-config.js';
+import { collectRoutes, emitRouter } from '../domain/route-composition.js';
 import { composePackage } from '../domain/package-composition.js';
 import type { AccessibilityContract } from '../domain/accessibility.js';
 import { collectClaims } from '../domain/claims.js';
@@ -22,6 +23,7 @@ import { manifestFromProjectContext } from '../domain/manifest.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
 import { definesRole, resolveRole } from '../domain/roles.js';
+import type { FileRole } from '../domain/roles.js';
 import { CliError } from '../errors.js';
 import type { FileOperation, GenerationPlan } from '../generate/files.js';
 import { plan, realPlanFs, type PlanFs, type PlanLayer } from '../generate/plan.js';
@@ -237,6 +239,69 @@ export function composedFiles(
       path: project.architecture.roles['config.build'] ?? 'vite.config.ts',
       content: emitViteConfig(plugins),
       origin: `composed from ${plugins.map(({ owner }) => owner).join(' + ')}`,
+    },
+  ];
+}
+
+/**
+ * The router's route table, composed from contributions.
+ *
+ * Driven by the `app.router` role, so an architecture that maps none gets
+ * nothing composed and no branch on the framework appears here - the same
+ * mechanism `config.build` and `app.root` already use.
+ *
+ * Emitted only when something actually contributed a route. A project with no
+ * router selected contributes none, so no file appears, and the generated tree
+ * is exactly what it was before a router existed.
+ */
+export function composedRouter(
+  project: ResolvedProject,
+  contributions: readonly Contribution[],
+): readonly FileOperation[] {
+  if (!definesRole(project.architecture, 'app.router')) return [];
+
+  const config = contributions.flatMap((contribution) => contribution.config);
+  const routes = collectRoutes(config, 'app.router', 'routes');
+  if (routes.length === 0) return [];
+
+  const routerPath = resolveRole(project.architecture, 'app.router');
+
+  /*
+   * Each route that renders a component names the role holding it, so the
+   * contributing adapter never learns where the architecture puts such a file
+   * - and the import specifier is derived here, from the mapping.
+   */
+  const imports = routes
+    .filter((claim) => claim.entry.element.kind === 'component')
+    .map((claim) => {
+      const element = claim.entry.element as { importName: string; role: FileRole };
+
+      if (!definesRole(project.architecture, element.role)) {
+        throw new CliError(
+          `${claim.owner} contributes a route, but "${project.architecture.id}" maps no "${element.role}" role for its component.`,
+          { hint: 'The architecture decides where such a component lives; this one has nowhere.' },
+        );
+      }
+
+      return {
+        importName: element.importName,
+        from: importSpecifier(routerPath, resolveRole(project.architecture, element.role)),
+      };
+    });
+
+  return [
+    {
+      type: 'write',
+      path: routerPath,
+      content: emitRouter(
+        'AppRouter',
+        routes.map((claim) => ({ path: claim.entry.path, element: claim.entry.element })),
+        imports,
+      ),
+      // Router alone reads exactly as it did when the file was a template, so
+      // adding the mechanism moved no bytes for anyone who has not selected a
+      // second contributor.
+      origin: [...new Set(routes.map((claim) => claim.owner))].join(' + '),
     },
   ];
 }
@@ -645,6 +710,7 @@ export function planManifest(
   const withContributions = mergeComposed(generated.operations, [
     ...contributedFiles(project, contributions, readText),
     ...composedFiles(project, contributions),
+    ...composedRouter(project, contributions),
   ]);
 
   const operations = applyMerges(

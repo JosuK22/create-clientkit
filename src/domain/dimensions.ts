@@ -77,6 +77,10 @@ export type ArchitectureId = (typeof ARCHITECTURE_IDS)[number];
  */
 export const FEATURE_IDS = [
   'accessibility',
+  // Distinct from `not-found` on purpose, and the distinction is the point:
+  // one is a property of the response, the other of the render. See
+  // `domain/client-route-fallback.ts`.
+  'client-route-fallback',
   'not-found',
   'seo',
   'robots',

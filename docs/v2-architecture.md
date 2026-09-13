@@ -2223,6 +2223,7 @@ outcome is a combination that stays **unsupported**.
 ```
 src/adapters/react-router.ts             router: the dependency + the composition root
 templates/router/react-router/AppRouter  the component it contributes
+                                         (composed instead, from Stage 13)
 src/domain/app-composition.ts            wrappers now nest, deterministically
 src/domain/capabilities.ts               client-side-routing
 src/domain/roles.ts                      app.router
@@ -2235,7 +2236,7 @@ loaded in a browser:**
 | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | `react + vite + tailwind`                                                 | supported, **unchanged** — the router is opt-in             |
 | `react + vite + tailwind + react-router`                                  | **supported** — new in this stage                           |
-| `react + vite + tailwind + mui + react-router`                            | **supported** — both wrap the app, router outermost         |
+| `react + vite + tailwind + mui + react-router`                            | **supported** — both wrap the app (order corrected in 13)   |
 | `react + vite + bootstrap + react-router`                                 | compatible; golden-covered, not build-tested                |
 | `react + vite + react-router + not-found`                                 | **refused, deliberately** — see below                       |
 | `react + vite + react-router + seo` / `structured-data` / `accessibility` | refused, unchanged — React still has no `document-metadata` |
@@ -2295,8 +2296,11 @@ export function App() {
 }
 ```
 
-The router takes order 0 and sits outermost, so route context is available to
-everything inside it. Two adapters claiming the same **binding name** is still a
+The router took order 0 and sat outermost, so route context was available to
+everything inside it. **Stage 13 reversed that**, and the reason is in that
+stage's section: the page a router wrapper is handed becomes one route's
+element, so a wrapper inside the router wraps that route and no other. Two
+adapters claiming the same **binding name** is still a
 conflict — two components cannot share one import — and the page slot still
 admits exactly one, because a root renders one thing.
 
@@ -2351,7 +2355,269 @@ before.
   router; everything beyond that is the developer's.
 - **`client-side-routing` has no consumer yet.** It is declared because it is
   true and because it is the capability a future client-side fallback feature
-  would require — the same footing as MUI's `css-in-js`.
+  would require — the same footing as MUI's `css-in-js`. _Stage 13 is that
+  consumer._
 - **`react + vite + bootstrap + react-router` is golden-covered but not
   build-tested**, so it is listed as compatible rather than supported.
+- **No public CLI selection**, and no release: the version stays 1.0.2.
+
+### Stage 13 — the client-side route fallback, and the line it refuses to cross (landed)
+
+The second feature to require a routing capability, and the first to require the
+_other_ one. Its entire reason to exist as a separate adapter is a distinction
+that is easy to argue away and expensive to get wrong:
+
+```
+not-found            !=  client-route-fallback
+file-based-routing   !=  client-side-routing
+```
+
+```
+src/domain/client-route-fallback.ts        the contract, including what it will not claim
+src/adapters/client-route-fallback.ts      the feature: one route, one view, nothing else
+templates/feature/client-route-fallback/   the view it contributes
+src/domain/route-composition.ts            the route table, composed rather than templated
+src/adapters/react.ts                      page.notFound, mapped as a slot
+```
+
+**Support matrix — supported means generated, installed, typechecked, built and
+loaded in a browser:**
+
+| Stack                                                                  | Result                                                 |
+| ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| `react + vite + tailwind + react-router + client-route-fallback`       | **supported** — new in this stage                      |
+| `react + vite + bootstrap + react-router + client-route-fallback`      | **supported** — same view, the other stylesheet        |
+| `react + vite + tailwind + mui + react-router + client-route-fallback` | **supported** — and it found a real defect; see below  |
+| `react + vite + tailwind + react-router`                               | supported, **unchanged** — the feature is opt-in       |
+| `react + vite + react-router + not-found`                              | **refused, deliberately** — unchanged from Stage 12    |
+| `react + vite + react-router + not-found + client-route-fallback`      | **refused** — selecting the fallback satisfies nothing |
+| `react + vite + tailwind + client-route-fallback` (no router)          | refused — React alone has `spa-routing`, not routing   |
+| `astro + client-route-fallback`                                        | refused — Astro provides no `client-side-routing`      |
+| `astro + not-found`                                                    | supported, unchanged                                   |
+| a hypothetical non-React router providing `client-side-routing`        | accepted, unmodified and unnamed                       |
+
+**The distinction, stated once.** One is a property of the **response**; the
+other is a property of the **render**.
+
+| Feature                 | Requires              | What it produces                                      | Status seen by a crawler |
+| ----------------------- | --------------------- | ----------------------------------------------------- | ------------------------ |
+| `not-found`             | `file-based-routing`  | a real not-found **document**, before JavaScript runs | 404                      |
+| `client-route-fallback` | `client-side-routing` | a **rendered view**, after the response was sent      | whatever the host sent   |
+
+That is why mapping `page.notFound` for React does **not** make `not-found`
+reachable there. Compatibility is decided by capability, never by whether a role
+happens to be mapped, and the refusal still names the missing capability:
+
+```
+That combination will not work.
+  - Not-found page requires file-based-routing
+    (an unmatched path has to reach the page for it to be a 404
+     rather than an unreachable file)
+
+  The selected stack provides: client-side-routing, composed-stylesheet, ...
+```
+
+Note the last line. The stack _does_ provide `client-side-routing` — and it
+still is not enough, because the two capabilities do not imply each other in
+either direction. A test asserts both directions.
+
+**The HTTP status is out of scope, in the contract rather than only in prose.**
+`CLIENT_ROUTE_FALLBACK_OUT_OF_SCOPE` names `http-404-status`,
+`server-rendered-not-found`, `crawler-visible-not-found`, `host-configuration`
+and `fallback-page-metadata`. A test scans every guarantee for the words
+`404`, `status`, `http`, `server` and `crawler` and fails if one appears. A
+future edit deciding the feature "is really a 404 after all" has to delete a
+test that says otherwise in so many words.
+
+The generated files say it too, twice, so the caveat survives deleting either
+one: `AppRouter.tsx` explains that a catch-all renders "after the server has
+already answered, so the response itself is still whatever your host sent —
+usually a 200 for `index.html`", and `NotFoundPage.tsx` names the failure mode,
+_soft 404_, and says where a real one has to come from.
+
+**Why the view sets no document title.** `useDocumentMeta('Page not found', …)`
+is right there and was deliberately not called. Announcing "Page not found" in
+the title of a document the host returned as `200` is precisely the signal that
+makes a soft 404 worse rather than better. The generated file explains this and
+points at the hook, so a developer whose host does return a real status can add
+it in one line.
+
+**One generic change: the route table is composed.** Stage 12 shipped
+`AppRouter.tsx` as a template with one route written into it. A second adapter
+needed to add a catch-all, and there were only two ways to do that — edit
+another owner's file with string replacement, or make the file composed. So the
+route table joined `package.json`, `vite.config.ts` and `App.tsx`:
+
+```ts
+{ target: 'app.router', at: 'routes',
+  value: { path: '/', element: { kind: 'children' }, order: 0 } }          // the router
+
+{ target: 'app.router', at: 'routes',
+  value: { path: '*',
+           element: { kind: 'component', importName: 'NotFoundPage', role: 'page.notFound' },
+           order: 10_000 } }                                              // the feature
+```
+
+Routes carry an explicit `order` and are sorted by it, because here the ordering
+is semantic rather than cosmetic: a catch-all placed above `/` swallows the home
+page, and "it worked because the objects happened to iterate that way" is not a
+property anyone can rely on. The order lives in the contract, not in the
+adapter, so a test can assert it. Two adapters claiming the same path
+identically de-duplicate; claiming it differently is a hard failure, because one
+address cannot render two things and picking a winner silently is how a project
+ends up serving a page nobody chose.
+
+Each component route names the **role** holding its component, never a path, so
+the feature never learns that React keeps the view at
+`src/pages/NotFoundPage.tsx`. The refactor landed with **zero golden churn**:
+composed `AppRouter.tsx` was byte-identical to the deleted template, down to the
+`origin` line still reading `router:react-router`.
+
+**A real defect this stage found, in Stage 12's work.** Stage 12 put the router
+outermost, reasoning that route context should be available to every wrapper
+inside it. With only one route, nothing exposed the cost. With two:
+
+```tsx
+<AppRouter>
+  {' '}
+  {/* Routes: "/" -> children, "*" -> NotFoundPage */}
+  <AppProviders>
+    {' '}
+    {/* ...is the element of the "/" route, and only that one */}
+    <HomePage />
+  </AppProviders>
+</AppRouter>
+```
+
+The page a router wrapper is handed **becomes one route's element**. So
+`AppProviders` wrapped the home route and nothing else, and the fallback
+rendered with no theme, no CSS baseline and no styling engine. Nothing failed;
+the browser check for MUI's emotion style tags returned `0` on the fallback and
+`2` on the home page, which is the only reason it was noticed at all.
+
+The fix is to make the router the **innermost** wrapper (order 0 → 100), so
+everything that wraps "the application" genuinely wraps all of it:
+
+```tsx
+<AppProviders>
+  <AppRouter>
+    <HomePage />
+  </AppRouter>
+</AppProviders>
+```
+
+A hypothetical benefit traded for a demonstrated defect. A wrapper that really
+does need route context can still declare an order above the router's. One
+golden moved — `react-router-mui.txt` — and a structural test now asserts the
+router closes last, so no future reorder can silently re-break it.
+
+**What it contributes:** one route and one view. **No packages, no scripts, no
+build configuration** — a feature that quietly installed something would be the
+worst version of this abstraction, and a test asserts the generated
+`package.json` and `vite.config.ts` are byte-identical with the feature selected
+and without it. The guarantee is enforced the Stage 8 way: `requiredRoles:
+['page.notFound']`, checked against the finished plan by resolved path before
+anything is written.
+
+**The view names nothing it does not need.** It uses the semantic classes both
+stylesheets already define (`hero`, `eyebrow`, `page-title`, `lead`,
+`button-primary`), so it is byte-identical under Tailwind, Bootstrap and MUI — a
+test asserts that, and another asserts every class it uses is defined in **both**
+stylesheets. It names no router package either: the link home is a plain
+`<a href="/">` rather than the router's `Link`, so swapping the router needs no
+edit here. The cost is a real page load on the way back to a page that exists,
+which is the cheaper half of that trade.
+
+**`page.notFound` is now mapped for React, as a slot rather than a promise.**
+Mapping a role says where a file would go, not that one exists — the same
+footing as `app.providers` and `app.router`. Nothing fills it unless both a
+client-side router and this feature are selected, so it is excluded from the
+"every mapped role produces a file" test alongside the other two, and it is the
+feature's own suite that asserts the filled case.
+
+**Evidence, from real generated projects.** All four generated through the
+production path, then installed, typechecked, built and loaded in a browser:
+
+| Scenario           | install      | typecheck | build (js) | `/` | `/stage13-does-not-exist` |
+| ------------------ | ------------ | --------- | ---------- | --- | ------------------------- |
+| `+ tailwind`       | 44 packages  | clean     | 262.75 kB  | 200 | **200**, fallback renders |
+| `+ bootstrap`      | 29 packages  | clean     | 262.75 kB  | 200 | **200**, fallback renders |
+| `+ mui`            | 119 packages | clean     | 352.90 kB  | 200 | **200**, fallback renders |
+| router, no feature | 44 packages  | clean     | 262.17 kB  | 200 | **200**, empty document   |
+
+**The status column is the point of the table.** `GET /stage13-does-not-exist`
+returns **`200 OK`**, and the body it returns is `index.html` byte-for-byte —
+`diff` against `GET /` reports no difference, and the served HTML contains no
+occurrence of "not found" anywhere. The fallback is produced entirely by
+JavaScript afterwards. That is exactly what the feature claims and exactly what
+it refuses to call a 404.
+
+The rest of the browser evidence: one `<h1>` reading "This page does not exist",
+inside the single `<main>` landmark the shared layout provides; the link home is
+a real `<a href="/">` with `tabIndex 0`; no `aria-label`, no `alt`, no injected
+`<meta>` or `<link rel=canonical>`; the document title stays the site name; no
+console errors. A `pushState` between `/` and an unmatched address swaps the
+rendered view **without a document load** — the same `window` sentinel survives
+both — which is what proves the matching is happening in the browser. Clicking
+"Back to home" _does_ perform a real navigation, by design, and lands on the
+home route.
+
+The last row is the honest contrast: with the router but without the feature, an
+unmatched address still answers `200` and renders an **empty document** —
+`#root` has zero children. That emptiness is what the feature is for.
+
+**Mutation testing: 36 designed, 36 caught.** Every capability swap (the
+fallback requiring `file-based-routing`, `spa-routing`; `not-found` relaxed to
+`client-side-routing`; React Router claiming `file-based-routing`; React
+claiming `client-side-routing`), every contract edit (dropping
+`http-404-status` from the out-of-scope list, adding it to the guarantees),
+every ordering defect (`CATCH_ALL_ORDER` inverted, the collector's sort removed,
+the router's wrapper order reverted), every contribution defect (no route, no
+view, no required role, a smuggled package), every emitter defect (the
+disclosure line removed, `hasCatchAll` forced false, the conflict throw
+disabled), and every view defect (no link home, a `div` with `onClick` instead
+of an anchor, a second `<h1>`, a fabricated `aria-label`, a Tailwind-only class,
+the `200` disclosure removed, the layout escaped).
+
+Three of those deserve naming because the stage brief asked for them
+specifically:
+
+- **rewriting a test to claim an HTTP 404** — `expect(contract.guarantees).toContain('http-404-status')`
+  and `expect(view).toMatch(/status.*404/i)` both **fail against honest code**.
+  The tests cannot be edited into claiming a 404 and still pass, because there
+  is no 404 anywhere to find.
+- **suppressing the distinction** — rewriting the suite to assert the two
+  features want the same capability fails for the same reason.
+- **redundancy** — four mutations delete an assertion _and_ introduce the defect
+  it guarded, to check something else still notices. All four were caught by
+  other tests.
+
+**Unchanged.** The four V1 golden files are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), every
+Astro golden is untouched, the V1 clean-room smoke test passes all 305
+assertions, the CLI still has no new flags and zero runtime dependencies, and
+the version stays 1.0.2. Twelve React goldens moved, by exactly two changes: the
+MUI nesting correction above, and a README rewrite. The generated README said
+"**No router.** One page." and "**No 404 page.**" in projects that now have
+both — a generated file describing itself incorrectly, which this codebase
+treats as worse than no comment. It now states what is true either way,
+including that a client-side catch-all does not change the status.
+
+**Known limitations, stated rather than implied:**
+
+- **This is not an HTTP 404, and nothing here pretends otherwise.** The response
+  is the host's. A real not-found needs host configuration or server rendering;
+  neither is generated.
+- **A crawler that does not execute JavaScript sees the entry HTML**, which says
+  nothing about the page being missing. Relying on this for SEO is the soft-404
+  failure mode, and the generated files name it.
+- **No metadata for the fallback** — no title, no canonical, no robots
+  directive. The generator has no truthful source for what a page nobody asked
+  for should say about itself.
+- **The link home is a real navigation**, not a client-side transition. That is
+  the cost of a view that names no router package.
+- **One fallback implementation, for React.** The contract is
+  framework-independent and the requirement is a capability, so a second
+  client-side router works unmodified; a second _framework_ would need its own
+  view, the same way `not-found` leaves markup to whoever knows the framework.
 - **No public CLI selection**, and no release: the version stays 1.0.2.

@@ -210,11 +210,17 @@ the styling system you chose. It is an ordinary file now: add to it freely.
 
 Stated plainly so you can decide what to add rather than discover a gap later.
 
-- **No router.** One page. Add React Router or TanStack Router when a second
-  page exists; `App.tsx` is where it goes.
-- **No 404 page.** A client-side 404 needs a router to detect an unmatched
-  path. Until then, configure your host to serve `index.html` for unknown
-  routes.
+- **Routing, only if you asked for it.** If `src/routes/AppRouter.tsx` is here,
+  a client-side router was selected and that file is the route table. If it is
+  not, this is a one-page scaffold: add React Router or TanStack Router when a
+  second page exists, and `App.tsx` is where it goes.
+- **No HTTP 404, either way.** A client-side catch-all renders a component
+  _after_ your host has already answered, so the response stays whatever was
+  sent - usually `200` for `index.html`. Crawlers, uptime monitors and your CDN
+  logs see that status, not a 404. A real not-found response comes from host
+  configuration or from rendering on the server, and neither is generated here.
+  Serve `index.html` for unknown routes so the app can render, and add a status
+  rule at the host if the status itself matters.
 - **Server-rendered metadata is limited.** `index.html` carries the title and
   description; `useDocumentMeta` updates them per page at runtime. A crawler
   that does not execute JavaScript sees only the initial HTML. If search
