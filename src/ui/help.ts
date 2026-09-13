@@ -64,6 +64,9 @@ export function helpText(): string {
     npm create clientkit@latest [directory] [options]
     npx create-clientkit@latest [directory] [options]
 
+    Run it with nothing and it asks. Every question below has a flag, and a
+    flag you pass is a question you are not asked.
+
   Options
         --name <name>     Client / site name
         --url <url>       Production URL (omit if not decided yet)
@@ -79,9 +82,9 @@ export function helpText(): string {
     -v, --version         Show the version
 
   Stack
-    Each flag configures one dimension. Anything you leave out is chosen for
-    you - by the framework where it owns the answer, and otherwise by the
-    default shown.
+    Each flag configures one dimension. Anything you leave out is asked for
+    interactively, or - when there is only one possible answer - chosen for
+    you by the framework that owns it.
 
         --framework <id>      ${ids.frameworks}  (default: astro)
         --build-tool <id>     chosen by the framework unless it offers you one
@@ -100,6 +103,7 @@ export function helpText(): string {
     flags above. Use one or the other.
 
   Examples
+    npm create clientkit@latest
     npm create clientkit@latest acme-website
     npm create clientkit@latest acme-website --yes --no-install
     npm create clientkit@latest --from ./agency-preset.json --dry-run
@@ -109,6 +113,12 @@ export function helpText(): string {
       --styling tailwind --ui-library mui --router react-router
 
   Notes
+    Only questions worth asking are asked. A dimension with one possible answer
+    is derived rather than offered as a menu of one, and a choice that cannot be
+    built with what you have already picked is not shown - Bootstrap does not
+    appear under Astro, and a client-side fallback appears only once a router
+    does.
+
     The values listed above are the ones that work today. ClientKit's vocabulary
     is wider - it knows names such as nextjs and chakra - and asking for one of
     those reports that no adapter implements it rather than quietly substituting

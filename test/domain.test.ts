@@ -511,6 +511,12 @@ describe('the domain layer stays pure', () => {
       'context/dimensions.ts',
       'context\\resolve.ts',
       'context/resolve.ts',
+      // Stage 15. The interactive layer offers domain ids as menu choices and
+      // asks the compatibility engine which of them are worth offering; both
+      // require the vocabulary. It decides nothing itself, which its own suite
+      // asserts structurally.
+      'context\\interactive.ts',
+      'context/interactive.ts',
     ]);
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const v2Directories = new Set(['domain', 'adapters']);

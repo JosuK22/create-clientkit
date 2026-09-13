@@ -26,6 +26,7 @@ import {
   type DimensionInput,
 } from './dimensions.js';
 import { loadConfigFile, type FileReader } from './fromFile.js';
+import { promptDimensions } from './interactive.js';
 import type { Prompter } from './prompts.js';
 import {
   deriveProjectName,
@@ -180,12 +181,15 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
   const sourceOf = (key: keyof ContextInput): ValueSource =>
     flagLayer[key] !== undefined ? 'flag' : 'file';
 
-  // ---- dimensions ---------------------------------------------------------
+  // ---- dimensions stated as flags -----------------------------------------
   /*
-   * Resolved before anything is prompted for, so a malformed `--framework`
-   * fails immediately rather than after three questions.
+   * Validated before anything is prompted for, so a malformed `--framework`
+   * fails immediately rather than after three questions. The result is
+   * discarded: the dimensions that count are resolved once the interactive
+   * answers are in, from this same input plus whatever was asked.
    */
   const templatesRoot = options.templatesRoot ?? findTemplatesRoot();
+  const adapters = createAdapterRegistry(templatesRoot);
   const dimensionInput: DimensionInput = {
     framework: flags.framework,
     buildTool: flags.buildTool,
@@ -196,7 +200,7 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
     architecture: flags.architecture,
     features: flags.features,
   };
-  const dimensions = resolveDimensions(dimensionInput, createAdapterRegistry(templatesRoot));
+  resolveDimensions(dimensionInput, adapters);
 
   /*
    * Only dimensions the user actually stated are recorded.
@@ -225,26 +229,6 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
         'Remove the template, or remove the dimension flags.',
     });
   }
-
-  /*
-   * The framework's own template, unless the user named one.
-   *
-   * `registryFor` is the bridge's, not a copy: for Astro it changes nothing,
-   * and for React it answers for a manifest the disk registry has never seen.
-   */
-  const registry = registryFor(baseRegistry, templatesRoot, dimensions.templateManifest);
-  const templateId = explicit.templateId ?? dimensions.templateManifest?.id ?? DEFAULTS.templateId;
-  if (!registry.has(templateId) && templateId !== TEMPLATE_ID_PLACEHOLDER) {
-    const available = registry.list();
-    throw new CliError(`Unknown template "${templateId}".`, {
-      hint:
-        available.length === 0
-          ? 'No templates are available yet.'
-          : `Available templates: ${available.map((t) => t.id).join(', ')}.`,
-    });
-  }
-  const templateDefaults = registry.defaultsFor(templateId);
-  mark('template.id', explicit.templateId !== undefined ? sourceOf('templateId') : 'default');
 
   // ---- directory ----------------------------------------------------------
   let dirInput: string;
@@ -311,6 +295,63 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
     siteUrl = null;
     mark('site.url', 'default');
   }
+
+  // ---- the stack ----------------------------------------------------------
+  /*
+   * Asked here, between the client questions and the starter, because the
+   * ordering is a dependency rather than a preference.
+   *
+   * `mode` picks a starter *the chosen template offers*, and which template
+   * that is follows from the framework. Asking for the starter first would mean
+   * defaulting it from `astro-tailwind` and then possibly generating React -
+   * true by coincidence today, since both templates declare the same default,
+   * and the kind of coincidence this codebase does not build on. Everything V1
+   * asked is still asked, in the order it always was; the stack block is
+   * inserted, and `mode` and `setup` remain the last two questions.
+   */
+  const interactiveDimensions = await promptDimensions({
+    input: dimensionInput,
+    adapters,
+    prompter,
+    /*
+     * A provisional starter, and provably inconsequential: `selectAdapters`
+     * skips every `starter:*` feature, so no candidate manifest's compatibility
+     * can turn on it. Passed rather than plumbed backwards because the real
+     * answer is not known until the question below.
+     */
+    mode: explicit.mode ?? DEFAULTS.mode,
+  });
+  for (const dimension of interactiveDimensions.asked) mark(`dimension.${dimension}`, 'prompt');
+
+  /*
+   * One normalisation, for both input mechanisms.
+   *
+   * Flags and answers have arrived in the same shape, so the same function
+   * applies the same defaults, the same validation and the same feature
+   * ordering to both. There is no interactive branch below this line.
+   */
+  const dimensions = resolveDimensions(interactiveDimensions.input, adapters);
+
+  // ---- template defaults layer -------------------------------------------
+  /*
+   * The framework's own template, unless the user named one.
+   *
+   * `registryFor` is the bridge's, not a copy: for Astro it changes nothing,
+   * and for React it answers for a manifest the disk registry has never seen.
+   */
+  const registry = registryFor(baseRegistry, templatesRoot, dimensions.templateManifest);
+  const templateId = explicit.templateId ?? dimensions.templateManifest?.id ?? DEFAULTS.templateId;
+  if (!registry.has(templateId) && templateId !== TEMPLATE_ID_PLACEHOLDER) {
+    const available = registry.list();
+    throw new CliError(`Unknown template "${templateId}".`, {
+      hint:
+        available.length === 0
+          ? 'No templates are available yet.'
+          : `Available templates: ${available.map((t) => t.id).join(', ')}.`,
+    });
+  }
+  const templateDefaults = registry.defaultsFor(templateId);
+  mark('template.id', explicit.templateId !== undefined ? sourceOf('templateId') : 'default');
 
   // ---- mode ---------------------------------------------------------------
   let mode = explicit.mode;

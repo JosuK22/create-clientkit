@@ -396,6 +396,13 @@ describe('the bridge keeps its direction and its limits', () => {
       // it advertises adapters that do not exist, or omits ones that do.
       'ui\\help.ts',
       'ui/help.ts',
+      // Stage 15. The interactive layer reads the registry for the choices that
+      // exist and each adapter's own name for itself, and asks the
+      // compatibility engine which combinations are buildable. Asking is the
+      // point; deciding would be the leak, and a separate test proves it does
+      // not.
+      'context\\interactive.ts',
+      'context/interactive.ts',
     ];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];

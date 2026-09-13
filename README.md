@@ -181,16 +181,50 @@ works with either.
 
 ### Interactive flow
 
-Five questions, and the first is skipped when you pass a directory:
+Run it with nothing and it asks:
+
+```sh
+npm create clientkit@latest
+```
 
 1. **Project directory**
 2. **Client / site name** — defaults to the title-cased directory name
 3. **Production URL** — optional; skipping it leaves it explicitly unset
-4. **Starting mode** — Coming Soon, or Full Starter
-5. **Setup** — install dependencies, initialise git (both on by default)
+4. **Framework**
+5. **Styling**
+6. **Component library** — only when the framework can mount one
+7. **Routing** — only when the framework offers a choice
+8. **Features** — multiple selection, or none
+9. **Starting mode** — Coming Soon, or Full Starter
+10. **Setup** — install dependencies, initialise git (both on by default)
+
+The stack questions sit between the client questions and the starter because
+the starter belongs to a template, and which template that is follows from the
+framework.
+
+**Only questions worth asking are asked.** A dimension with one possible answer
+is derived rather than offered as a menu of one — neither framework currently
+offers a build tool, a language or an architecture worth choosing between, so
+none of the three is asked. A choice that cannot be built alongside what you
+have already picked is not offered either: Bootstrap does not appear under
+Astro, and the client-side fallback appears only once a router does. Those
+decisions come from the same compatibility engine that validates flags, so the
+menus cannot disagree with it.
+
+Answering the questions and passing the flags are two ways to say the same
+thing, and they produce the same project. A flag you pass is a question you are
+not asked, so partial configuration works:
+
+```sh
+# asks for styling, component library, routing and features — not the framework
+npm create clientkit@latest acme-app --framework react
+```
 
 The package manager is detected from `npm_config_user_agent` and never asked
 about. Override it with `--pm`.
+
+`--yes` never prompts and accepts every default, which is Astro + Tailwind +
+Coming Soon.
 
 ### Non-interactive use
 

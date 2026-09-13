@@ -102,12 +102,33 @@ describe('default resolution', () => {
 describe('interactive flow', () => {
   it('skips the directory question when a positional is supplied', async () => {
     const { asked } = await run({ argv: ['acme-website'] });
-    expect(asked).toEqual(['siteName', 'url', 'mode', 'setup']);
+    expect(asked).toEqual(['siteName', 'url', 'framework', 'styling', 'features', 'mode', 'setup']);
   });
 
-  it('asks all five questions when nothing is supplied', async () => {
+  it('asks the client questions, then the stack, then the starter', async () => {
+    /*
+     * Stage 15 inserted the stack block. The four V1 questions are all still
+     * asked, in the order they always were; `mode` and `setup` are still the
+     * last two.
+     *
+     * What is *not* asked is the point. The default framework is Astro, which
+     * fixes its build tool, language, router and architecture - so those are
+     * derived rather than offered as a menu of one. A component library is not
+     * asked either, and that one is decided by the compatibility engine rather
+     * than by a rule here: MUI needs `react-runtime`, Astro does not provide
+     * it, so `none` is the only survivor and a single survivor is a derivation.
+     */
     const { asked } = await run({ answers: { dir: 'acme-website' } });
-    expect(asked).toEqual(['dir', 'siteName', 'url', 'mode', 'setup']);
+    expect(asked).toEqual([
+      'dir',
+      'siteName',
+      'url',
+      'framework',
+      'styling',
+      'features',
+      'mode',
+      'setup',
+    ]);
   });
 
   it('uses the prompt answers', async () => {
@@ -348,7 +369,9 @@ describe('--name / --url / --mode (M1 flag parity)', () => {
     const { asked } = await run({
       argv: ['acme-website', '--name', 'Acme', '--url', 'https://acme.example', '--mode', 'full'],
     });
-    expect(asked).toEqual(['setup']);
+    // The stack is still unanswered, so it is still asked; the three V1 values
+    // are not.
+    expect(asked).toEqual(['framework', 'styling', 'features', 'setup']);
   });
 
   it('--name overrides the site name from --from', async () => {

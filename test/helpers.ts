@@ -2,9 +2,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import type { Prompter, SetupAnswer } from '../src/context/prompts.js';
+import type {
+  DimensionQuestion,
+  MultiChoiceQuestion,
+  Prompter,
+  SetupAnswer,
+} from '../src/context/prompts.js';
 import type { TargetDirFs } from '../src/context/validate.js';
-import { CliError } from '../src/errors.js';
+import { CancelledError, CliError } from '../src/errors.js';
 import type { GenerationPlan } from '../src/generate/files.js';
 import type { PlanFs } from '../src/generate/plan.js';
 import type { TemplateManifest } from '../src/templates/manifest.js';
@@ -40,12 +45,27 @@ export interface FakeAnswers {
   mode?: TemplateMode;
   setup?: SetupAnswer;
   confirmNonEmpty?: boolean;
+  /**
+   * An answer per dimension, keyed by the dimension name.
+   *
+   * Absent means "press Enter" - the fake returns the question's own
+   * `initialValue`, which is how a test asserts that accepting every default
+   * reproduces the V1 stack.
+   */
+  dimensions?: Record<string, string>;
+  /** Chosen features. Absent means none were selected. */
+  features?: readonly string[];
+  /** Dimensions to cancel on, by name, as a user pressing Ctrl+C would. */
+  cancelAt?: readonly string[];
 }
 
 /** Records which questions were asked, so precedence can be asserted directly. */
 export class FakePrompter implements Prompter {
   readonly interactive = true;
   readonly asked: string[] = [];
+  /** Every dimension question put to the user, so a test can read the menu. */
+  readonly questions: DimensionQuestion[] = [];
+  readonly multiQuestions: MultiChoiceQuestion[] = [];
   readonly #answers: FakeAnswers;
 
   constructor(answers: FakeAnswers = {}) {
@@ -75,6 +95,41 @@ export class FakePrompter implements Prompter {
   async setup(defaults: SetupAnswer): Promise<SetupAnswer> {
     this.asked.push('setup');
     return this.#answers.setup ?? defaults;
+  }
+
+  async selectDimension(question: DimensionQuestion): Promise<string> {
+    this.asked.push(question.dimension);
+    this.questions.push(question);
+    if (this.#answers.cancelAt?.includes(question.dimension)) throw new CancelledError();
+
+    const answer = this.#answers.dimensions?.[question.dimension];
+    if (answer === undefined) return question.initialValue;
+    // A fake that could answer with something the menu never offered would let
+    // a test assert an impossible flow.
+    if (!question.options.some((option) => option.value === answer)) {
+      throw new Error(
+        `"${answer}" was not offered for ${question.dimension}: ` +
+          question.options.map((option) => option.value).join(', '),
+      );
+    }
+    return answer;
+  }
+
+  async selectMany(question: MultiChoiceQuestion): Promise<readonly string[]> {
+    this.asked.push(question.dimension);
+    this.multiQuestions.push(question);
+    if (this.#answers.cancelAt?.includes(question.dimension)) throw new CancelledError();
+
+    const chosen = this.#answers.features ?? question.initialValues;
+    for (const value of chosen) {
+      if (!question.options.some((option) => option.value === value)) {
+        throw new Error(
+          `"${value}" was not offered for ${question.dimension}: ` +
+            question.options.map((option) => option.value).join(', '),
+        );
+      }
+    }
+    return chosen;
   }
 
   async confirmNonEmpty(): Promise<boolean> {
