@@ -9,6 +9,7 @@ import type {
   StylingId,
   UiLibraryId,
 } from '../domain/dimensions.js';
+import { createAccessibilityAdapter } from './accessibility.js';
 import { createAstroAdapter } from './astro.js';
 import { createBootstrapAdapter } from './bootstrap.js';
 import { createReactAdapter } from './react.js';
@@ -23,7 +24,7 @@ import { createViteAdapter } from './vite.js';
  * The adapter registry, holding exactly what exists.
  *
  * Two frameworks, one build tool, two styling systems, one UI library and
- * three features - because those are what is implemented. The id unions in
+ * four features - because those are what is implemented. The id unions in
  * `domain/dimensions.ts` name more (`nextjs`, `angular`, `chakra`, `scss`,
  * `sitemap`), and asking for any of them fails here rather than resolving to a
  * stub or, far worse, quietly falling back to something that happens to work.
@@ -86,6 +87,7 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   // an adapter - the arrangement V1's `mode` became - and asking the registry
   // for it would report a missing adapter for something that was never one.
   const features = new Map<FeatureId, Adapter>([
+    ['accessibility', createAccessibilityAdapter()],
     ['not-found', createNotFoundAdapter()],
     ['seo', createSeoAdapter()],
     ['structured-data', createStructuredDataAdapter()],

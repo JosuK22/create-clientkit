@@ -113,7 +113,12 @@ describe('not-found is a feature, not a framework concern', () => {
 
   it('is one of the implemented features', () => {
     // 'seo' moved to the other side of this line in Stage 9.
-    expect(adapters.implementedFeatures()).toEqual(['not-found', 'seo', 'structured-data']);
+    expect(adapters.implementedFeatures()).toEqual([
+      'accessibility',
+      'not-found',
+      'seo',
+      'structured-data',
+    ]);
     expect(adapters.hasFeature('not-found')).toBe(true);
     expect(adapters.hasFeature('sitemap')).toBe(false);
   });

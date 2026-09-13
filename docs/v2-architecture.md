@@ -2076,3 +2076,141 @@ shipped CLI.
   when the developer configures them.
 - **No public CLI selection.** `features` remains V2 manifest territory, and no
   release accompanies this stage.
+
+### Stage 11 — accessibility, as a contract rather than a claim (landed)
+
+The fourth feature adapter, and the one where saying less is the point.
+
+```
+src/domain/accessibility.ts      the contract: what the shell guarantees, and what it does not
+src/adapters/accessibility.ts    feature: the capability requirement + the contract
+test/fixtures/a11y-skeleton-*    the structure a real astro build emitted, with and without nav
+```
+
+**Support matrix — supported means generated, installed, checked, built and
+validated in a browser:**
+
+| Stack                                                                  | Result                                              |
+| ---------------------------------------------------------------------- | --------------------------------------------------- |
+| `astro + tailwind + accessibility`                                     | **supported** — new in this stage                   |
+| `astro + tailwind + seo + accessibility`                               | **supported**                                       |
+| `astro + tailwind + structured-data + accessibility`                   | **supported**                                       |
+| `astro + tailwind + seo + structured-data + not-found + accessibility` | **supported** — all four features compose           |
+| `astro + tailwind` (no accessibility)                                  | supported, unchanged                                |
+| `react + vite + tailwind + accessibility`                              | **refused** — React provides no `document-metadata` |
+| hypothetical framework + `accessibility`                               | compatible when it provides `document-metadata`     |
+
+**This is not an auditor.** No axe, no Lighthouse, no crawler, no report, no
+score. Those measure a finished site. This states what the generator guarantees
+about the shell it produces, so the line between "handled" and "yours" is
+written down rather than assumed — and a team that knows which eight properties
+are covered keeps checking the rest, where a team that believes the project is
+"accessible" stops.
+
+**The contract has two halves, and the second is the important one.**
+
+| Guaranteed on every generated page | Meaning                                        |
+| ---------------------------------- | ---------------------------------------------- |
+| `document-language`                | `<html lang>` carries the configured tag       |
+| `document-title`                   | exactly one non-empty `<title>`                |
+| `main-landmark`                    | exactly one `<main>`, with an id               |
+| `skip-link`                        | first focusable element, targeting that id     |
+| `contentinfo-landmark`             | a `<footer>`                                   |
+| `primary-heading`                  | exactly one `<h1>`                             |
+| `navigation-landmark-when-present` | navigation, where rendered, is a named `<nav>` |
+| `scalable-viewport`                | the viewport meta does not block zoom          |
+
+| Explicitly **not** guaranteed | Why                                                               |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `wcag-conformance`            | conformance is a property of a finished site, not a shell         |
+| `colour-contrast`             | the accent colour is the developer's, and so is every pairing     |
+| `authored-content`            | headings, labels and copy written after generation                |
+| `image-alternative-text`      | the generator ships no content images and invents no descriptions |
+| `third-party-components`      | anything added later                                              |
+| `authored-interaction`        | keyboard behaviour of elements the generator did not create       |
+
+The navigation guarantee is phrased conditionally because it has to be: the
+coming-soon page renders no navigation at all, so "every page has a nav
+landmark" would be false. What is unconditionally true is that navigation, when
+present, is a `<nav>` with an accessible name — and both cases are captured as
+fixtures so the conditional half stays exercised.
+
+**Why `document-metadata`.** Every guarantee is a property of the document
+_before any script runs_: the language on `<html>`, one `<main>`, one `<h1>`, a
+skip link ahead of the content. That is the property the capability already
+names, so it is reused rather than duplicated under an accessibility-flavoured
+name — the vocabulary did not grow. A single-page application assembles its
+shell after hydration, so none of these are in the response, and the current
+React stack is refused with the capability and the reason named.
+
+**Nothing is invented — and here that is a refusal, not an omission.** A
+malformed or missing language tag makes generation _fail_ rather than fall back
+to a plausible `en`. Substituting one would put a language on the document that
+nobody chose, and assistive technology would announce the page in it as fact:
+
+```
+"Nope" is not a language tag the generated document can declare.
+  The accessibility baseline guarantees the document states its language,
+  and it will not guess one. Set a BCP-47 tag such as "en" or "en-GB".
+```
+
+No accessible name, label, alt text or ARIA description is ever generated. The
+contract describes landmarks by the elements that provide them — `main`, `nav`,
+`footer` — rather than by `role`, because native semantics need no help and a
+redundant role can only go wrong.
+
+**Verified against real HTML, in a real browser.** The eight guarantees were
+asserted on three built projects, loaded with the puppeteer the repository
+already uses for its audits — the live DOM, not a regular expression over
+source:
+
+| Scenario                   | install | check    | build   | contract assertions |
+| -------------------------- | ------- | -------- | ------- | ------------------- |
+| accessibility, coming-soon | 291 pkg | 0 errors | 2 pages | 16/16, 0 nav        |
+| accessibility, full        | 291 pkg | 0 errors | 2 pages | 16/16, 1 named nav  |
+| all four features, full    | 291 pkg | 0 errors | 2 pages | 16/16, 1 named nav  |
+
+No console errors, no unresolved tokens, no empty ARIA attribute, no fabricated
+accessible name. `scripts/smoke.mjs` re-checks the same guarantees on three
+freshly built projects every CI run.
+
+**What it contributes:** no dependencies, no scripts, no configuration, no
+files, no template layer. One `ConfigContribution` on the `app.layout` role at
+its own `accessibility` slot — the fourth feature to describe that surface, and
+the third to do so without any of them knowing the others exist:
+
+| Feature           | Slot on `app.layout` |
+| ----------------- | -------------------- |
+| `seo`             | `metadata`           |
+| `structured-data` | `structured-data`    |
+| `accessibility`   | `accessibility`      |
+
+**Unchanged.** The four V1 golden files are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+`templates/` was not touched, no existing golden moved, the three React stacks
+rebuild to the same asset hashes, and the default `npm create clientkit@latest`
+behaviour is exactly what it was.
+
+**Known limitations, stated rather than implied:**
+
+- **The Astro template already satisfied the baseline, so the feature adds a
+  contract rather than markup.** That is the intended outcome: the shell had a
+  skip link, one `main`, one `h1` and a language before this stage; what it did
+  not have was a written, testable statement of which of those are promises.
+  Selecting the feature changes the adapter set, the required-role set and the
+  recorded claim without changing a byte of output.
+- **No adapter consumes the claim yet.** The slot, the conflict rule and the
+  provenance are real and tested; Astro satisfies the contract from its own
+  template rather than by reading the claim.
+- **The guarantees are structural, not perceptual.** Contrast, focus visibility
+  against a custom accent, motion preferences and reading order of authored
+  content are all outside the contract, and no amount of generator work would
+  let it claim them honestly.
+- **The language rule is duplicated, deliberately.** The configuration resolver
+  validates locales in a module that reads the filesystem; the domain contract
+  must stay pure, so it carries its own copy of the same rule with a test
+  asserting the two agree on a shared set of inputs.
+- **One framework.** The contract is framework-independent and proven so against
+  a hypothetical adapter, but Astro is the only implemented framework that
+  provides the capability today.
+- **No public CLI selection**, and no release: the version stays 1.0.2.

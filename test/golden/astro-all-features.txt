@@ -1,0 +1,50 @@
+== MANIFEST ==
+site.name    Acme Ltd
+site.locale  en-GB
+features     accessibility, not-found, seo, starter:full, structured-data
+
+== SELECTED ADAPTERS ==
+framework:astro              framework
+styling:tailwind             styling
+feature:accessibility        feature
+feature:not-found            feature
+feature:seo                  feature
+feature:structured-data      feature
+
+== REQUIRED ROLES ==
+app.layout                   -> src/layouts/BaseLayout.astro
+page.notFound                -> src/pages/404.astro
+
+== CLAIMS BY SLOT ==
+metadata          feature:seo
+structured-data   feature:structured-data
+accessibility     feature:accessibility
+
+== ACCESSIBILITY CONTRACT ==
+owner   feature:accessibility
+reason  the accessibility properties the generated shell guarantees
+{"documentLanguage":"en-GB","documentLanguageValid":true,"guarantees":["document-language","document-title","main-landmark","skip-link","contentinfo-landmark","primary-heading","navigation-landmark-when-present","scalable-viewport"],"outOfScope":["wcag-conformance","colour-contrast","authored-content","image-alternative-text","third-party-components","authored-interaction"]}
+
+== OWNERSHIP ==
+.client-site.json                        cli
+.gitattributes                           base
+.gitignore                               base
+astro.config.mjs                         base
+package.json                             base + modes/full
+public/favicon.svg                       base
+README.md                                base
+src/components/Brand.astro               base
+src/components/Footer.astro              base
+src/components/Header.astro              base
+src/components/LaunchNotice.astro        base
+src/components/Seo.astro                 base
+src/components/SocialLinks.astro         base
+src/components/StructuredData.astro      base
+src/config/site.config.ts                base
+src/layouts/BaseLayout.astro             base
+src/lib/seo.ts                           base
+src/pages/404.astro                      base
+src/pages/index.astro                    base + modes/full
+src/pages/robots.txt.ts                  base
+src/styles/global.css                    base
+tsconfig.json                            base

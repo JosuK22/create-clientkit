@@ -8,6 +8,7 @@ import {
 } from '../domain/app-composition.js';
 import { collectBuildPlugins, emitViteConfig } from '../domain/build-config.js';
 import { composePackage } from '../domain/package-composition.js';
+import type { AccessibilityContract } from '../domain/accessibility.js';
 import { collectClaims } from '../domain/claims.js';
 import type { Claim } from '../domain/claims.js';
 import { collectMetadata } from '../domain/seo.js';
@@ -87,6 +88,12 @@ export interface AdapterPlanResult {
    * describes structured data.
    */
   readonly structuredData: readonly Claim<OrganizationContract>[];
+  /**
+   * What the selected adapters guarantee about the generated shell's
+   * accessibility, with the owner and reason behind each claim. Empty when no
+   * adapter makes such a guarantee.
+   */
+  readonly accessibility: readonly Claim<AccessibilityContract>[];
   readonly manifest: ProjectManifest;
   readonly project: ResolvedProject;
   readonly contributions: readonly Contribution[];
@@ -647,6 +654,7 @@ export function planManifest(
     'app.layout',
     'structured-data',
   );
+  const accessibility = collectClaims<AccessibilityContract>(config, 'app.layout', 'accessibility');
   assertRequiredRoles(project, packageResult.operations);
 
   return {
@@ -654,6 +662,7 @@ export function planManifest(
     ...(packageResult.composed === undefined ? {} : { composedPackage: packageResult.composed }),
     metadata,
     structuredData,
+    accessibility,
     manifest,
     project,
     contributions,

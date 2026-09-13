@@ -404,6 +404,61 @@ try {
       `${scenario.name}: twitter:card is missing`,
     );
 
+    /*
+     * The accessibility baseline, against a real build.
+     *
+     * Stage 11 made these a stated contract rather than an implicit property of
+     * the template. Asserted here on the emitted document so the guarantees and
+     * the generator cannot drift apart - a contract nobody checks is a slogan.
+     *
+     * Only the eight properties the contract actually claims. Colour contrast,
+     * authored content and alt text are deliberately absent, because ClientKit
+     * does not guarantee them and asserting them here would imply it does.
+     */
+    expect(
+      /<html[^>]+lang="[a-z]{2,3}(-[A-Za-z0-9]{2,8})*"/.test(html),
+      `${scenario.name}: <html lang> is missing or malformed`,
+    );
+    expect(
+      (html.match(/<main\b/g) ?? []).length === 1,
+      `${scenario.name}: expected exactly one <main> landmark`,
+    );
+    const mainId = html.match(/<main\b[^>]*\bid="([^"]+)"/)?.[1] ?? '';
+    expect(mainId !== '', `${scenario.name}: the main landmark has no id to skip to`);
+    expect(
+      html.includes(`<a href="#${mainId}"`),
+      `${scenario.name}: no skip link targeting the main landmark`,
+    );
+    expect(
+      html.indexOf(`<a href="#${mainId}"`) < html.indexOf('<main'),
+      `${scenario.name}: the skip link comes after the content it skips`,
+    );
+    expect(
+      (html.match(/<footer\b/g) ?? []).length >= 1,
+      `${scenario.name}: no contentinfo landmark`,
+    );
+    expect(
+      (html.match(/<h1\b/g) ?? []).length === 1,
+      `${scenario.name}: expected exactly one <h1>`,
+    );
+    for (const nav of html.match(/<nav\b[^>]*>/g) ?? []) {
+      // Conditional on purpose: not every page has navigation. What is always
+      // true is that navigation, where present, is a named landmark.
+      expect(
+        /aria-label="[^"]+"|aria-labelledby="[^"]+"/.test(nav),
+        `${scenario.name}: a <nav> landmark with no accessible name`,
+      );
+    }
+    const viewport = head.match(/<meta name="viewport"[^>]*content="([^"]*)"/)?.[1] ?? '';
+    expect(
+      viewport !== '' && !/user-scalable\s*=\s*no|maximum-scale\s*=\s*1\b/.test(viewport),
+      `${scenario.name}: the viewport prevents zooming: ${viewport}`,
+    );
+    expect(
+      !/aria-[a-z-]+=""/.test(html),
+      `${scenario.name}: an ARIA attribute was emitted with an empty value`,
+    );
+
     // The safety guarantee that matters most: nothing fabricated.
     const fabricated = /yourdomain|your-domain|client-site\.com|example\.com/i;
     expect(!fabricated.test(head), `${scenario.name}: fabricated domain in metadata`);

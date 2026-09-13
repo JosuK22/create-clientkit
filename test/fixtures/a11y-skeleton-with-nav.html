@@ -1,0 +1,22 @@
+<!--
+  The structural skeleton of dist/index.html from a real `astro build`.
+
+  An extract, not the whole document: <style> and <script> blocks are removed
+  and only the elements the accessibility contract makes claims about are
+  kept - the <html> open tag, <title>, the viewport meta, and the opening tags
+  of the landmarks, heading and skip link, in document order. Everything here
+  is verbatim from the build; nothing was rewritten.
+
+  test/fixtures/ is in .prettierignore so this stays byte-for-byte what Astro
+  emitted. scripts/smoke.mjs re-checks the same guarantees against a freshly
+  built project on every CI run, and the browser validation exercised the
+  live DOM.
+-->
+<html lang="en-GB" data-astro-cid-z4jru4n3>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acme Ltd</title>
+<a href="#main" class="skip-link" data-astro-cid-z4jru4n3>
+<nav aria-label="Primary" data-astro-cid-nen7h5rs>
+<main id="main" class="flex-1" data-astro-cid-z4jru4n3>
+<h1 class="rise" style="animation-delay: 60ms" data-astro-cid-lcdefpme>
+<footer class="site-footer" data-astro-cid-jo6i4kqk>
