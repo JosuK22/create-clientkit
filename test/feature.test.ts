@@ -113,7 +113,7 @@ describe('not-found is a feature, not a framework concern', () => {
 
   it('is one of the implemented features', () => {
     // 'seo' moved to the other side of this line in Stage 9.
-    expect(adapters.implementedFeatures()).toEqual(['not-found', 'seo']);
+    expect(adapters.implementedFeatures()).toEqual(['not-found', 'seo', 'structured-data']);
     expect(adapters.hasFeature('not-found')).toBe(true);
     expect(adapters.hasFeature('sitemap')).toBe(false);
   });
@@ -337,7 +337,8 @@ describe('selection', () => {
 
   it('refuses a known but unimplemented feature, with no fallback', () => {
     // 'seo' is implemented as of Stage 9; these three are not.
-    for (const id of ['sitemap', 'structured-data', 'social-metadata'] as const) {
+    // 'structured-data' became implemented in Stage 10 and moved off this list.
+    for (const id of ['sitemap', 'social-metadata', 'robots'] as const) {
       expect(() => adapters.feature(id)).toThrow(CliError);
       expect(() => selectAdapters(astro(['starter:coming-soon', id]), adapters)).toThrow(CliError);
     }

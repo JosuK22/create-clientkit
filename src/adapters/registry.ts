@@ -16,13 +16,14 @@ import { createTailwindAdapter } from './tailwind.js';
 import { createMuiAdapter } from './mui.js';
 import { createNotFoundAdapter } from './not-found.js';
 import { createSeoAdapter } from './seo.js';
+import { createStructuredDataAdapter } from './structured-data.js';
 import { createViteAdapter } from './vite.js';
 
 /**
  * The adapter registry, holding exactly what exists.
  *
- * Two frameworks, one build tool, two styling systems, one UI library and two
- * features - because those are what is implemented. The id unions in
+ * Two frameworks, one build tool, two styling systems, one UI library and
+ * three features - because those are what is implemented. The id unions in
  * `domain/dimensions.ts` name more (`nextjs`, `angular`, `chakra`, `scss`,
  * `sitemap`), and asking for any of them fails here rather than resolving to a
  * stub or, far worse, quietly falling back to something that happens to work.
@@ -87,6 +88,7 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   const features = new Map<FeatureId, Adapter>([
     ['not-found', createNotFoundAdapter()],
     ['seo', createSeoAdapter()],
+    ['structured-data', createStructuredDataAdapter()],
   ]);
 
   // Sorted so the list in an error message is stable.

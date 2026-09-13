@@ -23,6 +23,7 @@ import { collectMetadata, resolveSeoContract, siteOrigin } from '../src/domain/s
 import { CliError } from '../src/errors.js';
 import type { FileOperation } from '../src/generate/files.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
+import type { ConfigContribution } from '../src/domain/contributions.js';
 import type { SiteContext } from '../src/types.js';
 import { renderPlan, TEST_CWD } from './helpers.js';
 
@@ -526,7 +527,7 @@ describe('the guarantee is load-bearing', () => {
 // ---------------------------------------------------------------------------
 
 describe('metadata claims are composed, not overwritten', () => {
-  const claim = (owner: string, site: SiteContext = SITE) => ({
+  const claim = (owner: string, site: SiteContext = SITE): ConfigContribution => ({
     target: 'app.layout',
     at: 'metadata',
     value: resolveSeoContract(site),

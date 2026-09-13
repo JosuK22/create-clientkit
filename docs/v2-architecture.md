@@ -1927,3 +1927,152 @@ still present in a real build.
   per-framework SEO for React. A correct rejection was preferred to fake
   support.
 - **No public CLI selection.** `features` remains V2 manifest territory.
+
+### Stage 10 — structured data, as a sibling of SEO (landed)
+
+The third feature adapter, and the one that had to stay out of the second.
+
+```
+src/domain/structured-data.ts   the Organization contract, as data
+src/adapters/structured-data.ts feature: the capability requirement + the contract
+src/domain/claims.ts            the slot collector both metadata features share
+test/fixtures/jsonld-*.html     the JSON-LD a real astro build emitted
+```
+
+**Support matrix — supported means generated, installed, checked and built:**
+
+| Stack                                              | Result                                                                    |
+| -------------------------------------------------- | ------------------------------------------------------------------------- |
+| `astro + tailwind + structured-data`               | **supported** — new in this stage                                         |
+| `astro + tailwind + seo + structured-data`         | **supported** — one JSON-LD block, one metadata set, no duplication       |
+| `astro + tailwind + structured-data` (no site URL) | **supported** — `url` omitted entirely                                    |
+| `astro + tailwind + seo`                           | supported, unchanged                                                      |
+| `astro + tailwind + not-found`                     | supported, unchanged                                                      |
+| `react + vite + tailwind + structured-data`        | **refused** — React provides no `document-metadata`                       |
+| hypothetical framework + `structured-data`         | compatible when it provides `document-metadata`; refused when it does not |
+
+`sitemap`, `social-metadata` and `robots` remain names in the feature vocabulary
+with no adapter behind them, and never fall back to `structured-data`.
+
+**Why this is not part of SEO.** They answer different questions. SEO describes
+_this page_ to a crawler — title, canonical, social preview. Structured data
+describes _the organisation_ to a knowledge graph. Either is useful without the
+other, and folding this into the SEO adapter would have made SEO the place every
+future search-related feature goes: the monolith the feature dimension exists to
+prevent.
+
+They are siblings in the strict sense — same capability, same semantic role,
+**different slots**, and neither names the other:
+
+| Feature           | Role         | Slot              |
+| ----------------- | ------------ | ----------------- |
+| `seo`             | `app.layout` | `metadata`        |
+| `structured-data` | `app.layout` | `structured-data` |
+
+That is what lets either be selected alone and both together. Tests cover all
+three selections.
+
+**Why `document-metadata` and not a new capability.** A JSON-LD block is a
+`<script>` in the document head that has to be in the response a crawler reads
+— which is exactly what `document-metadata` already means. Minting a second
+capability for the same requirement would fragment the vocabulary and force
+every future framework to declare two things where one is true. So the
+capability set did not grow this stage.
+
+**One shared mechanism, because there were now two callers.** Stage 9's
+`collectMetadata` refused two adapters describing the head differently. Stage 10
+needed the identical rule at a different slot, so the rule moved into
+`collectClaims` rather than being written twice — and gained a better
+diagnostic on the way. A conflict now names the **field** that differs and both
+values, since "two adapters disagree" without saying about what is a diagnostic
+nobody can act on:
+
+```
+Two adapters describe "structured-data" differently.
+  They disagree about "name":
+    feature:alpha
+      name: "Other Co"
+    feature:structured-data
+      name: "Acme Ltd"
+```
+
+An absent field prints `(absent)` rather than `undefined`, which is a real
+distinction in structured data.
+
+**Nothing is invented.** Structured data is consumed automatically by machines,
+so a fabricated field here is worse than a missing one — it is a claim about a
+real organisation that nobody made:
+
+| Value           | Behaviour                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| no site URL     | no `url` property at all — not `localhost`, not a guess, not `null`                                                                        |
+| no description  | no `description` property                                                                                                                  |
+| logo            | never claimed: the project configures an image as a _path_, and making it the absolute URL a crawler needs would mean inventing the domain |
+| social profiles | never claimed: the manifest carries none                                                                                                   |
+
+The contract models `@context`, `@type`, `name`, `url?` and `description?` —
+exactly what the manifest can truthfully supply. Email, telephone, location and
+`sameAs` are things a developer fills in after generation, so the generated
+project's own template emits them when configured, which is the right place for
+values the generator never sees.
+
+**Serialisation is deterministic.** A fixed field order rather than insertion
+order, because insertion order is a property of how an object happened to be
+built and golden snapshots compare bytes. JSON-LD attaches no meaning to key
+order; determinism does. Absent fields are absent rather than `null` — a null is
+a claim that the value is empty, which is not the same as making no claim.
+
+**The contract is checked against reality, parsed rather than matched.**
+
+| Check                                            | Where                               |
+| ------------------------------------------------ | ----------------------------------- |
+| `JSON.parse` of the emitted block succeeds       | fixtures captured from a real build |
+| parsed object equals the contract                | both URL states                     |
+| emitted bytes equal the contract's serialisation | both URL states                     |
+| same agreement on a freshly built project        | `scripts/smoke.mjs`, every CI run   |
+
+Structured data that looks right in a plan and does not parse in a browser is
+worse than none — a consumer discards the whole block — so the test parses.
+
+**Evidence, from real generated projects.** All three scenarios generated
+through the production path, then installed, checked and built:
+
+| Scenario                       | install | astro check | build   | JSON-LD                              |
+| ------------------------------ | ------- | ----------- | ------- | ------------------------------------ |
+| `structured-data`              | 291 pkg | 0 errors    | 2 pages | 1 block, parses, equals the contract |
+| `seo + structured-data`        | 291 pkg | 0 errors    | 2 pages | 1 block — no duplication             |
+| `structured-data`, no site URL | 291 pkg | 0 errors    | 2 pages | 1 block, `url` absent                |
+
+**What it contributes:** no dependencies, no scripts, no configuration file, no
+source files, no template layer. One `ConfigContribution` carrying the
+Organization object, and one required role.
+
+**Unchanged.** The four V1 golden files are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+`templates/` was not touched, no existing V2 golden moved, and the three React
+stacks rebuild to the same asset hashes. Astro's existing JSON-LD, SEO metadata,
+404 page and sitemap were all verified still present in a real build through the
+shipped CLI.
+
+**Known limitations, stated rather than implied:**
+
+- **For Astro, structured data is baseline behaviour and the feature is a
+  contract over it.** The template's `StructuredData.astro` already emits the
+  block, reading the same site metadata plus fields a developer configures
+  later, and it keeps ownership. Selecting the feature changes the adapter set,
+  the required-role set and the recorded claim without changing a byte of
+  output. Making it removable would mean rewriting the template and changing V1
+  output, which is a standing compatibility contract.
+- **No adapter consumes the claim yet.** The slot, the conflict rule and the
+  provenance are real and tested, but Astro satisfies the contract from its own
+  template rather than by reading the claim.
+- **`Organization` is the only schema type.** No `Article`, `Product`,
+  `BreadcrumbList`, `WebSite` or anything else, and no generic schema builder.
+  A second type is a later stage's decision, not an abstraction to prepare for.
+- **The contract covers the site, not the page.** A per-page structured-data
+  claim would need the same page-level plumbing SEO also lacks.
+- **`logo` and `sameAs` are outside the contract** for the reasons above; the
+  framework template still emits `sameAs`, `email`, `telephone` and `location`
+  when the developer configures them.
+- **No public CLI selection.** `features` remains V2 manifest territory, and no
+  release accompanies this stage.

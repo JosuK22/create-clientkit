@@ -8,8 +8,11 @@ import {
 } from '../domain/app-composition.js';
 import { collectBuildPlugins, emitViteConfig } from '../domain/build-config.js';
 import { composePackage } from '../domain/package-composition.js';
+import { collectClaims } from '../domain/claims.js';
+import type { Claim } from '../domain/claims.js';
 import { collectMetadata } from '../domain/seo.js';
 import type { MetadataClaim } from '../domain/seo.js';
+import type { OrganizationContract } from '../domain/structured-data.js';
 import type { ComposedPackage } from '../domain/package-composition.js';
 import { deepMergeJson, stringifyJson } from '../generate/compose.js';
 import type { ConfigContribution, Contribution } from '../domain/contributions.js';
@@ -78,6 +81,12 @@ export interface AdapterPlanResult {
    * and reason behind each claim. Empty when no adapter describes metadata.
    */
   readonly metadata: readonly MetadataClaim[];
+  /**
+   * What the selected adapters say machines should be told about the site,
+   * with the owner and reason behind each claim. Empty when no adapter
+   * describes structured data.
+   */
+  readonly structuredData: readonly Claim<OrganizationContract>[];
   readonly manifest: ProjectManifest;
   readonly project: ResolvedProject;
   readonly contributions: readonly Contribution[];
@@ -631,13 +640,20 @@ export function planManifest(
   // Refuses two adapters describing the head differently, before anything is
   // written. Runs even when nothing consumes the claims, because a conflict
   // nobody notices is the failure this exists to prevent.
-  const metadata = collectMetadata(contributions.flatMap((entry) => entry.config));
+  const config = contributions.flatMap((entry) => entry.config);
+  const metadata = collectMetadata(config);
+  const structuredData = collectClaims<OrganizationContract>(
+    config,
+    'app.layout',
+    'structured-data',
+  );
   assertRequiredRoles(project, packageResult.operations);
 
   return {
     plan: { ...generated, operations: packageResult.operations },
     ...(packageResult.composed === undefined ? {} : { composedPackage: packageResult.composed }),
     metadata,
+    structuredData,
     manifest,
     project,
     contributions,

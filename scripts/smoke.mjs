@@ -272,12 +272,60 @@ try {
     expect(count(/rel="canonical"/g) <= 1, `${scenario.name}: duplicate canonical`);
     expect(count(/application\/ld\+json/g) === 1, `${scenario.name}: expected one JSON-LD block`);
 
+    /*
+     * The Organization contract, against the JSON-LD a real build emitted.
+     *
+     * Stage 10 made structured data a feature that computes this object. This
+     * is the other end: what Astro actually put in the document. Parsed rather
+     * than string-matched, because structured data that looks right and does
+     * not parse is worse than none - a crawler discards the whole block.
+     */
     const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-    try {
-      const parsed = JSON.parse(ld[1]);
-      expect(parsed['@type'] === 'Organization', `${scenario.name}: wrong JSON-LD @type`);
-    } catch {
-      failures.push(`${scenario.name}: JSON-LD is not valid JSON`);
+    if (ld === null) {
+      failures.push(`${scenario.name}: no JSON-LD block`);
+    } else {
+      const raw = ld[1];
+      expect(!raw.includes('[object Object]'), `${scenario.name}: JSON-LD was never serialised`);
+      expect(!/[<>]/.test(raw), `${scenario.name}: JSON-LD carries a raw angle bracket`);
+
+      let parsed = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        failures.push(`${scenario.name}: JSON-LD is not valid JSON`);
+      }
+
+      if (parsed !== null) {
+        expect(
+          parsed['@context'] === 'https://schema.org',
+          `${scenario.name}: JSON-LD @context should be the canonical HTTPS schema.org`,
+        );
+        expect(parsed['@type'] === 'Organization', `${scenario.name}: wrong JSON-LD @type`);
+        expect(
+          parsed.name === scenario.siteName,
+          `${scenario.name}: JSON-LD name should be the site name, found ${parsed.name}`,
+        );
+
+        // Nothing invented: a field is present because it is true, or absent.
+        for (const [field, value] of Object.entries(parsed)) {
+          expect(
+            value !== null && value !== undefined && value !== '',
+            `${scenario.name}: JSON-LD "${field}" is present but empty`,
+          );
+        }
+
+        if (scenario.url) {
+          expect(
+            typeof parsed.url === 'string' && parsed.url.startsWith('https://'),
+            `${scenario.name}: JSON-LD url should be absolute, found ${parsed.url}`,
+          );
+        } else {
+          expect(
+            !('url' in parsed),
+            `no-url: JSON-LD carries a url with no configured site URL: ${parsed.url}`,
+          );
+        }
+      }
     }
 
     /*

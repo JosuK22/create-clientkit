@@ -1,4 +1,5 @@
-import { CliError } from '../errors.js';
+import { collectClaims } from './claims.js';
+import type { ConfigContribution } from './contributions.js';
 import type { SiteContext } from '../types.js';
 
 /**
@@ -178,45 +179,15 @@ export interface MetadataClaim {
 /**
  * Collects the metadata contract from the contributions, or refuses.
  *
- * The same shape of decision the rest of the composition engine makes. Two
- * adapters describing the page head identically is cooperation and
- * de-duplicates, keeping both as provenance; two describing it *differently* is
- * a conflict, because there is one `<title>` and picking a winner silently is
- * how a site ends up with metadata nobody chose.
- *
- * Addressed by role and slot rather than by adapter, so a second feature that
- * legitimately needs to describe the head works with no change here.
+ * Delegates to the shared slot collector. Stage 10 added a second feature
+ * describing the same document head at a different slot, so the rule - identical
+ * claims de-duplicate and keep every claimant, differing claims are a conflict
+ * naming the field they disagree about - moved somewhere both can use it.
  */
-export function collectMetadata(
-  contributions: readonly {
-    readonly target: string;
-    readonly at: string;
-    readonly value: unknown;
-    readonly owner: string;
-    readonly reason: string;
-  }[],
-): MetadataClaim[] {
-  const claims = contributions
-    .filter((entry) => entry.target === 'app.layout' && entry.at === 'metadata')
-    .map((entry) => ({
-      owner: entry.owner,
-      reason: entry.reason,
-      contract: entry.value as SeoContract,
-    }))
-    .sort((a, b) => (a.owner < b.owner ? -1 : a.owner > b.owner ? 1 : 0));
-
-  const distinct = [...new Set(claims.map((claim) => JSON.stringify(claim.contract)))];
-  if (distinct.length > 1) {
-    throw new CliError('Two adapters describe the page metadata differently.', {
-      hint:
-        claims
-          .map(
-            (claim) =>
-              `  ${claim.owner}\n    title: ${claim.contract.title}\n    reason: ${claim.reason}`,
-          )
-          .join('\n') + '\nExactly one description of the head can be correct.',
-    });
-  }
-
-  return claims;
+export function collectMetadata(contributions: readonly ConfigContribution[]): MetadataClaim[] {
+  return collectClaims<SeoContract>(contributions, 'app.layout', 'metadata').map((claim) => ({
+    owner: claim.owner,
+    reason: claim.reason,
+    contract: claim.value,
+  }));
 }
