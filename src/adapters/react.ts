@@ -132,7 +132,20 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
     ownsBuildTool: false,
     buildTools: { kind: 'choice', options: ['vite'], default: 'vite' },
     languages: { kind: 'fixed', value: 'ts' },
-    routers: { kind: 'fixed', value: 'none' },
+    /**
+     * A choice, and `none` is the default.
+     *
+     * This said `fixed: 'none'` until Stage 14, which was true when written and
+     * stopped being true in Stage 12 - nothing read the field, so nothing
+     * noticed. It is read now: the CLI takes its unstated defaults from here
+     * rather than from a table of per-framework special cases, which is what
+     * lets the normaliser contain no branch on the framework at all.
+     *
+     * `none` stays the default because the router is opt-in: `react + vite +
+     * tailwind` generates the same files it did before Stage 12, and a test
+     * counts them.
+     */
+    routers: { kind: 'choice', options: ['none', 'react-router'], default: 'none' },
     architectures: { kind: 'fixed', value: 'react-standard' },
     architectureDefinitions: [REACT_ARCHITECTURE],
     /** Nothing: the styling adapter supplies the global stylesheet. */

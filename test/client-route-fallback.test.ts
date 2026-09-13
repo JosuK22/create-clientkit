@@ -850,6 +850,14 @@ describe('the rest of the project is untouched', () => {
         continue;
       }
       if (file === 'src/routes/AppRouter.tsx') continue;
+      // Since Stage 14 the provenance file records which features were
+      // selected, so it differs by exactly the name of this one. That is the
+      // file's job; before then it reported every project as having none.
+      if (file === '.client-site.json') {
+        expect(content).toContain('client-route-fallback');
+        expect(without.get(file)).not.toContain('client-route-fallback');
+        continue;
+      }
       expect(content, `${file} changed`).toBe(without.get(file));
     }
     expect(added).toEqual(['src/pages/NotFoundPage.tsx']);

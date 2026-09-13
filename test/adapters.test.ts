@@ -375,11 +375,28 @@ describe('the bridge keeps its direction and its limits', () => {
     // now composed from contributions, which plan() alone cannot do, so the
     // create command runs the adapter path.
     //
-    // The guard is kept and narrowed rather than deleted. One command file may
-    // reach into adapters; if the import spreads into the resolver, the
-    // template registry or the generator, the layering has eroded and this
-    // fails again.
-    const allowed = ['commands\\create.ts', 'commands/create.ts'];
+    // The guard is kept and narrowed rather than deleted. Stage 14 adds the
+    // resolver and the dimension normaliser, because the public CLI now
+    // configures the V2 model: the normaliser reads a framework's own
+    // declarations for the defaults the user left unstated, and the resolver
+    // needs the registry view that answers for a framework whose template is
+    // not on disk. Both are the stage's point rather than leakage.
+    //
+    // If the import spreads to the template registry, the planner or the
+    // generator, the layering has eroded and this fails again.
+    const allowed = [
+      'commands\\create.ts',
+      'commands/create.ts',
+      'context\\resolve.ts',
+      'context/resolve.ts',
+      'context\\dimensions.ts',
+      'context/dimensions.ts',
+      // Help lists what is actually implemented, and reads it from the registry
+      // rather than keeping a copy. A hand-written list is the one thing worse:
+      // it advertises adapters that do not exist, or omits ones that do.
+      'ui\\help.ts',
+      'ui/help.ts',
+    ];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];
     const walk = (dir: string): void => {

@@ -98,6 +98,87 @@ environment, or forced with `--pm`.
 | `-h, --help`          | Show help                                 |
 | `-v, --version`       | Show the version                          |
 
+### Choosing a stack
+
+By default `npm create clientkit@latest` scaffolds Astro + Tailwind, exactly as
+it always has. To choose something else, configure the dimensions you care
+about and leave the rest to ClientKit:
+
+```sh
+npm create clientkit@latest acme-app \
+  --framework react \
+  --build-tool vite \
+  --language typescript \
+  --styling tailwind
+```
+
+| Flag                  | Configures        | Currently supported                                                             | Default         |
+| --------------------- | ----------------- | ------------------------------------------------------------------------------- | --------------- |
+| `--framework <id>`    | the framework     | `astro`, `react`                                                                | `astro`         |
+| `--build-tool <id>`   | the bundler       | `vite` (`astro` owns its own)                                                   | the framework's |
+| `--language <id>`     | the language      | `ts`, `js`                                                                      | the framework's |
+| `--styling <id>`      | how CSS is built  | `tailwind`, `bootstrap`, `none`                                                 | `tailwind`      |
+| `--ui-library <id>`   | component library | `mui`, `none`                                                                   | `none`          |
+| `--router <id>`       | routing           | `react-router`, `file-based`, `none`                                            | the framework's |
+| `--architecture <id>` | folder layout     | whatever the framework defines                                                  | the framework's |
+| `--features <a,b>`    | site capabilities | `accessibility`, `client-route-fallback`, `not-found`, `seo`, `structured-data` | none            |
+
+`--language` also accepts `typescript` and `javascript`; both mean the ids
+above. `--features` takes a comma-separated list, rejects an id it does not
+know, and rejects the same id twice rather than quietly collapsing it.
+
+Anything you leave out is filled in for you. Where the framework owns the
+answer — React implies Vite, Astro is its own build tool — it is read from the
+framework itself rather than guessed.
+
+#### Combinations are checked, not assumed
+
+Not every stack is buildable, and ClientKit refuses the ones that are not
+before writing anything, naming the reason:
+
+```
+$ npm create clientkit@latest acme-app --framework react --features seo
+
+x That combination will not work.
+    - Search-engine metadata requires document-metadata (the contract has to
+      reach the document head before the response is sent, or crawlers never
+      see it).
+
+    The selected stack provides: composed-stylesheet, css-framework, jsx,
+    react-runtime, spa-routing, typescript, vite-plugins.
+```
+
+That is a real refusal rather than a limitation of the flags: React renders in
+the browser, so it has no way to put metadata in the document before the
+response is sent. The same reasoning keeps `--features not-found` to frameworks
+that route by file; React's equivalent is `--features client-route-fallback`,
+which renders a view for an unmatched address and does not claim to be an
+HTTP 404.
+
+#### Known names versus working choices
+
+ClientKit's vocabulary is wider than the table above — it knows `nextjs`,
+`angular`, `chakra` and others. Asking for one reports that no adapter
+implements it rather than silently substituting something that does:
+
+```
+$ npm create clientkit@latest acme-app --framework nextjs
+
+x ClientKit does not support framework "nextjs" yet.
+    Implemented frameworks: astro, react. "nextjs" is a known identifier but no
+    adapter implements it.
+```
+
+A name ClientKit has never heard of is rejected outright, and never falls back
+to a default.
+
+#### `--template` and the stack flags
+
+`--template` names a whole stack and the flags above configure one, so they
+cannot be combined — including when they happen to agree. Use one or the other.
+`--mode` is unaffected: it selects the starter content, not the technology, and
+works with either.
+
 ### Interactive flow
 
 Five questions, and the first is skipped when you pass a directory:

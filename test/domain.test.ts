@@ -489,9 +489,10 @@ describe('the domain layer stays pure', () => {
   });
 
   it('is not imported by the V1 generation path', () => {
-    // The dependency direction: V1 -> V2, never the reverse. If the resolver,
-    // the planner or the CLI started importing the domain model, the shipped
-    // bundle would change and the golden snapshots would be at risk.
+    // The dependency direction: V1 -> V2, never the reverse. If the planner,
+    // the template registry or the generator started importing the domain
+    // model, the shipped bundle would change and the golden snapshots would be
+    // at risk.
     //
     // `src/adapters/` is excluded because adapters are V2 and importing the
     // domain vocabulary is their entire job. That exclusion arrived with Stage
@@ -499,6 +500,18 @@ describe('the domain layer stays pure', () => {
     // complementary half - that the V1 path does not import `src/adapters/`
     // either - is asserted in adapters.test.ts, so the boundary is still
     // covered from both sides rather than loosened.
+    //
+    // Stage 14 adds two files to the allow-list rather than widening the walk.
+    // The public CLI configures the V2 model now, so the layer that turns flags
+    // into a manifest has to speak its vocabulary - that is the stage's whole
+    // point. Everything else on the V1 path stays sealed, and a file that is
+    // not named here still fails.
+    const allowed = new Set([
+      'context\\dimensions.ts',
+      'context/dimensions.ts',
+      'context\\resolve.ts',
+      'context/resolve.ts',
+    ]);
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const v2Directories = new Set(['domain', 'adapters']);
     const offenders: string[] = [];
@@ -510,6 +523,7 @@ describe('the domain layer stays pure', () => {
           continue;
         }
         if (!entry.name.endsWith('.ts')) continue;
+        if (allowed.has(path.relative(srcDir, full))) continue;
         if (readFileSync(full, 'utf8').includes('domain/')) {
           offenders.push(path.relative(srcDir, full));
         }

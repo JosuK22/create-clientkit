@@ -53,7 +53,9 @@ origin  cli
     "siteUrl": "https://acme.example",
     "locale": "en",
     "packageManager": "npm",
-    "features": []
+    "features": [
+      "client-route-fallback"
+    ]
   }
 }
 

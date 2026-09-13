@@ -65,10 +65,22 @@ export interface AdapterRegistry {
   implementedFeatures(): readonly FeatureId[];
 }
 
-function unsupported(kind: string, id: string, available: readonly string[]): never {
+/**
+ * @param plural the plural of `kind`, given rather than derived.
+ *
+ * Appending an "s" produced "Implemented UI librarys". That was invisible while
+ * only tests read these messages; Stage 14 puts them in front of anyone who
+ * mistypes a flag, which is where the shortcut stopped being free.
+ */
+function unsupported(
+  kind: string,
+  plural: string,
+  id: string,
+  available: readonly string[],
+): never {
   throw new CliError(`ClientKit does not support ${kind} "${id}" yet.`, {
     hint:
-      `Implemented ${kind}s: ${available.join(', ')}. ` +
+      `Implemented ${plural}: ${available.join(', ')}. ` +
       `"${id}" is a known identifier but no adapter implements it.`,
   });
 }
@@ -111,22 +123,22 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
 
   return {
     framework(id) {
-      return frameworks.get(id) ?? unsupported('framework', id, frameworkIds);
+      return frameworks.get(id) ?? unsupported('framework', 'frameworks', id, frameworkIds);
     },
     buildTool(id) {
-      return buildTools.get(id) ?? unsupported('build tool', id, buildToolIds);
+      return buildTools.get(id) ?? unsupported('build tool', 'build tools', id, buildToolIds);
     },
     styling(id) {
-      return styling.get(id) ?? unsupported('styling system', id, stylingIds);
+      return styling.get(id) ?? unsupported('styling system', 'styling systems', id, stylingIds);
     },
     uiLibrary(id) {
-      return uiLibraries.get(id) ?? unsupported('UI library', id, uiLibraryIds);
+      return uiLibraries.get(id) ?? unsupported('UI library', 'UI libraries', id, uiLibraryIds);
     },
     router(id) {
-      return routers.get(id) ?? unsupported('router', id, routerIds);
+      return routers.get(id) ?? unsupported('router', 'routers', id, routerIds);
     },
     feature(id) {
-      return features.get(id) ?? unsupported('feature', id, featureIds);
+      return features.get(id) ?? unsupported('feature', 'features', id, featureIds);
     },
     hasFramework: (id) => frameworks.has(id),
     hasBuildTool: (id) => buildTools.has(id),

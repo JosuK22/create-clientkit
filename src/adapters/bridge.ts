@@ -74,6 +74,14 @@ export interface AdapterPlanOptions {
 export interface AdapterPlanResult {
   readonly plan: GenerationPlan;
   /**
+   * The template manifest the plan was built against.
+   *
+   * Returned because the caller cannot always look it up: React's lives on its
+   * adapter rather than on disk, so `registry.get('react-vite')` throws. The
+   * command layer reads `minNode`, `postSteps` and `nextSteps` from it.
+   */
+  readonly templateManifest: TemplateManifest;
+  /**
    * Every dependency and script in the generated manifest, with each adapter
    * that asked for it and the reason it gave. Present whenever the architecture
    * has a `package` role. This is where "why is this package in my project?"
@@ -496,8 +504,12 @@ export function mergeComposed(
  * `plan()` asks for a `TemplateManifest` and a template root. Astro's come from
  * the V1 disk registry unchanged; React's come from its adapter, because giving
  * its directory a `template.json` would list it in the V1 CLI.
+ *
+ * Exported since Stage 14: the resolver needs the same view, because a manifest
+ * naming React resolves a template id the disk registry has never heard of, and
+ * two functions building that view would be two chances to build it differently.
  */
-function registryFor(
+export function registryFor(
   base: TemplateRegistry,
   templatesRoot: string,
   manifest: TemplateManifest | undefined,
@@ -691,7 +703,28 @@ export function planManifest(
       version: registry.get(templateId).version,
       mode: options.mode,
     },
-    features: [],
+    /*
+     * What was selected, so the provenance file records it.
+     *
+     * Hard-coded `[]` until Stage 14, which was harmless while nothing could
+     * ask for a feature and became a lie the moment `--features` was public: a
+     * project generated with three features shipped a `.client-site.json`
+     * saying it had none.
+     *
+     * Starters are excluded rather than merged in. One is already recorded as
+     * `mode` two lines above, and naming the same choice twice under two keys
+     * would make the provenance file describe one decision as two. It is also
+     * what keeps `"features": []` in the V1 goldens, whose manifests carry
+     * exactly one starter and nothing else.
+     *
+     * De-duplicated and sorted, exactly as `selectAdapters` does. Not cosmetic:
+     * without it, asking for one feature twice, or in the other order, produced
+     * a different generated file - and two tests that had held since Stage 8
+     * caught precisely that.
+     */
+    features: [
+      ...new Set(manifest.features.filter((feature) => !feature.startsWith('starter:'))),
+    ].sort(),
     packageManager: manifest.packageManager,
     git: manifest.git,
     install: manifest.install,
@@ -735,6 +768,7 @@ export function planManifest(
 
   return {
     plan: { ...generated, operations: packageResult.operations },
+    templateManifest: registry.get(templateId),
     ...(packageResult.composed === undefined ? {} : { composedPackage: packageResult.composed }),
     metadata,
     structuredData,

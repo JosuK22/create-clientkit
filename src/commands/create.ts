@@ -6,7 +6,7 @@ import { ClackPrompter, NonInteractivePrompter, type Prompter } from '../context
 import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply, findCollisions } from '../generate/apply.js';
-import { planWithAdapters } from '../adapters/bridge.js';
+import { planManifest } from '../adapters/bridge.js';
 import { runPostSteps } from '../generate/postSteps.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
@@ -63,7 +63,11 @@ export async function runCreate(options: CreateOptions): Promise<number> {
 
   if (prompter instanceof ClackPrompter) prompter.intro(cliVersion);
 
-  const { context, sources } = await resolveContext({
+  const {
+    context,
+    manifest: projectManifest,
+    sources,
+  } = await resolveContext({
     flags,
     cwd,
     env,
@@ -73,15 +77,29 @@ export async function runCreate(options: CreateOptions): Promise<number> {
     now: new Date(),
   });
 
-  const manifest = registry.get(context.template.id);
-  // The adapter path, not plan() directly. Since Stage 6 the dependency and
-  // script blocks of package.json are composed from adapter contributions
-  // rather than copied from the template, and plan() alone knows nothing about
-  // adapters - it would emit a manifest with no dependencies at all.
-  //
-  // Byte-for-byte identical to what plan() produced before that change: the
-  // V1 golden files assert exactly this output and were not touched.
-  const { plan: generationPlan } = planWithAdapters(context, { registry });
+  /*
+   * The manifest, not the context.
+   *
+   * Since Stage 14 the resolver produces both, and this is the one the pipeline
+   * takes. Routing the command through it is what makes the dimension flags do
+   * anything at all - `planWithAdapters` derives its manifest from a context,
+   * and a context has no framework on it, so every run would resolve to Astro.
+   *
+   * Byte-for-byte identical to the previous call for a legacy invocation: the
+   * resolved manifest is the one `manifestFromProjectContext` would have
+   * derived, and a test asserts exactly that.
+   */
+  const planned = planManifest(projectManifest, {
+    registry,
+    cliVersion,
+    generatedAt: context.generatedAt,
+    mode: context.template.mode,
+    templateId: context.template.id,
+  });
+  const generationPlan = planned.plan;
+  // Read from the plan rather than the registry: React's template manifest
+  // lives on its adapter, so `registry.get('react-vite')` would throw.
+  const manifest = planned.templateManifest;
   logger.debug(`planned ${generationPlan.operations.length} operations`);
 
   if (flags.dryRun) {
