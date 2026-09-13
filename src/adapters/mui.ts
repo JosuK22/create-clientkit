@@ -113,7 +113,10 @@ export function createMuiAdapter(templatesRoot: string): Adapter {
             // architecture's role mapping.
             target: 'app.root',
             at: 'providers',
-            value: { importName: 'AppProviders' },
+            // Order 10 leaves room outside it: a router belongs above the
+            // theme so route context is available to everything, including
+            // anything the theme renders.
+            value: { importName: 'AppProviders', role: 'app.providers', order: 10 },
             owner: OWNER,
             reason: 'MUI components need the theme and styling engine mounted above them',
           },

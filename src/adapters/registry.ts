@@ -6,6 +6,7 @@ import type {
   BuildToolId,
   FeatureId,
   FrameworkId,
+  RouterId,
   StylingId,
   UiLibraryId,
 } from '../domain/dimensions.js';
@@ -13,6 +14,7 @@ import { createAccessibilityAdapter } from './accessibility.js';
 import { createAstroAdapter } from './astro.js';
 import { createBootstrapAdapter } from './bootstrap.js';
 import { createReactAdapter } from './react.js';
+import { createReactRouterAdapter } from './react-router.js';
 import { createTailwindAdapter } from './tailwind.js';
 import { createMuiAdapter } from './mui.js';
 import { createNotFoundAdapter } from './not-found.js';
@@ -23,8 +25,8 @@ import { createViteAdapter } from './vite.js';
 /**
  * The adapter registry, holding exactly what exists.
  *
- * Two frameworks, one build tool, two styling systems, one UI library and
- * four features - because those are what is implemented. The id unions in
+ * Two frameworks, one build tool, two styling systems, one UI library, one
+ * router and four features - because those are what is implemented. The id unions in
  * `domain/dimensions.ts` name more (`nextjs`, `angular`, `chakra`, `scss`,
  * `sitemap`), and asking for any of them fails here rather than resolving to a
  * stub or, far worse, quietly falling back to something that happens to work.
@@ -45,17 +47,20 @@ export interface AdapterRegistry {
   buildTool(id: BuildToolId): Adapter;
   styling(id: StylingId): Adapter;
   uiLibrary(id: UiLibraryId): Adapter;
+  router(id: RouterId): Adapter;
   feature(id: FeatureId): Adapter;
   /** Whether an adapter exists, without throwing. */
   hasFramework(id: FrameworkId): boolean;
   hasBuildTool(id: BuildToolId): boolean;
   hasStyling(id: StylingId): boolean;
   hasUiLibrary(id: UiLibraryId): boolean;
+  hasRouter(id: RouterId): boolean;
   hasFeature(id: FeatureId): boolean;
   implementedFrameworks(): readonly FrameworkId[];
   implementedBuildTools(): readonly BuildToolId[];
   implementedStyling(): readonly StylingId[];
   implementedUiLibraries(): readonly UiLibraryId[];
+  implementedRouters(): readonly RouterId[];
   implementedFeatures(): readonly FeatureId[];
 }
 
@@ -86,6 +91,9 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   // `starter:*` is not here on purpose. It selects a template layer rather than
   // an adapter - the arrangement V1's `mode` became - and asking the registry
   // for it would report a missing adapter for something that was never one.
+  const routers = new Map<RouterId, Adapter>([
+    ['react-router', createReactRouterAdapter(templatesRoot)],
+  ]);
   const features = new Map<FeatureId, Adapter>([
     ['accessibility', createAccessibilityAdapter()],
     ['not-found', createNotFoundAdapter()],
@@ -98,6 +106,7 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   const buildToolIds = [...buildTools.keys()].sort();
   const stylingIds = [...styling.keys()].sort();
   const uiLibraryIds = [...uiLibraries.keys()].sort();
+  const routerIds = [...routers.keys()].sort();
   const featureIds = [...features.keys()].sort();
 
   return {
@@ -113,6 +122,9 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     uiLibrary(id) {
       return uiLibraries.get(id) ?? unsupported('UI library', id, uiLibraryIds);
     },
+    router(id) {
+      return routers.get(id) ?? unsupported('router', id, routerIds);
+    },
     feature(id) {
       return features.get(id) ?? unsupported('feature', id, featureIds);
     },
@@ -120,11 +132,13 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     hasBuildTool: (id) => buildTools.has(id),
     hasStyling: (id) => styling.has(id),
     hasUiLibrary: (id) => uiLibraries.has(id),
+    hasRouter: (id) => routers.has(id),
     hasFeature: (id) => features.has(id),
     implementedFrameworks: () => frameworkIds,
     implementedBuildTools: () => buildToolIds,
     implementedStyling: () => stylingIds,
     implementedUiLibraries: () => uiLibraryIds,
+    implementedRouters: () => routerIds,
     implementedFeatures: () => featureIds,
   };
 }

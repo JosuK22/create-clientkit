@@ -38,6 +38,7 @@ export const ADAPTER_KINDS = [
   'language',
   'styling',
   'ui-library',
+  'router',
   'architecture',
   'feature',
 ] as const;

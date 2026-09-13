@@ -43,6 +43,19 @@ export const FILE_ROLES = [
    * plain root when nobody does.
    */
   'app.providers',
+  /**
+   * The component that declares the application's routes.
+   *
+   * Separate from `app.providers` because a project can legitimately have both
+   * - a router and a UI library each wrap the application, and each needs a
+   * file of its own. Sharing one role would make them collide for no reason
+   * other than that both happen to be wrappers.
+   *
+   * Mapping it is optional, exactly like `app.providers`: an architecture that
+   * maps it says "a router's composition root belongs here", and the root
+   * composer wires it in when some adapter fills it.
+   */
+  'app.router',
   /** The shared page shell: `<head>`, header, footer. */
   'app.layout',
   /** Home page. */

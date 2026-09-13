@@ -102,6 +102,19 @@ export function selectAdapters(manifest: ProjectManifest, registry: AdapterRegis
     adapters.push({ ref: adapterRef(uiLibrary.declaration), adapter: uiLibrary });
   }
 
+  /*
+   * The router is explicit, and `none` is a real answer.
+   *
+   * `file-based` is not an adapter either: it is what a framework that routes
+   * by file already does, recorded on the manifest so the choice is visible.
+   * Asking the registry for it would report a missing adapter for something
+   * that was never one.
+   */
+  if (manifest.router !== 'none' && manifest.router !== 'file-based') {
+    const router = registry.router(manifest.router);
+    adapters.push({ ref: adapterRef(router.declaration), adapter: router });
+  }
+
   // Features are a list rather than a single choice, and `starter:*` is not an
   // adapter at all - it picks a template layer. De-duplicated, because asking
   // for the same feature twice is one request, not two, and letting it through

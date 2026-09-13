@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { ConfigContribution } from './contributions.js';
-import type { ArchitectureDefinition } from './roles.js';
+import type { ArchitectureDefinition, FileRole } from './roles.js';
 import { definesRole } from './roles.js';
 import { CliError } from '../errors.js';
 
@@ -48,6 +48,33 @@ import { CliError } from '../errors.js';
 export interface AppRootEntry {
   /** The exported binding, e.g. `HomePage`. The adapter owns this name. */
   readonly importName: string;
+  /**
+   * Nesting position for a wrapper. Lower is further out; ties break on owner.
+   *
+   * Added in Stage 12, when a second kind of wrapper appeared. A router and a
+   * UI library both legitimately sit above the application, and which of them
+   * is outermost is a decision neither can make alone - so each states where it
+   * belongs and the composer sorts, rather than the order falling out of which
+   * adapter happened to be selected first.
+   */
+  readonly order?: number;
+  /**
+   * Replaces the root module's doc comment.
+   *
+   * For a wrapper that changes what the root *is*. The default text says the
+   * scaffold ships without a router, which stops being true the moment one is
+   * selected, and a generated file that describes itself incorrectly is worse
+   * than one with no comment at all.
+   */
+  readonly note?: readonly string[];
+  /**
+   * The role holding this wrapper's own file.
+   *
+   * A role rather than a path, so the adapter never learns where the
+   * architecture keeps such a component - including its own. Defaults to
+   * `app.providers`, which is where the only wrapper before Stage 12 lived.
+   */
+  readonly role?: FileRole;
 }
 
 function isAppRootEntry(value: unknown): value is AppRootEntry {
@@ -58,17 +85,32 @@ function isAppRootEntry(value: unknown): value is AppRootEntry {
   );
 }
 
+/** One adapter's claim on an application-root slot. */
+export interface AppRootClaim {
+  readonly owner: string;
+  readonly entry: AppRootEntry;
+}
+
 /**
- * Reads a single `app.root` contribution aimed at one slot.
+ * Reads every `app.root` contribution aimed at one slot, in nesting order.
  *
- * More than one adapter claiming a slot is a conflict rather than a merge:
- * there is one page and one provider wrapper, and picking a winner silently is
- * how a generated project ends up rendering something nobody chose.
+ * Through Stage 11 a slot admitted exactly one occupant, because only one
+ * adapter had ever wanted to wrap the application. Stage 12 added a second
+ * kind: a router and a UI library both legitimately sit above the tree, and
+ * refusing that would have made them mutually exclusive for no reason beyond
+ * the shape of this function.
+ *
+ * Sorted by the declared order and then by owner, so nesting never depends on
+ * which adapter happened to be selected first.
+ *
+ * Two adapters claiming the same binding name is still a conflict: two
+ * components cannot be imported under one name, and nesting the same one twice
+ * is meaningless. Byte-identical claims collapse to one instead.
  */
-export function appRootEntry(
+export function appRootEntries(
   contributions: readonly ConfigContribution[],
   slot: 'page' | 'providers',
-): { readonly owner: string; readonly entry: AppRootEntry } | undefined {
+): readonly AppRootClaim[] {
   const matching = contributions
     .filter((contribution) => contribution.target === 'app.root' && contribution.at === slot)
     .map((contribution) => {
@@ -80,7 +122,46 @@ export function appRootEntry(
       }
       return { owner: contribution.owner, entry: contribution.value };
     })
-    .sort((a, b) => (a.owner < b.owner ? -1 : a.owner > b.owner ? 1 : 0));
+    .sort(
+      (a, b) =>
+        (a.entry.order ?? 0) - (b.entry.order ?? 0) ||
+        (a.owner < b.owner ? -1 : a.owner > b.owner ? 1 : 0),
+    );
+
+  const byName = new Map<string, AppRootClaim>();
+  const ordered: AppRootClaim[] = [];
+  for (const claim of matching) {
+    const seen = byName.get(claim.entry.importName);
+    if (seen === undefined) {
+      byName.set(claim.entry.importName, claim);
+      ordered.push(claim);
+      continue;
+    }
+    if (JSON.stringify(seen) === JSON.stringify(claim)) continue;
+    throw new CliError(
+      `Two adapters both want "${claim.entry.importName}" in the application root.`,
+      {
+        hint:
+          `  ${seen.owner}\n  ${claim.owner}\n` +
+          'Two components cannot share one binding; one of them must use a different name.',
+      },
+    );
+  }
+
+  return ordered;
+}
+
+/**
+ * Reads the single occupant of a slot that admits only one.
+ *
+ * The page is still exactly one: a root renders one thing, and two adapters
+ * supplying it is a disagreement rather than a nesting.
+ */
+export function appRootEntry(
+  contributions: readonly ConfigContribution[],
+  slot: 'page',
+): AppRootClaim | undefined {
+  const matching = appRootEntries(contributions, slot);
 
   if (matching.length > 1) {
     throw new CliError(`Two adapters both want to supply the application's ${slot}.`, {
@@ -115,28 +196,55 @@ export function importSpecifier(fromFile: string, toFile: string): string {
  * Imports are sorted by specifier so the output never depends on the order
  * adapters were selected in. LF-terminated, like every other generated file.
  */
+/** What the root says about itself when no wrapper has anything to add. */
+const DEFAULT_ROOT_NOTE = [
+  ' * One page, because this scaffold ships without a router - see the README. Add',
+  ' * one when the site needs a second page, and this is where it goes.',
+];
+
+export interface AppRootWrapper {
+  readonly importName: string;
+  readonly from: string;
+  readonly note?: readonly string[];
+}
+
 export function emitAppRoot(
   rootExportName: string,
   page: { readonly importName: string; readonly from: string },
-  providers?: { readonly importName: string; readonly from: string },
+  providers: readonly AppRootWrapper[] = [],
 ): string {
   const imports = [
     `import { ${page.importName} } from '${page.from}';`,
-    ...(providers === undefined
-      ? []
-      : [`import { ${providers.importName} } from '${providers.from}';`]),
+    ...providers.map((entry) => `import { ${entry.importName} } from '${entry.from}';`),
   ].sort();
 
-  const body =
-    providers === undefined
-      ? [`  return <${page.importName} />;`]
-      : [
-          `  return (`,
-          `    <${providers.importName}>`,
-          `      <${page.importName} />`,
-          `    </${providers.importName}>`,
-          `  );`,
-        ];
+  // Wrappers nest outermost-first, so the element tree reads in the order the
+  // composer resolved them.
+  const body: string[] = [];
+  if (providers.length === 0) {
+    body.push(`  return <${page.importName} />;`);
+  } else {
+    body.push('  return (');
+    providers.forEach((entry, depth) => {
+      body.push(`${'  '.repeat(depth + 2)}<${entry.importName}>`);
+    });
+    body.push(`${'  '.repeat(providers.length + 2)}<${page.importName} />`);
+    [...providers].reverse().forEach((entry, index) => {
+      body.push(`${'  '.repeat(providers.length - index + 1)}</${entry.importName}>`);
+    });
+    body.push('  );');
+  }
+
+  /*
+   * The outermost wrapper with something to say replaces the default
+   * paragraph.
+   *
+   * The default text states the scaffold ships without a router, which stops
+   * being true the moment one is selected. A generated file that describes
+   * itself incorrectly is worse than one with no comment, and the wrapper that
+   * changed what the root *is* is the one qualified to say so.
+   */
+  const note = providers.find((entry) => entry.note !== undefined)?.note ?? DEFAULT_ROOT_NOTE;
 
   return [
     ...imports,
@@ -144,8 +252,7 @@ export function emitAppRoot(
     '/**',
     ' * The application root.',
     ' *',
-    ' * One page, because this scaffold ships without a router - see the README. Add',
-    ' * one when the site needs a second page, and this is where it goes.',
+    ...note,
     ' */',
     `export function ${rootExportName}() {`,
     ...body,

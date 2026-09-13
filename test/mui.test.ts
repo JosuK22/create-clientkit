@@ -363,7 +363,14 @@ describe('contributions', () => {
     expect(config.map((entry) => ({ target: entry.target, at: entry.at }))).toEqual([
       { target: 'app.root', at: 'providers' },
     ]);
-    expect(config[0]?.value).toEqual({ importName: 'AppProviders' });
+    // Since Stage 12 the entry also names the role holding its own file and
+    // where it nests, because a router can now wrap the application too. Both
+    // are semantic: still no path, still only its own export.
+    expect(config[0]?.value).toEqual({
+      importName: 'AppProviders',
+      role: 'app.providers',
+      order: 10,
+    });
   });
 });
 
@@ -496,11 +503,11 @@ describe('the composed application root', () => {
 
     expect(() => composedAppRoot(project, [framework, wrapperOnly], [])).toThrow(CliError);
     expect(() => composedAppRoot(project, [framework, wrapperOnly], [])).toThrow(
-      /contributes no provider file/,
+      /contributes no file for it/,
     );
   });
 
-  it('refuses two adapters both claiming the provider slot', () => {
+  it('nests two adapters that both wrap the application', () => {
     const { project } = resolveProject(manifest('none'), adapters);
     const page: Contribution = {
       ...emptyContribution('framework:react'),
@@ -527,9 +534,12 @@ describe('the composed application root', () => {
       ],
     });
 
+    // Stage 7 refused this outright, because only one kind of wrapper existed.
+    // Stage 12 added a second - a router and a UI library both legitimately sit
+    // above the tree - so identical bindings are the conflict, not the count.
     expect(() =>
       composedAppRoot(project, [page, wrapper('ui-library:alpha'), wrapper('ui-library:beta')], []),
-    ).toThrow(/both want to supply/);
+    ).toThrow(/both want "Providers"/);
   });
 
   it('refuses a root with no page at all', () => {

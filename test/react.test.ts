@@ -261,7 +261,7 @@ describe('React file roles', () => {
       // library's provider wrapper would go; with no UI library selected
       // nothing fills it, and the composed root correctly omits it. The MUI
       // suite asserts the filled case.
-      if (role === 'app.providers') continue;
+      if (role === 'app.providers' || role === 'app.router') continue;
       expect(paths.has(target), `role "${role}" -> ${target} is not generated`).toBe(true);
     }
   });

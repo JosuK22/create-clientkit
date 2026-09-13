@@ -55,6 +55,26 @@ export const CAPABILITIES = [
    */
   'document-metadata',
   'spa-routing',
+  /**
+   * A router is present: routes can be declared and matched in the client.
+   *
+   * Deliberately distinct from the two capabilities around it, because
+   * collapsing them is the mistake that would let a generator claim something
+   * untrue:
+   *
+   *   - `file-based-routing` - the framework turns files into routes, and a
+   *     path nothing matches reaches a real not-found *document* in the
+   *     response.
+   *   - `spa-routing` - navigation happens without a full page load. A shape
+   *     of application, which React has with or without a router.
+   *   - `client-side-routing` - this. Routes exist and are matched, in the
+   *     browser, after the response has already been sent.
+   *
+   * A client-side catch-all renders a component; it does not produce an HTTP
+   * 404. So a router providing this does not, and must not, satisfy a
+   * requirement for `file-based-routing`.
+   */
+  'client-side-routing',
 
   /**
    * The global stylesheet is composed from contributions rather than shipped

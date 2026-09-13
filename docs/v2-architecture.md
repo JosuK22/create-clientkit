@@ -2214,3 +2214,144 @@ behaviour is exactly what it was.
   a hypothetical adapter, but Astro is the only implemented framework that
   provides the capability today.
 - **No public CLI selection**, and no release: the version stays 1.0.2.
+
+### Stage 12 — routing as a dimension, and the first router (landed)
+
+The seventh dimension to become real, and the stage whose most important
+outcome is a combination that stays **unsupported**.
+
+```
+src/adapters/react-router.ts             router: the dependency + the composition root
+templates/router/react-router/AppRouter  the component it contributes
+src/domain/app-composition.ts            wrappers now nest, deterministically
+src/domain/capabilities.ts               client-side-routing
+src/domain/roles.ts                      app.router
+```
+
+**Support matrix — supported means generated, installed, typechecked, built and
+loaded in a browser:**
+
+| Stack                                                                     | Result                                                      |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `react + vite + tailwind`                                                 | supported, **unchanged** — the router is opt-in             |
+| `react + vite + tailwind + react-router`                                  | **supported** — new in this stage                           |
+| `react + vite + tailwind + mui + react-router`                            | **supported** — both wrap the app, router outermost         |
+| `react + vite + bootstrap + react-router`                                 | compatible; golden-covered, not build-tested                |
+| `react + vite + react-router + not-found`                                 | **refused, deliberately** — see below                       |
+| `react + vite + react-router + seo` / `structured-data` / `accessibility` | refused, unchanged — React still has no `document-metadata` |
+| `astro + react-router`                                                    | refused — Astro provides no `react-runtime`                 |
+| `angular-router`                                                          | refused by name; no fallback to `react-router`              |
+
+**A router is not file-based routing.** This is the whole point of the stage,
+and the reason one combination is deliberately left unsupported. Three
+capabilities, three different statements:
+
+| Capability            | Means                                                                                                                 | Provided by                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `file-based-routing`  | the framework turns files into routes, and an unmatched address reaches a real not-found **document** in the response | Astro                           |
+| `spa-routing`         | navigation happens without a full page load — a shape of application                                                  | React, with or without a router |
+| `client-side-routing` | routes are declared and matched, in the browser, **after** the response was sent                                      | React Router                    |
+
+A catch-all route renders a component; it does not produce an HTTP 404. So
+`react + vite + react-router + not-found` stays refused, and the refusal still
+names `file-based-routing` rather than the router:
+
+```
+That combination will not work.
+  - Not-found page requires file-based-routing
+    (an unmatched path has to reach the page for it to be a 404
+     rather than an unreachable file)
+```
+
+Making that pass would have produced a project whose "404 page" answers **200**
+to every crawler and uptime check that asked. A more impressive feature matrix
+is not worth a generated project that lies about its status codes. The generated
+`AppRouter.tsx` carries the same caveat, so the developer reading the file gets
+it too.
+
+**The router is opt-in, and that is enforced.** React declares no routing
+capability of its own and does not select the adapter; `react + vite + tailwind`
+generates exactly the 21 files and the same asset hashes it did before this
+stage. `file-based` selects no adapter either — it is what a framework that
+routes by file already does, recorded on the manifest so the choice is visible
+rather than implied.
+
+**One generic change: wrappers now nest.** Through Stage 11 the application-root
+provider slot admitted exactly one occupant, because only one adapter had ever
+wanted to wrap the tree. A router and a UI library both legitimately do, and
+refusing that would have made them mutually exclusive for no reason beyond the
+shape of a function. So the slot became a list, ordered by a declared position
+and then by owner:
+
+```tsx
+export function App() {
+  return (
+    <AppRouter>
+      <AppProviders>
+        <HomePage />
+      </AppProviders>
+    </AppRouter>
+  );
+}
+```
+
+The router takes order 0 and sits outermost, so route context is available to
+everything inside it. Two adapters claiming the same **binding name** is still a
+conflict — two components cannot share one import — and the page slot still
+admits exactly one, because a root renders one thing.
+
+Each wrapper names the **role** holding its own file rather than a path, so
+neither learns where the architecture keeps components, including its own. The
+router's file lives at a role of its own, `app.router`, rather than sharing the
+provider role: sharing it would have made them collide for no reason but that
+both happen to be wrappers.
+
+**The generated root stops lying.** The default doc comment says the scaffold
+ships without a router, which becomes false the moment one is selected, so a
+wrapper that changes what the root _is_ can replace that paragraph. Only the
+router does, which is why every existing React golden is byte-identical.
+
+**What it contributes:** `react-router-dom@7.18.3` as an exact prod pin through
+the Stage 6 package composer, one file by role, one root-wrapper entry. No
+scripts, no configuration, no Vite plugin, no template edit. A test asserts no
+template mentions a router and that no other adapter smuggles one in.
+
+**Evidence, from real generated projects.** Both generated through the
+production path, then installed, typechecked, built and loaded in the puppeteer
+the repository already uses:
+
+| Scenario             | install      | typecheck | build     | browser          |
+| -------------------- | ------------ | --------- | --------- | ---------------- |
+| `react-router`       | 44 packages  | clean     | 262.16 kB | 9/9 assertions   |
+| `react-router + mui` | 119 packages | clean     | 352.32 kB | 10/10 assertions |
+
+`GET /` returns 200 and renders the home route. A `pushState` to an unmatched
+address changes the location **without a reload** and the home route stops
+rendering — which is what proves the router is genuinely mounted rather than
+merely installed. The emitted bundle contains React Router's own code, the MUI
+provider still renders inside the router, and there are no console errors and no
+unresolved tokens.
+
+**Unchanged.** The four V1 golden files are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+`templates/` was not touched, no existing golden moved, and React + Tailwind,
+React + Bootstrap and React + MUI all rebuild to the same asset hashes as
+before.
+
+**Known limitations, stated rather than implied:**
+
+- **No real 404 for React, and none is faked.** A client-side catch-all is a
+  component, not a status code. Giving React a genuine not-found response needs
+  either host configuration or server rendering — a future architectural
+  concern, not something this adapter can honestly provide.
+- **One route.** The generated router declares `/` and nothing else. A scaffold
+  shipping `/about` and `/contact` would hand you pages to delete, each a guess
+  about a site nobody has designed.
+- **No data routers, loaders, guards or lazy routes.** The adapter mounts a
+  router; everything beyond that is the developer's.
+- **`client-side-routing` has no consumer yet.** It is declared because it is
+  true and because it is the capability a future client-side fallback feature
+  would require — the same footing as MUI's `css-in-js`.
+- **`react + vite + bootstrap + react-router` is golden-covered but not
+  build-tested**, so it is listed as compatible rather than supported.
+- **No public CLI selection**, and no release: the version stays 1.0.2.

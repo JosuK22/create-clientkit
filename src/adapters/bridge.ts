@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import {
+  appRootEntries,
   appRootEntry,
   composesAppRoot,
   emitAppRoot,
@@ -276,29 +277,43 @@ export function composedAppRoot(
     });
   }
 
-  const providers = appRootEntry(config, 'providers');
-  const providersPath = definesRole(project.architecture, 'app.providers')
-    ? resolveRole(project.architecture, 'app.providers')
-    : undefined;
-  const providersExists =
-    providersPath !== undefined && operations.some((entry) => entry.path === providersPath);
+  /*
+   * Every wrapper that sits above the application, outermost first.
+   *
+   * Each names the role that holds its own file rather than a path, so a UI
+   * library and a router can both wrap the tree without either learning where
+   * the other's component lives - or where its own does.
+   */
+  const wrappers = appRootEntries(config, 'providers').map((claim) => {
+    const role = claim.entry.role ?? 'app.providers';
 
-  if (providers !== undefined && !providersExists) {
-    // A wrapper nothing produced would emit an import of a file that does not
-    // exist - a project that installs and then fails to build, which is the
-    // failure mode this codebase treats most seriously.
-    throw new CliError(
-      `${providers.owner} wraps the application root but contributes no provider file.`,
-      {
-        hint:
-          providersPath === undefined
-            ? `Architecture "${project.architecture.id}" maps no app.providers role for it to fill.`
-            : `Nothing produces "${providersPath}".`,
-      },
-    );
-  }
+    if (!definesRole(project.architecture, role)) {
+      throw new CliError(
+        `${claim.owner} wraps the application root, but "${project.architecture.id}" maps no "${role}" role for it.`,
+        { hint: 'The architecture decides where such a component lives; this one has nowhere.' },
+      );
+    }
 
-  const owners = [page.owner, ...(providers === undefined ? [] : [providers.owner])];
+    const filePath = resolveRole(project.architecture, role);
+    if (!operations.some((entry) => entry.path === filePath)) {
+      // A wrapper nothing produced would emit an import of a file that does
+      // not exist - a project that installs and then fails to build, which is
+      // the failure mode this codebase treats most seriously.
+      throw new CliError(
+        `${claim.owner} wraps the application root but contributes no file for it.`,
+        { hint: `Nothing produces "${filePath}".` },
+      );
+    }
+
+    return {
+      owner: claim.owner,
+      importName: claim.entry.importName,
+      from: importSpecifier(rootPath, filePath),
+      ...(claim.entry.note === undefined ? {} : { note: claim.entry.note }),
+    };
+  });
+
+  const owners = [page.owner, ...wrappers.map((wrapper) => wrapper.owner)];
 
   return [
     {
@@ -310,12 +325,7 @@ export function composedAppRoot(
           importName: page.entry.importName,
           from: importSpecifier(rootPath, resolveRole(project.architecture, 'page.home')),
         },
-        providers === undefined || providersPath === undefined
-          ? undefined
-          : {
-              importName: providers.entry.importName,
-              from: importSpecifier(rootPath, providersPath),
-            },
+        wrappers,
       ),
       origin: `composed from ${owners.join(' + ')}`,
     },

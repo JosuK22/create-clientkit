@@ -94,6 +94,10 @@ const REACT_ARCHITECTURE: ArchitectureDefinition = {
     // Where a UI library's provider wrapper goes, if one is selected. React
     // decides the location; the library that fills it never learns the path.
     'app.providers': 'src/components/ui/AppProviders.tsx',
+    // Where a router's composition root goes, if one is selected. Separate from
+    // app.providers because a project can have both, and sharing one role would
+    // make them collide for no reason but that both happen to wrap the tree.
+    'app.router': 'src/routes/AppRouter.tsx',
     'app.layout': 'src/layouts/BaseLayout.tsx',
     'page.home': 'src/pages/HomePage.tsx',
     // No `page.notFound`. A client-side 404 needs a router to detect an

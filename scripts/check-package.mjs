@@ -42,6 +42,9 @@ const ALLOWED = [
   // above: one directory per library, holding the source that library
   // contributes. One level deep, TSX only.
   /^templates\/ui-library\/[^/]+\/[^/]+\.tsx$/,
+  // The router tree, same shape and same reasoning as the two above: one
+  // directory per router, holding the source that router contributes.
+  /^templates\/router\/[^/]+\/[^/]+\.tsx$/,
 ];
 
 /** Nothing shipped may match one of these, whatever the allow-list says. */
@@ -92,6 +95,9 @@ const REQUIRED = [
   // A UI library contributes this by role. If it stops shipping, every project
   // built with that library imports a file that is not there.
   'templates/ui-library/mui/AppProviders.tsx',
+  // A router contributes this by role. If it stops shipping, every project
+  // built with that router imports a file that is not there.
+  'templates/router/react-router/AppRouter.tsx',
 ];
 
 const packed = JSON.parse(

@@ -1,0 +1,935 @@
+== PLAN ==
+templateId       react-vite
+templateVersion  0.1.0
+mode             full
+targetDir        <TARGET_DIR>
+operationCount   22
+
+== ORDER ==
+write  .client-site.json
+copy   .gitattributes
+write  .gitignore
+write  index.html
+write  package.json
+write  public/favicon.svg
+write  README.md
+write  src/App.tsx
+write  src/components/common/Brand.tsx
+write  src/components/layout/Footer.tsx
+write  src/components/layout/Header.tsx
+write  src/components/ui/Container.tsx
+write  src/config/site.config.ts
+write  src/hooks/useDocumentMeta.ts
+write  src/layouts/BaseLayout.tsx
+write  src/main.tsx
+write  src/pages/HomePage.tsx
+write  src/routes/AppRouter.tsx
+write  src/styles/index.css
+write  src/vite-env.d.ts
+write  tsconfig.json
+write  vite.config.ts
+
+== FILES ==
+
+---- .client-site.json ----
+type    write
+origin  cli
+----
+{
+  "$schema": "https://create-clientkit.dev/schema/client-site.json",
+  "cliVersion": "9.9.9",
+  "template": {
+    "id": "react-vite",
+    "version": "0.1.0",
+    "framework": "react",
+    "frameworkVersion": "19.3.0"
+  },
+  "mode": "full",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "config": {
+    "projectName": "acme-app",
+    "siteName": "Acme Ltd",
+    "siteUrl": "https://acme.example",
+    "locale": "en",
+    "packageManager": "npm",
+    "features": []
+  }
+}
+
+
+---- .gitattributes ----
+type    copy
+origin  base
+source  <TEMPLATES>/react-vite/base/_gitattributes
+(binary; copied byte-for-byte, never token-substituted)
+
+---- .gitignore ----
+type    write
+origin  base
+----
+node_modules
+dist
+dist-ssr
+*.local
+
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+
+---- index.html ----
+type    write
+origin  base
+----
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d10" />
+    <title>Acme Ltd</title>
+    <meta name="description" content="Bespoke widgets." />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+---- package.json ----
+type    write
+origin  base + modes/full
+----
+{
+  "name": "acme-app",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "keywords": [
+    "react",
+    "client-site",
+    "website"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bootstrap": "5.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router-dom": "7.18.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "5.9.3",
+    "vite": "8.3.0"
+  }
+}
+
+
+---- public/favicon.svg ----
+type    write
+origin  base
+----
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M20 40V24h6.4c4.8 0 7.6 2.7 7.6 7s-2.8 7-7.6 7H20Zm4.4-3.4h1.9c2.6 0 4-1.4 4-3.6s-1.4-3.6-4-3.6h-1.9v7.2Z" fill="#f8fafc" />
+  <circle cx="42" cy="38" r="3" fill="#38bdf8" />
+</svg>
+
+
+---- README.md ----
+type    write
+origin  base
+----
+# Acme Ltd
+
+Bespoke widgets.
+
+Scaffolded with [create-clientkit](https://www.npmjs.com/package/create-clientkit).
+This is your code now - edit anything.
+
+## Getting started
+
+```sh
+npm install
+npm run dev
+```
+
+| Script              | What it does                         |
+| ------------------- | ------------------------------------ |
+| `npm run dev`       | Start the Vite dev server            |
+| `npm run build`     | Build the production site to `dist/` |
+| `npm run preview`   | Preview the production build         |
+| `npm run typecheck` | Type-check without emitting          |
+
+## Where to start
+
+1. **`src/config/site.config.ts`** - the single source of truth: name,
+   description, production URL, locale, author, navigation and contact details.
+   An empty string means "not set", and the UI omits that piece rather than
+   showing a placeholder. Nothing is ever invented for you.
+2. **`src/pages/HomePage.tsx`** - the page.
+3. **`src/layouts/BaseLayout.tsx`** - the shared shell: skip link, header,
+   main, footer.
+4. **`src/components/`** - `common/` for shared pieces, `layout/` for header
+   and footer, `ui/` for primitives.
+5. **`src/styles/index.css`** - the global stylesheet, supplied by the styling
+   system you chose. It defines the semantic classes the components use
+   (`site-header`, `page-title`, `button-primary`), so restyling the site means
+   editing this file rather than hunting through markup.
+
+## vite.config.ts
+
+Generated rather than copied. Each plugin in it was contributed by the part of
+the stack that needs it - React's by the React integration, and any others by
+the styling system you chose. It is an ordinary file now: add to it freely.
+
+## What this scaffold does not include
+
+Stated plainly so you can decide what to add rather than discover a gap later.
+
+- **No router.** One page. Add React Router or TanStack Router when a second
+  page exists; `App.tsx` is where it goes.
+- **No 404 page.** A client-side 404 needs a router to detect an unmatched
+  path. Until then, configure your host to serve `index.html` for unknown
+  routes.
+- **Server-rendered metadata is limited.** `index.html` carries the title and
+  description; `useDocumentMeta` updates them per page at runtime. A crawler
+  that does not execute JavaScript sees only the initial HTML. If search
+  visibility matters, that is a reason to render on the server rather than to
+  add a library here.
+
+## Before you deploy
+
+1. Rewrite `SITE.description`. It is generated as `Official website of <Name>.`
+   - deliberately generic, because the generator will not invent claims about a
+     business it knows nothing about. Aim for roughly 120-160 characters.
+2. Set `SITE.url` once the domain is known.
+3. Replace `public/favicon.svg` with the client's mark.
+4. Fill in `CONTACT` - anything left empty is not rendered.
+5. `npm run typecheck && npm run build`, then deploy `dist/` as a static site.
+
+
+---- src/App.tsx ----
+type    write
+origin  composed from framework:react + router:react-router
+----
+import { AppRouter } from './routes/AppRouter';
+import { HomePage } from './pages/HomePage';
+
+/**
+ * The application root.
+ *
+ * Routing lives in the component below - add routes there, not here.
+ *
+ * Note that a client-side catch-all renders a component without changing
+ * the response status, so it is not a substitute for a host's 404.
+ */
+export function App() {
+  return (
+    <AppRouter>
+      <HomePage />
+    </AppRouter>
+  );
+}
+
+
+---- src/components/common/Brand.tsx ----
+type    write
+origin  base
+----
+import { SITE } from '../../config/site.config';
+
+interface BrandProps {
+  /** 'lg' is the hero lockup; 'sm' sits in the header. */
+  size?: 'sm' | 'lg';
+}
+
+/** Initials mark plus wordmark, derived from the site name. */
+export function Brand({ size = 'sm' }: BrandProps) {
+  const initials = SITE.name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <span className={`brand brand-${size}`}>
+      <span aria-hidden="true" className="brand-mark">
+        {initials}
+      </span>
+      <span className="brand-name">{SITE.name}</span>
+    </span>
+  );
+}
+
+
+---- src/components/layout/Footer.tsx ----
+type    write
+origin  base
+----
+import { Container } from '../ui/Container';
+import { CONTACT, SITE } from '../../config/site.config';
+
+export function Footer() {
+  // Built as one string rather than adjacent expressions in the markup, so a
+  // formatter cannot split it and lose the space between year and name.
+  const copyright = `© ${String(new Date().getFullYear())} ${SITE.name}`;
+  const hasContact = CONTACT.email !== '' || CONTACT.phone !== '';
+
+  return (
+    <footer className="site-footer">
+      <Container className="site-footer-inner">
+        <p className="copyright">{copyright}</p>
+
+        {hasContact && (
+          <div className="contact-links">
+            {CONTACT.email !== '' && (
+              <a href={`mailto:${CONTACT.email}`} className="contact-link">
+                {CONTACT.email}
+              </a>
+            )}
+            {CONTACT.phone !== '' && (
+              <a href={`tel:${CONTACT.phone.replace(/[^+0-9]/g, '')}`} className="contact-link">
+                {CONTACT.phone}
+              </a>
+            )}
+          </div>
+        )}
+      </Container>
+    </footer>
+  );
+}
+
+
+---- src/components/layout/Header.tsx ----
+type    write
+origin  base
+----
+import { Brand } from '../common/Brand';
+import { Container } from '../ui/Container';
+import { NAV } from '../../config/site.config';
+
+/**
+ * Site header.
+ *
+ * The menu is omitted entirely when NAV is empty - a bar containing one logo
+ * that links nowhere is worse than no bar.
+ */
+export function Header() {
+  const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+
+  return (
+    <header className="site-header">
+      <Container className="site-header-inner">
+        <Brand />
+
+        {links.length > 0 && (
+          <nav aria-label="Primary">
+            <ul className="site-nav">
+              {links.map((item) => (
+                <li key={item.href}>
+                  <a href={item.href} className="site-nav-link">
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+      </Container>
+    </header>
+  );
+}
+
+
+---- src/components/ui/Container.tsx ----
+type    write
+origin  base
+----
+import type { ReactNode } from 'react';
+
+interface ContainerProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * The shared page gutter.
+ *
+ * Styled by the `container-page` class, which the selected styling system
+ * defines. The markup names what a thing *is*, never how it looks - that is
+ * what lets one component tree work under any styling system without the
+ * framework template knowing which was chosen.
+ */
+export function Container({ children, className = '' }: ContainerProps) {
+  return <div className={`container-page ${className}`.trim()}>{children}</div>;
+}
+
+
+---- src/config/site.config.ts ----
+type    write
+origin  base
+----
+/**
+ * Everything client-specific, in one file.
+ *
+ * An empty string means "not set", and the UI omits that piece rather than
+ * rendering a placeholder. Nothing here is ever invented for you.
+ */
+
+export interface NavItem {
+  label: string;
+  /** In-page anchor ('#services') or path once a router is added. */
+  href: string;
+}
+
+export interface SiteIdentity {
+  name: string;
+  description: string;
+  /**
+   * Production URL. Empty is a supported state, not a broken one - nothing
+   * absolute is emitted until you fill it in, so no page ever points at a
+   * domain nobody owns.
+   */
+  url: string;
+  locale: string;
+  author: string;
+}
+
+export interface ContactDetails {
+  email: string;
+  phone: string;
+}
+
+export const SITE: SiteIdentity = {
+  name: 'Acme Ltd',
+  description: 'Bespoke widgets.',
+  url: 'https://acme.example',
+  locale: 'en',
+  author: '',
+};
+
+/** Header links. Empty means no menu is rendered at all. */
+export const NAV: NavItem[] = [];
+
+/** Each field is optional and hidden when empty. */
+export const CONTACT: ContactDetails = {
+  email: '',
+  phone: '',
+};
+
+
+---- src/hooks/useDocumentMeta.ts ----
+type    write
+origin  base
+----
+import { useEffect } from 'react';
+
+/**
+ * Keeps the document title and meta description in step with the current page.
+ *
+ * A single-page app renders its markup in the browser, so this runs after the
+ * document loads rather than being baked into the HTML. That is enough for
+ * bookmarks, tab titles and social crawlers that execute JavaScript, and it is
+ * not enough for those that do not - a crawler that reads only the initial
+ * response sees what is in index.html.
+ *
+ * If search visibility matters for the site you are building, that is a reason
+ * to render on the server rather than a reason to add a library here.
+ */
+export function useDocumentMeta(title: string, description?: string): void {
+  useEffect(() => {
+    document.title = title;
+
+    if (description === undefined || description === '') return;
+    let tag = document.querySelector('meta[name="description"]');
+    if (tag === null) {
+      tag = document.createElement('meta');
+      tag.setAttribute('name', 'description');
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', description);
+  }, [title, description]);
+}
+
+
+---- src/layouts/BaseLayout.tsx ----
+type    write
+origin  base
+----
+import type { ReactNode } from 'react';
+
+import { Footer } from '../components/layout/Footer';
+import { Header } from '../components/layout/Header';
+
+interface BaseLayoutProps {
+  children: ReactNode;
+  /** Hide the header on pages that carry their own branding. */
+  showHeader?: boolean;
+}
+
+/**
+ * The shared shell: skip link, header, main, footer.
+ *
+ * Every page renders inside this, so the landmarks and the skip target are
+ * defined once rather than per page.
+ */
+export function BaseLayout({ children, showHeader = true }: BaseLayoutProps) {
+  return (
+    <div className="app-shell">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+
+      {showHeader && <Header />}
+
+      <main id="main" className="app-main">
+        {children}
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
+
+
+---- src/main.tsx ----
+type    write
+origin  base
+----
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+
+import { App } from './App';
+import './styles/index.css';
+
+const container = document.getElementById('root');
+if (container === null) {
+  throw new Error('Root element #root was not found in index.html.');
+}
+
+createRoot(container).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
+
+
+---- src/pages/HomePage.tsx ----
+type    write
+origin  modes/full
+----
+import { Container } from '../components/ui/Container';
+import { BaseLayout } from '../layouts/BaseLayout';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { CONTACT, SITE } from '../config/site.config';
+
+/** Placeholder structure, not placeholder claims - replace the copy, keep the shape. */
+const SECTIONS = [
+  {
+    id: 'about',
+    title: 'About',
+    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
+  },
+  {
+    id: 'work',
+    title: 'Work',
+    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
+  },
+];
+
+export function HomePage() {
+  useDocumentMeta(SITE.name, SITE.description);
+
+  return (
+    <BaseLayout>
+      <Container className="intro">
+        <div className="intro-inner">
+          <h1 className="page-title">{SITE.name}</h1>
+          <p className="lead">{SITE.description}</p>
+          {CONTACT.email !== '' && (
+            <a href={`mailto:${CONTACT.email}`} className="button-primary">
+              Get in touch
+            </a>
+          )}
+        </div>
+      </Container>
+
+      <Container className="sections">
+        {SECTIONS.map((section) => (
+          <section key={section.id} id={section.id} aria-labelledby={`${section.id}-heading`}>
+            <h2 id={`${section.id}-heading`} className="section-title">
+              {section.title}
+            </h2>
+            <p className="section-body">{section.body}</p>
+          </section>
+        ))}
+      </Container>
+    </BaseLayout>
+  );
+}
+
+
+---- src/routes/AppRouter.tsx ----
+type    write
+origin  router:react-router
+----
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import type { ReactNode } from 'react';
+
+/**
+ * The application's routes.
+ *
+ * One route, deliberately. A scaffold that shipped `/about`, `/contact` and
+ * `/dashboard` would be handing you three pages to delete before you could
+ * start, and every one of them would be a guess about a site nobody has
+ * designed yet. What is here is the wiring: a router mounted above the
+ * application, with the home page as its first route.
+ *
+ * ## Adding a route
+ *
+ * Import a page and add a `<Route>` beside the one below:
+ *
+ *     <Route path="/about" element={<AboutPage />} />
+ *
+ * ## About the not-found case
+ *
+ * You can add a catch-all with `path="*"`, and it will render for any address
+ * the routes above do not match. Worth knowing what that is and is not: it
+ * renders a component in the browser *after* the server has already answered,
+ * so the response itself is still whatever your host sent - usually a 200 for
+ * `index.html`. Crawlers and monitoring see that status, not a 404.
+ *
+ * A real not-found response needs the host to serve one, or a framework that
+ * renders on the server. This file cannot produce it, so it does not pretend
+ * to. See the README before relying on client-side fallbacks for SEO.
+ *
+ * This file is yours now - the generator will not touch it again.
+ */
+export function AppRouter({ children }: { children: ReactNode }) {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={children} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+
+---- src/styles/index.css ----
+type    write
+origin  styling:bootstrap
+----
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+/*
+ * Bootstrap supplies the reset, the type scale, the colour system and the
+ * responsive grid. Everything below maps this project's semantic class names
+ * onto Bootstrap's own custom properties, so the values stay Bootstrap's -
+ * change a Bootstrap variable and these follow.
+ */
+
+:root {
+  --measure-page: 64rem;
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+
+.skip-link:focus-visible {
+  left: 1rem;
+  top: 1rem;
+  z-index: 1080;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-emphasis-color);
+  padding: 0.5rem 1rem;
+  color: var(--bs-body-bg);
+}
+
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
+}
+
+.site-header {
+  border-bottom: var(--bs-border-width) solid var(--bs-border-color);
+}
+
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav-link,
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--bs-secondary-color);
+  font-size: var(--bs-body-font-size);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.site-nav-link:hover,
+.contact-link:hover {
+  color: var(--bs-emphasis-color);
+}
+
+.site-footer {
+  margin-top: auto;
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+}
+
+.copyright {
+  margin: 0;
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-emphasis-color);
+  color: var(--bs-body-bg);
+  font-weight: 600;
+}
+
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
+
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
+
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hero,
+.intro {
+  padding-block: 5rem;
+}
+
+.hero-inner,
+.intro-inner {
+  max-width: 42rem;
+}
+
+.eyebrow {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--bs-secondary-color);
+}
+
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 2rem;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-primary);
+  padding-inline: 1.25rem;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: filter 160ms ease;
+}
+
+.button-primary:hover {
+  filter: brightness(0.92);
+  color: #fff;
+}
+
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
+  .sections {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--bs-secondary-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+---- src/vite-env.d.ts ----
+type    write
+origin  base
+----
+/// <reference types="vite/client" />
+
+
+---- tsconfig.json ----
+type    write
+origin  base
+----
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": [
+      "vite/client"
+    ],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "src"
+  ]
+}
+
+
+---- vite.config.ts ----
+type    write
+origin  composed from framework:react
+----
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+// Generated by create-clientkit. Each plugin below was contributed by the
+// adapter that needs it; add your own freely - this file is yours now.
+export default defineConfig({
+  plugins: [
+    react(),
+  ],
+});
+
