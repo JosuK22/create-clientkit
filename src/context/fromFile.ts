@@ -36,8 +36,14 @@ const TEMPLATE_KEYS = ['id', 'version', 'mode'] as const;
  *
  * The names match the manifest's own, so a field here is the flag without its
  * dashes. There is no second vocabulary to learn and none to keep in step.
+ *
+ * `preset` sits among them although it is not a dimension: it is a shorthand
+ * for several, and a reader seeing it beside `uiLibrary` can tell at a glance
+ * that the two combine - the preset supplies a starting point and the sibling
+ * fields override it.
  */
 const STACK_KEYS = [
+  'preset',
   'framework',
   'buildTool',
   'language',
@@ -96,10 +102,18 @@ function expectBoolean(value: unknown, label: string): boolean {
 export interface LoadedConfig {
   readonly context: ContextInput;
   readonly stack: DimensionInput;
+  /**
+   * The preset the file named, if any.
+   *
+   * Kept apart from `stack` because it is resolved one rung lower: the file's
+   * own dimensions override whatever the preset supplies, and merging them here
+   * would lose the distinction.
+   */
+  readonly preset: string | undefined;
 }
 
-/** What an absent `--from` contributes: nothing, in both halves. */
-export const NO_CONFIG: LoadedConfig = { context: {}, stack: {} };
+/** What an absent `--from` contributes: nothing, in every half. */
+export const NO_CONFIG: LoadedConfig = { context: {}, stack: {}, preset: undefined };
 
 /**
  * Loads `--from <file.json>`. Strictly JSON — no JS, no code execution, no
@@ -229,7 +243,8 @@ export function loadConfigFile(
   if (parsed['git'] !== undefined) input.git = expectBoolean(parsed['git'], 'git');
   if (parsed['install'] !== undefined) input.install = expectBoolean(parsed['install'], 'install');
 
-  return { context: input, stack: readStack(parsed['stack']) };
+  const { preset, ...stack } = readStack(parsed['stack']);
+  return { context: input, stack, preset };
 }
 
 /**
@@ -239,7 +254,7 @@ export function loadConfigFile(
  * exactly what `--framework react` produces, so the file gains no defaults, no
  * validation and no vocabulary of its own.
  */
-function readStack(value: unknown): DimensionInput {
+function readStack(value: unknown): DimensionInput & { preset?: string | undefined } {
   if (value === undefined) return {};
   if (!isPlainObject(value)) fail('Config file field "stack" must be an object.');
   rejectUnknownKeys(value, STACK_KEYS, '"stack"');
@@ -251,6 +266,8 @@ function readStack(value: unknown): DimensionInput {
     if (key === 'features') continue;
     stack[key] = expectString(entry, `stack.${key}`);
   }
+  // Whether the name is one the registry knows is the registry's question,
+  // asked where every other id is checked. This layer only says it is a string.
 
   if (value['features'] !== undefined) {
     const features = value['features'];
@@ -278,5 +295,5 @@ function readStack(value: unknown): DimensionInput {
     });
   }
 
-  return stack as DimensionInput;
+  return stack as DimensionInput & { preset?: string };
 }

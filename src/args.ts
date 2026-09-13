@@ -35,6 +35,13 @@ export interface ParsedFlags {
   readonly architecture: string | undefined;
   /** Every `--features` occurrence, each still comma-joined. */
   readonly features: readonly string[];
+  /**
+   * A named starting point, which is a set of the dimensions above.
+   *
+   * Carried beside them rather than among them because it is not one: it is a
+   * shorthand *for* several, resolved a layer down where the registry lives.
+   */
+  readonly preset: string | undefined;
 }
 
 /**
@@ -74,6 +81,7 @@ const OPTIONS = {
    * as worse than an error.
    */
   features: { type: 'string', multiple: true },
+  preset: { type: 'string' },
 } as const;
 
 export function parseCliArgs(argv: readonly string[]): ParsedFlags {
@@ -136,6 +144,7 @@ export function parseCliArgs(argv: readonly string[]): ParsedFlags {
     router: asStr('router'),
     architecture: asStr('architecture'),
     features: asList('features'),
+    preset: asStr('preset'),
   };
 }
 
@@ -150,6 +159,9 @@ export function dimensionFlagsUsed(flags: ParsedFlags): readonly string[] {
   if (flags.router !== undefined) used.push('--router');
   if (flags.architecture !== undefined) used.push('--architecture');
   if (flags.features.length > 0) used.push('--features');
+  // A preset states dimensions, so it belongs in this list: every rule about
+  // "did the user configure a stack" should see it.
+  if (flags.preset !== undefined) used.push('--preset');
   return used;
 }
 

@@ -47,7 +47,15 @@ export interface ProjectContext {
 }
 
 /** Where each resolved value came from. Powers `--dry-run` diagnostics. */
-export type ValueSource = 'flag' | 'file' | 'prompt' | 'template' | 'default' | 'derived';
+export type ValueSource =
+  | 'flag'
+  | 'file'
+  /** A named starting point supplied the value; the user did not state it. */
+  | 'preset'
+  | 'prompt'
+  | 'template'
+  | 'default'
+  | 'derived';
 
 export type SourceMap = Readonly<Record<string, ValueSource>>;
 

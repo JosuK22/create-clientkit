@@ -1,4 +1,5 @@
 import { createAdapterRegistry } from '../adapters/registry.js';
+import { PRESETS } from '../context/presets.js';
 import { findTemplatesRoot } from '../templates/registry.js';
 import { PACKAGE_MANAGERS } from '../types.js';
 
@@ -54,6 +55,21 @@ function supported(): SupportedIds {
   }
 }
 
+/**
+ * The preset list, from the registry.
+ *
+ * Read rather than written for the reason every other list here is: a
+ * hand-maintained copy would eventually advertise a preset that does not exist,
+ * or omit one that does. A test asserts every advertised id resolves.
+ */
+function presetRows(): string {
+  const presets = PRESETS.all();
+  const width = Math.max(...presets.map((preset) => preset.id.length));
+  return presets
+    .map((preset) => `      ${preset.id.padEnd(width)}  ${preset.displayName}`)
+    .join('\n');
+}
+
 export function helpText(): string {
   const ids = supported();
 
@@ -82,6 +98,14 @@ export function helpText(): string {
     -h, --help            Show this help
     -v, --version         Show the version
 
+  Presets
+    A named starting point. Everything it sets can still be overridden by the
+    flags below, and anything it leaves out resolves exactly as it would have.
+
+        --preset <id>     Start from one of these:
+
+${presetRows()}
+
   Stack
     Each flag configures one dimension. Anything you leave out is asked for
     interactively, or - when there is only one possible answer - chosen for
@@ -109,6 +133,9 @@ export function helpText(): string {
     npm create clientkit@latest acme-website --yes --no-install
     npm create clientkit@latest --from ./agency-preset.json --dry-run
     npm create clientkit@latest --from ./clientkit.json --yes
+
+    npm create clientkit@latest acme-app --preset react-mui
+    npm create clientkit@latest acme-app --preset react-tailwind --ui-library mui
 
     npm create clientkit@latest acme-app \\
       --framework react --build-tool vite --language typescript \\

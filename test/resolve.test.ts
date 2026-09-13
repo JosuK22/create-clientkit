@@ -102,7 +102,16 @@ describe('default resolution', () => {
 describe('interactive flow', () => {
   it('skips the directory question when a positional is supplied', async () => {
     const { asked } = await run({ argv: ['acme-website'] });
-    expect(asked).toEqual(['siteName', 'url', 'framework', 'styling', 'features', 'mode', 'setup']);
+    expect(asked).toEqual([
+      'siteName',
+      'url',
+      'preset',
+      'framework',
+      'styling',
+      'features',
+      'mode',
+      'setup',
+    ]);
   });
 
   it('asks the client questions, then the stack, then the starter', async () => {
@@ -110,6 +119,10 @@ describe('interactive flow', () => {
      * Stage 15 inserted the stack block. The four V1 questions are all still
      * asked, in the order they always were; `mode` and `setup` are still the
      * last two.
+     *
+     * Stage 17 added the preset question at the head of that block. The fake
+     * answers it with the question's own default, which is "Custom" - so
+     * nothing is seeded and every question below is asked exactly as before.
      *
      * What is *not* asked is the point. The default framework is Astro, which
      * fixes its build tool, language, router and architecture - so those are
@@ -123,6 +136,7 @@ describe('interactive flow', () => {
       'dir',
       'siteName',
       'url',
+      'preset',
       'framework',
       'styling',
       'features',
@@ -371,7 +385,7 @@ describe('--name / --url / --mode (M1 flag parity)', () => {
     });
     // The stack is still unanswered, so it is still asked; the three V1 values
     // are not.
-    expect(asked).toEqual(['framework', 'styling', 'features', 'setup']);
+    expect(asked).toEqual(['preset', 'framework', 'styling', 'features', 'setup']);
   });
 
   it('--name overrides the site name from --from', async () => {

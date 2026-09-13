@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import pc from 'picocolors';
 
+import type { ProjectManifest } from '../domain/manifest.js';
 import type { GenerationPlan } from '../generate/files.js';
 import type { PostStepResult } from '../generate/postSteps.js';
 import type { TemplateManifest } from '../templates/manifest.js';
@@ -24,6 +25,7 @@ function show(value: string | null | boolean): string {
  */
 export function renderPlan(
   context: ProjectContext,
+  manifest: ProjectManifest,
   sources: SourceMap,
   options: { showSources: boolean },
 ): string {
@@ -53,6 +55,27 @@ export function renderPlan(
   row('Package manager', context.packageManager, 'packageManager');
   row('Install deps', context.install, 'install');
   row('Initialise git', context.git, 'git');
+
+  /*
+   * The stack, which until Stage 17 was not printed at all.
+   *
+   * Tolerable while every dimension had to be typed - the user could read them
+   * back off their own command line. A preset makes it untenable: `--preset
+   * react-mui` states four dimensions the user never wrote, and a summary that
+   * omits them cannot be checked against what was intended. With `--debug`
+   * each row says which layer supplied it, so `[preset]` is distinguishable
+   * from `[flag]`.
+   */
+  lines.push('');
+  lines.push(pc.bold('Stack'));
+  row('Framework', manifest.framework, 'dimension.framework');
+  row('Build tool', manifest.buildTool, 'dimension.buildTool');
+  row('Language', manifest.language, 'dimension.language');
+  row('Styling', manifest.styling, 'dimension.styling');
+  row('Component library', manifest.uiLibrary, 'dimension.uiLibrary');
+  row('Routing', manifest.router, 'dimension.router');
+  row('Architecture', manifest.architecture, 'dimension.architecture');
+
   lines.push('');
   lines.push(pc.dim(`  CLI ${context.cliVersion}  |  resolved ${context.generatedAt}`));
   return lines.join('\n');
@@ -64,6 +87,7 @@ export function renderPlan(
  */
 export function renderDryRun(
   generationPlan: GenerationPlan,
+  manifest: ProjectManifest,
   context: ProjectContext,
   sources: SourceMap,
   options: { verbose: boolean },
@@ -89,7 +113,7 @@ export function renderDryRun(
   lines.push('');
   lines.push(`Total: ${generationPlan.operations.length} files`);
   lines.push('');
-  lines.push(renderPlan(context, sources, { showSources: true }));
+  lines.push(renderPlan(context, manifest, sources, { showSources: true }));
   return lines.join('\n');
 }
 

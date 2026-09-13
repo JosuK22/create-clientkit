@@ -517,6 +517,12 @@ describe('the domain layer stays pure', () => {
       // asserts structurally.
       'context\\interactive.ts',
       'context/interactive.ts',
+      // Stage 17. The resolved-configuration summary prints the stack, which
+      // means reading it off the manifest. A renderer that displays a value is
+      // not a layer that decides one, and the guards below still hold: it
+      // imports the type only.
+      'ui\\plan.ts',
+      'ui/plan.ts',
     ]);
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const v2Directories = new Set(['domain', 'adapters']);

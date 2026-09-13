@@ -237,6 +237,64 @@ npm create clientkit@latest acme-website --yes --name "Acme Ltd" --mode full
 `--yes` never prompts, and a non-TTY stdin without `--yes` fails immediately
 rather than hanging.
 
+### Presets
+
+A preset is a named starting point — a handful of stack choices with a label:
+
+```sh
+npm create clientkit@latest acme-app --preset react-mui
+```
+
+| Preset            | Stack                                     |
+| ----------------- | ----------------------------------------- |
+| `astro-tailwind`  | Astro + Tailwind CSS                      |
+| `react-tailwind`  | React + Vite + Tailwind CSS               |
+| `react-bootstrap` | React + Vite + Bootstrap                  |
+| `react-mui`       | React + Vite + Tailwind CSS + Material UI |
+
+**A preset is not a template.** A template owns generated files; a preset owns
+none and cannot name one. It sets dimensions, and everything downstream —
+compatibility, adapter selection, generation — happens exactly as it would have
+if you had typed those dimensions yourself. `--preset react-mui` and
+`--framework react --styling tailwind --ui-library mui` produce the same
+project, which is asserted rather than intended.
+
+**Presets are partial and overridable.** `react-tailwind` sets a framework and
+a styling system and says nothing about routing, the component library or
+features — those resolve the way they always do, by being asked for or
+defaulted. Anything a preset does set can be overridden:
+
+```sh
+npm create clientkit@latest acme-app --preset react-tailwind --ui-library mui
+```
+
+A preset can also be named in a configuration file, alongside overrides:
+
+```json
+{
+  "stack": {
+    "preset": "react-tailwind",
+    "router": "react-router"
+  }
+}
+```
+
+Choosing one interactively is offered as the first stack question, with
+**Custom** to answer everything yourself. It appears only when you have not
+already configured part of the stack, since a menu whose choices would be
+overridden would be misleading.
+
+**A preset does not become a default.** A bare run still resolves Astro +
+Tailwind, and `--yes` without `--preset` produces exactly what it did before.
+
+**An unknown preset is refused**, listing the ones that exist. It never falls
+back to a similarly named template or to the default stack.
+
+**Overriding into an impossible stack is still refused** — by the compatibility
+engine, not by the preset. `--preset react-mui --framework astro` reports that
+MUI needs `react-runtime` and Astro provides none, the same message the
+equivalent flags produce.
+
 ### Config file (`--from`)
 
 Strictly JSON — never executed, and never a way around validation. Unknown keys

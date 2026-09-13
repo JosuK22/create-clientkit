@@ -26,6 +26,7 @@ import {
   type DimensionInput,
 } from './dimensions.js';
 import { loadConfigFile, NO_CONFIG, type FileReader } from './fromFile.js';
+import { presetDimensions, PRESETS, type PresetRegistry } from './presets.js';
 import { promptDimensions } from './interactive.js';
 import type { Prompter } from './prompts.js';
 import {
@@ -71,6 +72,8 @@ export interface ResolveOptions {
    * already is. Production discovers it.
    */
   readonly templatesRoot?: string | undefined;
+  /** Overridable so a test can exercise the registry's own rules. */
+  readonly presets?: PresetRegistry | undefined;
   readonly home?: string | undefined;
   readonly fs?: TargetDirFs | undefined;
   readonly readFile?: FileReader | undefined;
@@ -197,17 +200,36 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    */
   const templatesRoot = options.templatesRoot ?? findTemplatesRoot();
   const adapters = createAdapterRegistry(templatesRoot);
+
+  /*
+   * The preset, one rung below the config file.
+   *
+   * An unknown name fails here, by the registry's own words, before anything
+   * else is read - a name that resolved to nothing would silently become the
+   * default stack, which is the one outcome a named starting point must never
+   * produce. Flags beat the file's preset, the same way they beat everything
+   * else the file says.
+   */
+  const preset = presetDimensions(flags.preset ?? config.preset, options.presets ?? PRESETS);
+
   const dimensionInput: DimensionInput = {
-    framework: flags.framework ?? config.stack.framework,
-    buildTool: flags.buildTool ?? config.stack.buildTool,
-    language: flags.language ?? config.stack.language,
-    styling: flags.styling ?? config.stack.styling,
-    uiLibrary: flags.uiLibrary ?? config.stack.uiLibrary,
-    router: flags.router ?? config.stack.router,
-    architecture: flags.architecture ?? config.stack.architecture,
-    // `features` is an array that is empty rather than absent when the flag was
-    // never passed, so "did the user say anything" is a length check.
-    features: flags.features.length > 0 ? flags.features : config.stack.features,
+    framework: flags.framework ?? config.stack.framework ?? preset.framework,
+    buildTool: flags.buildTool ?? config.stack.buildTool ?? preset.buildTool,
+    language: flags.language ?? config.stack.language ?? preset.language,
+    styling: flags.styling ?? config.stack.styling ?? preset.styling,
+    uiLibrary: flags.uiLibrary ?? config.stack.uiLibrary ?? preset.uiLibrary,
+    router: flags.router ?? config.stack.router ?? preset.router,
+    architecture: flags.architecture ?? config.stack.architecture ?? preset.architecture,
+    /*
+     * `features` is an array that is empty rather than absent when the flag was
+     * never passed, so "did the user say anything" is a length check.
+     *
+     * Replacement, not merging, at every level. Merging would make a feature a
+     * preset sets impossible to remove, and removing one is the whole reason an
+     * override exists.
+     */
+    features:
+      flags.features.length > 0 ? flags.features : (config.stack.features ?? preset.features),
   };
   /*
    * The origin only changes the noun in a feature error. A duplicate in a JSON
@@ -237,9 +259,20 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * configured nothing. `hasDimensionInput` is the shared answer to "was this
    * supplied", and it is what the conflict check below asks too.
    */
+  /*
+   * Attributed to the layer that actually supplied it, checked in precedence
+   * order. A value the preset provided is labelled `preset` rather than
+   * `file`, so `--dry-run --debug` explains a stack the user never typed.
+   */
+  const presetSourceOf = (key: keyof DimensionInput): ValueSource => {
+    if (hasDimensionInput({ [key]: flagStack[key] })) return 'flag';
+    if (hasDimensionInput({ [key]: config.stack[key] })) return 'file';
+    return 'preset';
+  };
+
   for (const key of Object.keys(dimensionInput) as (keyof DimensionInput)[]) {
     if (!hasDimensionInput({ [key]: dimensionInput[key] })) continue;
-    mark(`dimension.${key}`, hasDimensionInput({ [key]: flagStack[key] }) ? 'flag' : 'file');
+    mark(`dimension.${key}`, presetSourceOf(key));
   }
 
   // ---- template defaults layer -------------------------------------------
@@ -346,6 +379,9 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
     input: dimensionInput,
     adapters,
     prompter,
+    // Offered only when nothing is settled, which the interactive layer
+    // decides by looking at the input it was handed.
+    presets: options.presets ?? PRESETS,
     /*
      * A provisional starter, and provably inconsequential: `selectAdapters`
      * skips every `starter:*` feature, so no candidate manifest's compatibility

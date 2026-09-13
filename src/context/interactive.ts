@@ -4,6 +4,7 @@ import type { DimensionOptions } from '../domain/adapters.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { TemplateMode } from '../types.js';
 import { manifestFrom, resolveDimensions, type DimensionInput } from './dimensions.js';
+import type { PresetRegistry } from './presets.js';
 import type { ChoiceOption, Prompter } from './prompts.js';
 
 /**
@@ -84,6 +85,13 @@ export interface InteractiveOptions {
   readonly prompter: Prompter;
   /** Needed only to build candidate manifests; `--mode` is not a dimension. */
   readonly mode: TemplateMode;
+  /**
+   * Offered as a first question when nothing about the stack is settled.
+   *
+   * Absent means no preset question - which is what a run with a preset or a
+   * dimension already supplied wants, since the answer could only be overridden.
+   */
+  readonly presets?: PresetRegistry | undefined;
 }
 
 export interface InteractiveResult {
@@ -218,6 +226,46 @@ export async function promptDimensions(options: InteractiveOptions): Promise<Int
     });
     asked.push(dimension);
   };
+
+  /*
+   * The preset question, and the only new one this stage adds.
+   *
+   * It exists because it costs one keystroke instead of four, and it is cheap
+   * because it does not branch the flow: choosing one seeds `answers` with the
+   * dimensions it states, and every question below then skips itself through
+   * the check it already had. "Custom" seeds nothing and the flow continues as
+   * it always did - there is no second interactive path to keep in step.
+   *
+   * Asked only when nothing about the stack is settled. With a flag or a config
+   * value already in hand, a menu whose choices would be silently overridden is
+   * a menu that lies.
+   */
+  if (
+    options.presets !== undefined &&
+    prompter.interactive &&
+    Object.values(options.input).every((value) => value === undefined || value.length === 0)
+  ) {
+    const CUSTOM = 'custom';
+    const chosen = await prompter.selectDimension({
+      dimension: 'preset',
+      message: 'Start from',
+      options: [
+        ...options.presets.all().map((entry) => ({
+          value: entry.id,
+          label: entry.displayName,
+          hint: entry.description,
+        })),
+        { value: CUSTOM, label: 'Custom', hint: 'answer each question yourself' },
+      ],
+      initialValue: CUSTOM,
+    });
+    asked.push('preset');
+    if (chosen !== CUSTOM) {
+      for (const [key, value] of Object.entries(options.presets.get(chosen).dimensions)) {
+        if (value !== undefined) answers[key] = value;
+      }
+    }
+  }
 
   await ask('framework', 'Framework', adapters.implementedFrameworks());
 
