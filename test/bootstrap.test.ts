@@ -309,12 +309,11 @@ describe('contributions', () => {
     const files = contributionsOf('bootstrap')
       .flatMap((c) => c.files)
       .filter((f) => f.owner === 'styling:bootstrap');
-    // Two: the stylesheet it creates, and the packages it merges into
-    // package.json. Both addressed by role, neither by path.
-    expect(files.map((f) => f.target)).toEqual([
-      { kind: 'role', role: 'package' },
-      { kind: 'role', role: 'styles.global' },
-    ]);
+    // One, since Stage 6. It used to also merge its package into package.json;
+    // that is now a DependencyContribution, which the package composer owns.
+    // A styling adapter contributes a stylesheet and a dependency - it never
+    // edits a file the framework owns.
+    expect(files.map((f) => f.target)).toEqual([{ kind: 'role', role: 'styles.global' }]);
     const stylesheet = files.find(
       (f) => f.target.kind === 'role' && f.target.role === 'styles.global',
     );

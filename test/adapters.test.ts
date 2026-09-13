@@ -34,15 +34,6 @@ const manifestOf = (mode: 'coming-soon' | 'full' = 'coming-soon') =>
     makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode } }),
   );
 
-/** The template's own package manifest: the source of truth for versions. */
-const templatePackage = JSON.parse(
-  readFileSync(path.join(TEMPLATE_ROOT, 'base', '_package.json'), 'utf8'),
-) as {
-  dependencies: Record<string, string>;
-  devDependencies: Record<string, string>;
-  scripts: Record<string, string>;
-};
-
 describe('Astro adapter declaration', () => {
   it('identifies itself as the Astro framework adapter', () => {
     expect(ASTRO_DECLARATION.id).toBe('astro');
@@ -185,30 +176,54 @@ describe('Astro adapter contribution', () => {
   });
 });
 
-describe('dependency contributions match the template exactly', () => {
-  // The strongest test here. V1 generates package.json from the template's
-  // _package.json; the adapters declare the same packages separately. Without
-  // this, a template version bump would silently leave the adapter describing
-  // versions the project does not use, and nothing would notice until the
-  // contributions were actually used to build package.json.
+describe('the generated package is exactly what the adapters contributed', () => {
+  // Until Stage 6 this suite asserted the reverse - that the contributions
+  // matched the template's _package.json - because the template was what
+  // actually reached the user and the contributions were a parallel
+  // description of it. Two sources of truth, and the test could only ever
+  // confirm they had not drifted apart yet.
+  //
+  // Now the contributions build the file, so the useful assertion is the other
+  // way round: whatever the adapters declared is what the project gets, and
+  // nothing else appears. The template is no longer consulted for any of it.
   const declared = () => {
     const contributions = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT).contributions;
     return contributions.flatMap((c) => c.dependencies);
   };
 
-  it('covers every dependency the template declares, and no others', () => {
-    const fromTemplate = {
-      ...templatePackage.dependencies,
-      ...templatePackage.devDependencies,
-    };
+  const generatedPackage = (): Record<string, Record<string, string>> => {
+    const { plan } = planWithAdapters(makeContext(), { registry });
+    const operation = plan.operations.find((o) => o.path === 'package.json');
+    if (operation === undefined || operation.type !== 'write') {
+      throw new Error('no package.json was planned');
+    }
+    return JSON.parse(operation.content) as Record<string, Record<string, string>>;
+  };
+
+  it('contains every declared dependency, at the declared version', () => {
+    const generated = generatedPackage();
+    const installed = { ...generated['dependencies'], ...generated['devDependencies'] };
     const fromAdapters = Object.fromEntries(declared().map((d) => [d.name, d.version]));
-    expect(fromAdapters).toEqual(fromTemplate);
+    expect(installed).toEqual(fromAdapters);
   });
 
-  it('classifies prod and dev the way the template does', () => {
+  it('contains no dependency nobody declared', () => {
+    const generated = generatedPackage();
+    const names = new Set(declared().map((d) => d.name));
+    for (const field of ['dependencies', 'devDependencies'] as const) {
+      for (const name of Object.keys(generated[field] ?? {})) {
+        expect(names.has(name), `${name} is in ${field} but no adapter asked for it`).toBe(true);
+      }
+    }
+  });
+
+  it('puts each dependency in the field its kind says', () => {
+    const generated = generatedPackage();
     for (const dependency of declared()) {
-      const expected = dependency.name in templatePackage.dependencies ? 'prod' : 'dev';
-      expect(dependency.kind, `${dependency.name} is classified wrongly`).toBe(expected);
+      const field = dependency.kind === 'prod' ? 'dependencies' : 'devDependencies';
+      expect(generated[field]?.[dependency.name], `${dependency.name} is in the wrong field`).toBe(
+        dependency.version,
+      );
     }
   });
 
@@ -218,13 +233,50 @@ describe('dependency contributions match the template exactly', () => {
     }
   });
 
-  it('scripts match the template', () => {
+  it('contains exactly the declared scripts', () => {
     const fromAdapters = Object.fromEntries(
       resolveWithAdapters(manifestOf(), TEMPLATE_ROOT)
         .contributions.flatMap((c) => c.scripts)
         .map((s) => [s.name, s.command]),
     );
-    expect(fromAdapters).toEqual(templatePackage.scripts);
+    expect(generatedPackage()['scripts']).toEqual(fromAdapters);
+  });
+
+  it('keeps the identity the template owns and adds nothing of its own', () => {
+    // The split the stage had to make explicit: the template owns the file and
+    // the project's identity; the adapters own three blocks of data inside it.
+    const generated = generatedPackage() as unknown as Record<string, unknown>;
+    expect(Object.keys(generated)).toEqual([
+      'name',
+      'version',
+      'private',
+      'license',
+      'type',
+      'engines',
+      'keywords',
+      'scripts',
+      'dependencies',
+      'devDependencies',
+    ]);
+    expect(generated['private']).toBe(true);
+    expect(generated['license']).toBe('UNLICENSED');
+  });
+
+  it('no template still carries dependency or script data', () => {
+    // The whole point of the stage. If a template grew a dependencies block
+    // again it would be silently ignored by the composer, which is a far worse
+    // failure than a conflict - the reader would believe it.
+    for (const template of ['astro-tailwind', 'react-vite']) {
+      const raw = JSON.parse(
+        readFileSync(
+          path.resolve(import.meta.dirname, '..', 'templates', template, 'base', '_package.json'),
+          'utf8',
+        ),
+      ) as Record<string, unknown>;
+      for (const field of ['dependencies', 'devDependencies', 'scripts']) {
+        expect(raw[field], `${template} still declares ${field}`).toBeUndefined();
+      }
+    }
   });
 });
 
@@ -317,9 +369,17 @@ describe('the bridge keeps its direction and its limits', () => {
     expect(result.plan.operations.length).toBeGreaterThan(0);
   });
 
-  it('is not imported by the V1 generation path', () => {
-    // Stage 2 adds a path alongside V1; it must not become part of it. The CLI
-    // still runs V1, and this fails if that changes without a decision.
+  it('reaches the CLI through exactly one file', () => {
+    // Stage 2 added this path alongside V1 and this test insisted the CLI not
+    // use it "without a decision". Stage 6 is that decision: package.json is
+    // now composed from contributions, which plan() alone cannot do, so the
+    // create command runs the adapter path.
+    //
+    // The guard is kept and narrowed rather than deleted. One command file may
+    // reach into adapters; if the import spreads into the resolver, the
+    // template registry or the generator, the layering has eroded and this
+    // fails again.
+    const allowed = ['commands\\create.ts', 'commands/create.ts'];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];
     const walk = (dir: string): void => {
@@ -330,8 +390,10 @@ describe('the bridge keeps its direction and its limits', () => {
           continue;
         }
         if (!entry.name.endsWith('.ts')) continue;
+        const relative = path.relative(srcDir, full);
+        if (allowed.includes(relative)) continue;
         if (readFileSync(full, 'utf8').includes('adapters/')) {
-          offenders.push(path.relative(srcDir, full));
+          offenders.push(relative);
         }
       }
     };

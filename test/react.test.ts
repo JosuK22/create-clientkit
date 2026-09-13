@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { mergeScripts } from '../src/domain/package-composition.js';
+
 import { planManifest, resolveWithAdapters } from '../src/adapters/bridge.js';
 import {
   REACT_ARCHITECTURE,
@@ -299,11 +301,22 @@ describe('React contributions', () => {
     expect(fromAdapters).toEqual(fromGenerated);
   });
 
-  it('the framework template carries only the framework and build-tool packages', () => {
-    // The Stage 5 decoupling: a styling package here would mean every React
-    // project installed it whatever styling was selected.
-    const fromTemplate = { ...templatePackage.dependencies, ...templatePackage.devDependencies };
-    expect(Object.keys(fromTemplate).sort()).toEqual([
+  it('the framework template carries no packages at all', () => {
+    // Stage 5 removed the styling packages from here, which stopped every React
+    // project installing Tailwind. Stage 6 removed the rest: the template now
+    // describes the project's identity and the adapters describe its packages.
+    // A dependency reappearing here would not break the build - the composer
+    // ignores the field - which is precisely why it is worth asserting.
+    expect(templatePackage.dependencies).toBeUndefined();
+    expect(templatePackage.devDependencies).toBeUndefined();
+    expect(templatePackage.scripts).toBeUndefined();
+  });
+
+  it('the framework and build tool contribute exactly the packages they own', () => {
+    const declared = contributionsOf()
+      .flatMap((c) => c.dependencies)
+      .filter((d) => d.owner !== 'styling:tailwind' && d.owner !== 'styling:bootstrap');
+    expect(declared.map((d) => d.name).sort()).toEqual([
       '@types/react',
       '@types/react-dom',
       '@vitejs/plugin-react',
@@ -314,10 +327,25 @@ describe('React contributions', () => {
     ]);
   });
 
-  it('classifies prod and dev the way the template does', () => {
-    for (const dependency of contributionsOf().flatMap((c) => c.dependencies)) {
-      const expected = dependency.name in templatePackage.dependencies ? 'prod' : 'dev';
-      expect(dependency.kind, `${dependency.name}`).toBe(expected);
+  it('classifies prod and dev by what actually ships in the bundle', () => {
+    const kinds = Object.fromEntries(
+      contributionsOf()
+        .flatMap((c) => c.dependencies)
+        .map((d) => [d.name, d.kind]),
+    );
+    // Only what the browser loads at runtime is a production dependency.
+    expect(kinds['react']).toBe('prod');
+    expect(kinds['react-dom']).toBe('prod');
+    for (const name of [
+      '@types/react',
+      '@types/react-dom',
+      '@vitejs/plugin-react',
+      'typescript',
+      'vite',
+      'tailwindcss',
+      '@tailwindcss/vite',
+    ]) {
+      expect(kinds[name], `${name} should be a dev dependency`).toBe('dev');
     }
   });
 
@@ -334,15 +362,28 @@ describe('React contributions', () => {
     expect(byOwner.get('framework:react')).toContain('react');
   });
 
-  it('scripts match the template and come from the right owners', () => {
+  it('scripts come from the right owners, in a deterministic order', () => {
     const scripts = contributionsOf().flatMap((c) => c.scripts);
-    expect(Object.fromEntries(scripts.map((s) => [s.name, s.command]))).toEqual(
-      templatePackage.scripts,
-    );
+    expect(Object.fromEntries(scripts.map((s) => [s.name, s.command]))).toEqual({
+      dev: 'vite',
+      build: 'vite build',
+      preview: 'vite preview',
+      typecheck: 'tsc --noEmit',
+    });
     const owners = Object.fromEntries(scripts.map((s) => [s.name, s.owner]));
     expect(owners['dev']).toBe('build-tool:vite');
     expect(owners['build']).toBe('build-tool:vite');
     expect(owners['typecheck']).toBe('framework:react');
+
+    // React resolves before Vite, so contribution order alone would put
+    // typecheck first. The emitted order is the declared one instead, which is
+    // what makes it independent of how adapters happen to be selected.
+    expect(mergeScripts(scripts).map((s) => s.name)).toEqual([
+      'dev',
+      'build',
+      'preview',
+      'typecheck',
+    ]);
   });
 
   it('every contribution carries an owner and a reason', () => {

@@ -77,14 +77,6 @@ export function createBootstrapAdapter(templatesRoot: string): Adapter {
          */
         files: [
           {
-            target: { kind: 'role', role: 'package' },
-            intent: 'merge',
-            payload: { kind: 'json', value: { dependencies: { bootstrap: '5.3.8' } } },
-            owner: OWNER,
-            order: 0,
-            reason: 'the packages this styling system needs',
-          },
-          {
             target: { kind: 'role', role: 'styles.global' },
             intent: 'create',
             payload: {

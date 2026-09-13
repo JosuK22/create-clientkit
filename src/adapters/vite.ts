@@ -66,12 +66,19 @@ export function createViteAdapter(): Adapter {
           },
         ],
         scripts: [
-          { name: 'dev', command: 'vite', owner: OWNER, reason: 'development server' },
-          { name: 'build', command: 'vite build', owner: OWNER, reason: 'production build' },
+          { name: 'dev', command: 'vite', owner: OWNER, order: 0, reason: 'development server' },
+          {
+            name: 'build',
+            command: 'vite build',
+            owner: OWNER,
+            order: 1,
+            reason: 'production build',
+          },
           {
             name: 'preview',
             command: 'vite preview',
             owner: OWNER,
+            order: 2,
             reason: 'serve the production build locally',
           },
         ],

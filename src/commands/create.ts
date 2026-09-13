@@ -6,7 +6,7 @@ import { ClackPrompter, NonInteractivePrompter, type Prompter } from '../context
 import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply, findCollisions } from '../generate/apply.js';
-import { plan } from '../generate/plan.js';
+import { planWithAdapters } from '../adapters/bridge.js';
 import { runPostSteps } from '../generate/postSteps.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
@@ -74,7 +74,14 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   });
 
   const manifest = registry.get(context.template.id);
-  const generationPlan = plan(context, { registry });
+  // The adapter path, not plan() directly. Since Stage 6 the dependency and
+  // script blocks of package.json are composed from adapter contributions
+  // rather than copied from the template, and plan() alone knows nothing about
+  // adapters - it would emit a manifest with no dependencies at all.
+  //
+  // Byte-for-byte identical to what plan() produced before that change: the
+  // V1 golden files assert exactly this output and were not touched.
+  const { plan: generationPlan } = planWithAdapters(context, { registry });
   logger.debug(`planned ${generationPlan.operations.length} operations`);
 
   if (flags.dryRun) {

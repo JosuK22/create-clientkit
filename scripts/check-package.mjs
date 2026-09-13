@@ -13,6 +13,8 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
+import { ASTRO_GOLDEN, generatedPackage } from './lib/generated-package.mjs';
+
 const failures = [];
 const notes = [];
 
@@ -144,7 +146,10 @@ ok('no install-time lifecycle scripts');
 
 // --- 3. generated-project dependencies ---------------------------------------
 
-const templatePkg = JSON.parse(readFileSync('templates/astro-tailwind/base/_package.json', 'utf8'));
+// The generated manifest, not the template: since Stage 6 the template carries
+// the project identity and the adapters carry the packages, so the template is
+// no longer evidence of what a user installs.
+const generatedPkg = generatedPackage(ASTRO_GOLDEN);
 
 const EXPECTED_RUNTIME = { '@astrojs/sitemap': '3.7.4', astro: '7.3.2' };
 const EXPECTED_DEV = {
@@ -167,21 +172,21 @@ const compare = (label, actual, expected) => {
   }
 };
 
-compare('dependencies', templatePkg.dependencies ?? {}, EXPECTED_RUNTIME);
-compare('devDependencies', templatePkg.devDependencies ?? {}, EXPECTED_DEV);
+compare('dependencies', generatedPkg.dependencies ?? {}, EXPECTED_RUNTIME);
+compare('devDependencies', generatedPkg.devDependencies ?? {}, EXPECTED_DEV);
 
 for (const [name, version] of Object.entries({
-  ...(templatePkg.dependencies ?? {}),
-  ...(templatePkg.devDependencies ?? {}),
+  ...(generatedPkg.dependencies ?? {}),
+  ...(generatedPkg.devDependencies ?? {}),
 })) {
   if (!/^\d+\.\d+\.\d+$/.test(version)) {
     fail(`generated dependency ${name} must be an exact pin, found "${version}"`);
   }
 }
 
-if (templatePkg.private !== true) fail('generated project must be private');
-if (templatePkg.license !== 'UNLICENSED') {
-  fail(`generated project must be UNLICENSED, found ${templatePkg.license}`);
+if (generatedPkg.private !== true) fail('generated project must be private');
+if (generatedPkg.license !== 'UNLICENSED') {
+  fail(`generated project must be UNLICENSED, found ${generatedPkg.license}`);
 }
 ok('generated project: pinned deps, private, UNLICENSED');
 

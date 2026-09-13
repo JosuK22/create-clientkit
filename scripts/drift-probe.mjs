@@ -27,9 +27,11 @@
  *   node scripts/drift-probe.mjs --simulate-drift tailwindcss@4.3.2
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { ASTRO_GOLDEN, generatedPins } from './lib/generated-package.mjs';
 
 const REPORT_ONLY = process.argv.includes('--report');
 // Runs the probe even when nothing is behind, so the machinery itself can be
@@ -77,11 +79,9 @@ const npm = (args, cwd) =>
     env: { ...process.env, npm_config_fund: 'false', npm_config_audit: 'false' },
   });
 
-const templatePkg = JSON.parse(
-  readFileSync(path.join(repoRoot, 'templates/astro-tailwind/base/_package.json'), 'utf8'),
-);
-
-const pinned = { ...templatePkg.dependencies, ...templatePkg.devDependencies };
+// The pins live in the adapter contributions now, not the template. This reads
+// them from the generated project, which is what they actually affect.
+const pinned = generatedPins(path.join(repoRoot, ASTRO_GOLDEN));
 const names = Object.keys(pinned).sort();
 
 // --- report -------------------------------------------------------------------

@@ -82,22 +82,6 @@ export function createTailwindAdapter(templatesRoot: string): Adapter {
          */
         files: [
           {
-            // Its own packages, merged into package.json rather than listed in the
-            // framework template - which would make every React project install
-            // Tailwind whatever styling was selected.
-            target: { kind: 'role', role: 'package' },
-            intent: 'merge',
-            payload: {
-              kind: 'json',
-              value: {
-                devDependencies: { '@tailwindcss/vite': '4.3.3', tailwindcss: '4.3.3' },
-              },
-            },
-            owner: OWNER,
-            order: 0,
-            reason: 'the packages this styling system needs',
-          },
-          {
             target: { kind: 'role', role: 'styles.global' },
             intent: 'create',
             payload: {

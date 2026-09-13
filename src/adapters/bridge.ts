@@ -1,6 +1,8 @@
 import path from 'node:path';
 
 import { collectBuildPlugins, emitViteConfig } from '../domain/build-config.js';
+import { composePackage } from '../domain/package-composition.js';
+import type { ComposedPackage } from '../domain/package-composition.js';
 import { deepMergeJson, stringifyJson } from '../generate/compose.js';
 import type { ConfigContribution, Contribution } from '../domain/contributions.js';
 import { manifestFromProjectContext } from '../domain/manifest.js';
@@ -56,6 +58,13 @@ export interface AdapterPlanOptions {
 
 export interface AdapterPlanResult {
   readonly plan: GenerationPlan;
+  /**
+   * Every dependency and script in the generated manifest, with each adapter
+   * that asked for it and the reason it gave. Present whenever the architecture
+   * has a `package` role. This is where "why is this package in my project?"
+   * is answered.
+   */
+  readonly composedPackage?: ComposedPackage;
   readonly manifest: ProjectManifest;
   readonly project: ResolvedProject;
   readonly contributions: readonly Contribution[];
@@ -355,6 +364,76 @@ export interface ManifestPlanOptions extends AdapterPlanOptions {
  * both frameworks travel the same path and the golden snapshots cover it.
  */
 /**
+ * Replaces the planned `package.json` with one composed from contributions.
+ *
+ * Driven by the `package` file role, so it applies to any architecture that has
+ * a package manifest and to none that does not - no branch on the framework.
+ *
+ * The distinction this rests on is the one Stage 6 had to make explicit: the
+ * *file* is owned by the framework's template, which supplies the project's
+ * identity, while the *data* in three of its blocks is owned by whichever
+ * adapters need those packages and scripts. Both statements are true at once,
+ * and conflating them is what made the template a second source of truth for
+ * five stages.
+ *
+ * Runs last, after merges, so the base it reads is the finished template
+ * result. Anything a template still lists under `scripts`, `dependencies` or
+ * `devDependencies` is dropped rather than merged - that is what "authoritative"
+ * means - and a drift test asserts no template is relying on it.
+ *
+ * ## Why `origin` does not gain a "+ composed" suffix
+ *
+ * `applyMerges` appends the merging adapter to `origin` because a genuinely
+ * different owner is injecting data into someone else's file, and a reader of
+ * `--dry-run --debug` needs to know that. Composition is not that: the package
+ * manifest has always been produced this way, and every stage until now simply
+ * hid where the data came from. Adding a suffix would announce a new author
+ * that does not exist, and would change the bytes of a diagnostic line in the
+ * V1 golden files for a file whose content is identical.
+ *
+ * Provenance is not lost by that choice - it is improved. The returned
+ * `ComposedPackage` carries every contributor of every dependency and script,
+ * with the reason each gave, which is strictly more than a string could say.
+ */
+export function composePackageOperation(
+  project: ResolvedProject,
+  contributions: readonly Contribution[],
+  operations: readonly FileOperation[],
+): { readonly operations: readonly FileOperation[]; readonly composed?: ComposedPackage } {
+  if (!definesRole(project.architecture, 'package')) return { operations };
+  const target = resolveRole(project.architecture, 'package');
+
+  const index = operations.findIndex((operation) => operation.path === target);
+  const existing = index === -1 ? undefined : operations[index];
+  if (existing === undefined || existing.type !== 'write') {
+    throw new CliError(
+      `Nothing produces "${target}", so there is no package manifest to compose.`,
+      {
+        hint: 'The framework template is expected to supply the project identity that the composed blocks are added to.',
+      },
+    );
+  }
+
+  const base: unknown = JSON.parse(existing.content);
+  if (typeof base !== 'object' || base === null || Array.isArray(base)) {
+    throw new CliError(`"${target}" is not a JSON object.`);
+  }
+
+  const composed = composePackage(base as Record<string, unknown>, contributions);
+  const replacement: FileOperation = {
+    type: 'write',
+    path: target,
+    content: stringifyJson(composed.json),
+    origin: existing.origin,
+  };
+
+  return {
+    operations: operations.map((operation, at) => (at === index ? replacement : operation)),
+    composed,
+  };
+}
+
+/**
  * Refuses a plan that is missing a file the architecture cannot do without.
  *
  * Composition can legitimately leave a mapped role empty - React maps
@@ -445,10 +524,12 @@ export function planManifest(
     ]),
   );
 
-  assertRequiredRoles(project, operations);
+  const packageResult = composePackageOperation(project, contributions, operations);
+  assertRequiredRoles(project, packageResult.operations);
 
   return {
-    plan: { ...generated, operations },
+    plan: { ...generated, operations: packageResult.operations },
+    ...(packageResult.composed === undefined ? {} : { composedPackage: packageResult.composed }),
     manifest,
     project,
     contributions,

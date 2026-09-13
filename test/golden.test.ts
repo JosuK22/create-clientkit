@@ -135,7 +135,15 @@ const scenarios: readonly Scenario[] = [
 describe('golden: generation output for create-clientkit@1.0.2', () => {
   for (const scenario of scenarios) {
     it(`golden: ${scenario.name}`, async () => {
-      const generated = plan(scenario.context, { registry });
+      // Through Stage 5 this called `plan()`, because that was what the CLI
+      // called. Stage 6 moved the CLI onto the adapter path so that
+      // package.json could be composed from contributions, and this follows it
+      // - a golden that asserts a function nobody ships is a golden that can
+      // pass while the product is broken.
+      //
+      // The snapshot files themselves were not touched. That is the point: the
+      // bytes 1.0.2 produced are still the bytes produced, composition and all.
+      const { plan: generated } = planWithAdapters(scenario.context, { registry });
       await expect(render(generated)).toMatchFileSnapshot(scenario.file);
     });
   }
@@ -218,10 +226,61 @@ describe('golden: the V2 adapter path reproduces V1 byte for byte', () => {
       await expect(render(generated)).toMatchFileSnapshot(scenario.file);
     });
 
-    it(`V2 output is identical to V1 for ${scenario.name}`, () => {
-      const viaAdapters = render(planWithAdapters(scenario.context, { registry }).plan);
-      const viaV1 = render(plan(scenario.context, { registry }));
-      expect(viaAdapters).toBe(viaV1);
+    it(`only package.json differs from raw plan() for ${scenario.name}`, () => {
+      // Stage 2 through 5 asserted the two paths were byte-identical. Stage 6
+      // ends that on purpose: `plan()` composes template layers and knows
+      // nothing about adapters, so the manifest it produces now carries the
+      // project's identity and no dependencies at all. The adapter path adds
+      // them back from contributions.
+      //
+      // Asserting the difference is *exactly one file* is what the old equality
+      // was really protecting - that making the package authoritative did not
+      // quietly disturb the other twenty operations.
+      const viaAdapters = planWithAdapters(scenario.context, { registry }).plan.operations;
+      const viaV1 = plan(scenario.context, { registry }).operations;
+
+      const differing = viaAdapters
+        .filter((operation) => {
+          const other = viaV1.find((candidate) => candidate.path === operation.path);
+          return other === undefined || JSON.stringify(other) !== JSON.stringify(operation);
+        })
+        .map((operation) => operation.path);
+
+      expect(differing).toEqual(['package.json']);
+      expect(viaAdapters.map((o) => o.path)).toEqual(viaV1.map((o) => o.path));
+    });
+
+    it(`the composed manifest adds exactly the blocks plan() cannot for ${scenario.name}`, () => {
+      const pick = (operations: readonly { path: string; type: string }[]) => {
+        const found = operations.find((operation) => operation.path === 'package.json');
+        if (found === undefined || found.type !== 'write') throw new Error('no package.json');
+        return JSON.parse((found as unknown as { content: string }).content) as Record<
+          string,
+          unknown
+        >;
+      };
+      const composed = pick(planWithAdapters(scenario.context, { registry }).plan.operations);
+      const raw = pick(plan(scenario.context, { registry }).operations);
+
+      // The template supplies identity and nothing else...
+      expect(Object.keys(raw)).toEqual([
+        'name',
+        'version',
+        'private',
+        'license',
+        'type',
+        'engines',
+        'keywords',
+      ]);
+      // ...and every identity field survives composition untouched.
+      for (const key of Object.keys(raw)) {
+        expect(composed[key], `${key} was disturbed by composition`).toEqual(raw[key]);
+      }
+      expect(Object.keys(composed).slice(Object.keys(raw).length)).toEqual([
+        'scripts',
+        'dependencies',
+        'devDependencies',
+      ]);
     });
   }
 

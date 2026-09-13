@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { main } from '../src/cli.js';
+import { planWithAdapters } from '../src/adapters/bridge.js';
 import { plan } from '../src/generate/plan.js';
 import { findTokens } from '../src/generate/tokens.js';
 import { KNOWN_TOKENS } from '../src/templates/manifest.js';
@@ -131,7 +132,9 @@ describe('planning astro-tailwind', () => {
   });
 
   it('pins exact dependency versions and marks the project private', () => {
-    const pkg = plan(context('full'), { registry }).operations.find(
+    // Dependencies are composed from adapter contributions since Stage 6, so
+    // this reads the path that produces them.
+    const pkg = planWithAdapters(context('full'), { registry }).plan.operations.find(
       (op) => op.path === 'package.json',
     );
     const parsed = JSON.parse(pkg && pkg.type === 'write' ? pkg.content : '{}');
@@ -315,9 +318,9 @@ describe('M3 structure in both modes', () => {
   const modes = ['coming-soon', 'full'] as const;
 
   const build = (mode: (typeof modes)[number]) =>
-    plan(makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode } }), {
+    planWithAdapters(makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode } }), {
       registry,
-    });
+    }).plan;
 
   const read = (mode: (typeof modes)[number], file: string): string => {
     const op = build(mode).operations.find((entry) => entry.path === file);

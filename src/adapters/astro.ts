@@ -194,11 +194,41 @@ export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
         ],
 
         scripts: [
-          { name: 'dev', command: 'astro dev', owner: OWNER, reason: 'development server' },
-          { name: 'build', command: 'astro build', owner: OWNER, reason: 'production build' },
-          { name: 'preview', command: 'astro preview', owner: OWNER, reason: 'preview the build' },
-          { name: 'check', command: 'astro check', owner: OWNER, reason: 'type-check the site' },
-          { name: 'astro', command: 'astro', owner: OWNER, reason: 'passthrough to the Astro CLI' },
+          {
+            name: 'dev',
+            command: 'astro dev',
+            owner: OWNER,
+            order: 0,
+            reason: 'development server',
+          },
+          {
+            name: 'build',
+            command: 'astro build',
+            owner: OWNER,
+            order: 1,
+            reason: 'production build',
+          },
+          {
+            name: 'preview',
+            command: 'astro preview',
+            owner: OWNER,
+            order: 2,
+            reason: 'preview the build',
+          },
+          {
+            name: 'check',
+            command: 'astro check',
+            owner: OWNER,
+            order: 3,
+            reason: 'type-check the site',
+          },
+          {
+            name: 'astro',
+            command: 'astro',
+            owner: OWNER,
+            order: 4,
+            reason: 'passthrough to the Astro CLI',
+          },
         ],
 
         directories: [...ASTRO_ARCHITECTURE.directories],

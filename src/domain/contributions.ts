@@ -134,6 +134,18 @@ export interface ScriptContribution {
   readonly name: string;
   readonly command: string;
   readonly owner: AdapterRef;
+  /**
+   * Position in the emitted `scripts` block. Lower comes first; ties break on
+   * owner then name, so the result never depends on adapter iteration order.
+   *
+   * The same idiom as `FileContribution.order` and
+   * `TemplateLayerContribution.order`, and it exists for the same reason: the
+   * alternative is for the composition engine to hold a table of script names
+   * and rank them, which would put framework knowledge inside the one component
+   * that must not have any. An adapter knows that `dev` comes before
+   * `typecheck` in its own ecosystem's convention; the engine only sorts.
+   */
+  readonly order: number;
   readonly reason: string;
 }
 

@@ -106,7 +106,7 @@ origin  base
 
 ---- package.json ----
 type    write
-origin  base + modes/full + styling:bootstrap
+origin  base + modes/full
 ----
 {
   "name": "acme-app",
@@ -129,9 +129,9 @@ origin  base + modes/full + styling:bootstrap
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "bootstrap": "5.3.8",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "bootstrap": "5.3.8"
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

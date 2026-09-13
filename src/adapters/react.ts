@@ -243,6 +243,10 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
             name: 'typecheck',
             command: 'tsc --noEmit',
             owner: OWNER,
+            // After the build tool's dev/build/preview: this is a check you run,
+            // not part of the everyday loop. Ten rather than three so a build
+            // tool can add a script without renumbering anything here.
+            order: 10,
             reason: 'type-checks without emitting; the build is Vite’s',
           },
         ],

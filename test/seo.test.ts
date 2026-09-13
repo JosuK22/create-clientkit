@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { plan } from '../src/generate/plan.js';
+import { planWithAdapters } from '../src/adapters/bridge.js';
 import { findTokens } from '../src/generate/tokens.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { makeContext } from './helpers.js';
@@ -20,8 +20,12 @@ const TEMPLATES_ROOT = findTemplatesRoot(path.resolve(import.meta.dirname, '..',
 const registry = createRegistry(TEMPLATES_ROOT);
 const modes = ['coming-soon', 'full'] as const;
 
+// The adapter path, which is what the CLI runs since Stage 6 - package.json is
+// composed from contributions and plan() alone would report no dependencies.
 const build = (mode: (typeof modes)[number]) =>
-  plan(makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode } }), { registry });
+  planWithAdapters(makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode } }), {
+    registry,
+  }).plan;
 
 const read = (mode: (typeof modes)[number], file: string): string => {
   const op = build(mode).operations.find((entry) => entry.path === file);
