@@ -53,8 +53,21 @@ import {
  * contract and `domain/manifest.ts` already imports from it; pointing it back
  * would make that a cycle.
  */
+/**
+ * Where each manifest dimension came from, keyed by dimension.
+ *
+ * Deliberately its own map rather than more entries in `sources`. That one
+ * attributes `ProjectContext` fields - a V1 object - and a `dimension.*` prefix
+ * inside it was a string convention standing in for a second namespace. Two
+ * objects get two maps, and the V1 resolution snapshot stops growing entries
+ * about a manifest it does not contain.
+ */
+export type StackSources = Readonly<Record<string, ValueSource>>;
+
 export interface ContextResolution extends ResolutionResult {
   readonly manifest: ProjectManifest;
+  /** Attribution for {@link manifest}. See {@link StackSources}. */
+  readonly stack: StackSources;
 }
 
 export interface ResolveOptions {
@@ -162,6 +175,12 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
   const sources: Record<string, ValueSource> = {};
   const mark = (key: string, source: ValueSource): void => {
     sources[key] = source;
+  };
+
+  /** The same, for manifest dimensions, which are a different object. */
+  const stack: Record<string, ValueSource> = {};
+  const markStack = (dimension: string, source: ValueSource): void => {
+    stack[dimension] = source;
   };
 
   const dirOptions = {
@@ -274,7 +293,7 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
 
   for (const key of Object.keys(dimensionInput) as (keyof DimensionInput)[]) {
     if (!hasDimensionInput({ [key]: dimensionInput[key] })) continue;
-    mark(`dimension.${key}`, presetSourceOf(key));
+    markStack(key, presetSourceOf(key));
   }
 
   // ---- template defaults layer -------------------------------------------
@@ -401,7 +420,7 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    */
   for (const dimension of interactiveDimensions.asked) {
     if (dimension === 'preset') continue;
-    mark(`dimension.${dimension}`, 'prompt');
+    markStack(dimension, 'prompt');
   }
   /*
    * A dimension an interactively chosen preset filled in is a preset value,
@@ -410,7 +429,7 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * dimension by dimension is exactly where provenance earns its keep.
    */
   for (const dimension of interactiveDimensions.presetSeeded) {
-    mark(`dimension.${dimension}`, 'preset');
+    markStack(dimension, 'preset');
   }
 
   /*
@@ -421,6 +440,20 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * ordering to both. There is no interactive branch below this line.
    */
   const dimensions = resolveDimensions(interactiveDimensions.input, adapters, origin);
+
+  /*
+   * The half of the attribution only this layer knows.
+   *
+   * `resolveDimensions` says whether a value was stated or derived, and by
+   * what; the marks above say which layer stated it. Anything it derived had no
+   * mark at all until now - the summary printed the value and nothing beside
+   * it, which is the gap this closes. Nothing is recomputed here: both halves
+   * are read from results that already exist.
+   */
+  for (const [key, dimensionOrigin] of Object.entries(dimensions.origins)) {
+    if (dimensionOrigin === 'stated') continue;
+    markStack(key, dimensionOrigin);
+  }
 
   // ---- template defaults layer -------------------------------------------
   /*
@@ -540,12 +573,9 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * This said `'flag'` outright until Stage 16, which was true while a flag was
    * the only way to ask for a feature. With three input mechanisms it became a
    * summary line telling the user their features came from a flag they never
-   * typed - `sources['dimension.features']` already knows better.
+   * typed - the stack attribution already knows better.
    */
-  mark(
-    'features',
-    dimensions.features.length === 0 ? 'default' : (sources['dimension.features'] ?? 'prompt'),
-  );
+  mark('features', dimensions.features.length === 0 ? 'default' : (stack['features'] ?? 'prompt'));
 
   const context: ProjectContext = deepFreeze({
     targetDir: targetCheck.absolutePath,
@@ -596,5 +626,10 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
     ),
   );
 
-  return { context, manifest, sources: Object.freeze({ ...sources }) };
+  return {
+    context,
+    manifest,
+    sources: Object.freeze({ ...sources }),
+    stack: Object.freeze({ ...stack }),
+  };
 }

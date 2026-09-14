@@ -467,28 +467,28 @@ describe('a preset supplies defaults and never overrides', () => {
 
 describe('provenance distinguishes a preset from an explicit value', () => {
   it('labels preset-supplied dimensions', async () => {
-    const { sources } = await fromFlags(['--preset', 'react-mui']);
-    expect(sources['dimension.framework']).toBe('preset');
-    expect(sources['dimension.styling']).toBe('preset');
-    expect(sources['dimension.uiLibrary']).toBe('preset');
+    const { stack } = await fromFlags(['--preset', 'react-mui']);
+    expect(stack['framework']).toBe('preset');
+    expect(stack['styling']).toBe('preset');
+    expect(stack['uiLibrary']).toBe('preset');
   });
 
   it('labels an override as the layer that overrode', async () => {
-    const { sources } = await fromFile({ stack: { preset: 'react-mui', styling: 'bootstrap' } }, [
+    const { stack } = await fromFile({ stack: { preset: 'react-mui', styling: 'bootstrap' } }, [
       '--ui-library',
       'none',
     ]);
-    expect(sources['dimension.framework']).toBe('preset');
-    expect(sources['dimension.styling']).toBe('file');
-    expect(sources['dimension.uiLibrary']).toBe('flag');
+    expect(stack['framework']).toBe('preset');
+    expect(stack['styling']).toBe('file');
+    expect(stack['uiLibrary']).toBe('flag');
   });
 
-  it('records nothing for a dimension no layer stated', async () => {
-    // Derived from the framework's declaration rather than supplied, and a
-    // blank is more honest than claiming a source.
-    const { sources } = await fromFlags(['--preset', 'react-tailwind']);
-    expect(sources['dimension.router']).toBeUndefined();
-    expect(sources['dimension.buildTool']).toBeUndefined();
+  it('attributes a dimension no layer stated to whoever derived it', async () => {
+    // Stage 19: a blank said nothing. The framework's declaration supplied the
+    // build tool and the router, so they say so.
+    const { stack } = await fromFlags(['--preset', 'react-tailwind']);
+    expect(stack['router']).toBe('adapter');
+    expect(stack['buildTool']).toBe('adapter');
   });
 });
 
@@ -595,8 +595,9 @@ describe('the default is untouched', () => {
   });
 
   it('no preset is silently applied', async () => {
-    const { sources } = await fromFlags([]);
-    expect(sources['dimension.framework']).toBeUndefined();
+    const { stack } = await fromFlags([]);
+    expect(stack['framework']).toBe('default');
+    expect(stack['framework']).not.toBe('preset');
   });
 
   it('--preset with --yes needs no prompting', async () => {
@@ -645,7 +646,7 @@ describe('a preset is not a template', () => {
     // generated project by different routes; the preset route states a
     // framework and lets the framework choose its template.
     const viaPreset = await fromFlags(['--preset', 'astro-tailwind']);
-    expect(viaPreset.sources['dimension.framework']).toBe('preset');
+    expect(viaPreset.stack['framework']).toBe('preset');
     expect(viaPreset.sources['template.id']).toBe('default');
   });
 

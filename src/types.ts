@@ -47,12 +47,28 @@ export interface ProjectContext {
 }
 
 /** Where each resolved value came from. Powers `--dry-run` diagnostics. */
+/**
+ * Where a resolved value came from.
+ *
+ * The vocabulary names the *layer*, never the technology: there is no
+ * `react-default` or `vite-default`, because "which framework caused this" is
+ * a different question from "who decided it", and only the second is
+ * answerable generically.
+ */
 export type ValueSource =
   | 'flag'
   | 'file'
   /** A named starting point supplied the value; the user did not state it. */
   | 'preset'
   | 'prompt'
+  /**
+   * The selected framework's own declaration decided it.
+   *
+   * Distinct from `default` on purpose: `buildTool: vite` is React saying what
+   * it needs, while `styling: tailwind` is a built-in preference no framework
+   * owns. Collapsing the two would make a fact look like a choice.
+   */
+  | 'adapter'
   | 'template'
   | 'default'
   | 'derived';

@@ -67,6 +67,7 @@ export async function runCreate(options: CreateOptions): Promise<number> {
     context,
     manifest: projectManifest,
     sources,
+    stack,
   } = await resolveContext({
     flags,
     cwd,
@@ -104,7 +105,9 @@ export async function runCreate(options: CreateOptions): Promise<number> {
 
   if (flags.dryRun) {
     logger.print(
-      renderDryRun(generationPlan, projectManifest, context, sources, { verbose: flags.debug }),
+      renderDryRun(generationPlan, projectManifest, stack, context, sources, {
+        verbose: flags.debug,
+      }),
     );
     return EXIT_OK;
   }
@@ -172,7 +175,7 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   }
 
   logger.print('');
-  logger.print(renderPlan(context, projectManifest, sources, { showSources: flags.debug }));
+  logger.print(renderPlan(context, projectManifest, sources, stack, { showSources: flags.debug }));
   logger.print('');
   logger.print(renderNextSteps(context, manifest, postResults, cwd));
 

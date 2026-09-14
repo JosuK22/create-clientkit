@@ -523,6 +523,12 @@ describe('the domain layer stays pure', () => {
       // imports the type only.
       'ui\\plan.ts',
       'ui/plan.ts',
+      // Stage 19. The explanation projects a finished manifest into ordered,
+      // attributed rows; it imports the type and reads fields. It resolves
+      // nothing - its own suite asserts it names no layer it would have to
+      // rank, and that it consults no adapter.
+      'context\\explain.ts',
+      'context/explain.ts',
     ]);
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const v2Directories = new Set(['domain', 'adapters']);

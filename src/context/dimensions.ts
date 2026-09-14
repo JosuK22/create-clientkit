@@ -117,6 +117,31 @@ export interface DimensionInput {
   readonly features?: readonly string[] | undefined;
 }
 
+/**
+ * Where a resolved value came from, as far as this layer can tell.
+ *
+ * Three answers, and the split is the one that matters for explaining a
+ * configuration: the caller supplied it, the framework's own declaration did,
+ * or the shared defaults did. Which *caller* supplied it - a flag, a file, a
+ * preset, an answer - is a question this function cannot answer, because it
+ * receives one merged `DimensionInput` with the layers already collapsed. The
+ * resolver knows that half and joins the two.
+ *
+ * Recorded here rather than reconstructed later because here is where the
+ * decision is actually made. A second function inferring "this looks derived"
+ * would be a second precedence implementation, and the first thing to disagree.
+ */
+export type DimensionOrigin =
+  /** Present in the input this function was handed. */
+  | 'stated'
+  /** Absent, and filled from the framework adapter's own declaration. */
+  | 'adapter'
+  /** Absent, and filled from the defaults no framework owns. */
+  | 'default';
+
+/** Every dimension, keyed the way the manifest keys them. */
+export type DimensionOrigins = Readonly<Record<keyof DimensionInput, DimensionOrigin>>;
+
 /** The dimensions of a manifest, complete, with nothing left to infer. */
 export interface ResolvedDimensions {
   readonly framework: FrameworkId;
@@ -136,6 +161,8 @@ export interface ResolvedDimensions {
    * asymmetry is Stage 5's, not this stage's.
    */
   readonly templateManifest: TemplateManifest | undefined;
+  /** How each of the above was arrived at. See {@link DimensionOrigin}. */
+  readonly origins: DimensionOrigins;
 }
 
 /** True when the invocation configures any dimension explicitly. */
@@ -192,6 +219,25 @@ function known<T extends string>(
 function fromFramework<T extends string>(explicit: T | undefined, options: DimensionOptions<T>): T {
   if (explicit !== undefined) return explicit;
   return options.kind === 'fixed' ? options.value : options.default;
+}
+
+/** Whether a raw input value was actually supplied. */
+function stated(value: string | readonly string[] | undefined): boolean {
+  return value !== undefined && value.length > 0;
+}
+
+/**
+ * The origin of one dimension, from the same two facts the value came from.
+ *
+ * `derived` is what the value falls back to when nothing stated it: the
+ * framework's declaration for the dimensions it owns, and the shared defaults
+ * for the two it does not.
+ */
+function originOf(
+  value: string | readonly string[] | undefined,
+  derived: DimensionOrigin,
+): DimensionOrigin {
+  return stated(value) ? 'stated' : derived;
 }
 
 /**
@@ -349,6 +395,24 @@ export function resolveDimensions(
     architecture: fromFramework(architecture, adapter.architectures),
     features,
     templateManifest: adapter.templateManifest,
+    origins: {
+      framework: originOf(input.framework, 'default'),
+      // The four the framework owns. Unstated means its declaration decided.
+      buildTool: originOf(input.buildTool, 'adapter'),
+      language: originOf(input.language, 'adapter'),
+      router: originOf(input.router, 'adapter'),
+      architecture: originOf(input.architecture, 'adapter'),
+      // The two it does not. No framework decides how CSS is authored.
+      styling: originOf(input.styling, 'default'),
+      uiLibrary: originOf(input.uiLibrary, 'default'),
+      /*
+       * An empty list is not an answer - the Stage 18 rule, and the reason
+       * `stated` is a length check rather than a presence one. A flag that was
+       * never passed arrives as `[]`, and calling that an explicit choice
+       * would make "no features" indistinguishable from "features: none".
+       */
+      features: originOf(input.features, 'default'),
+    },
   };
 }
 

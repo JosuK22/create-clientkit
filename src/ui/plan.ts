@@ -2,6 +2,8 @@ import path from 'node:path';
 
 import pc from 'picocolors';
 
+import { explainStack } from '../context/explain.js';
+import type { StackSources } from '../context/resolve.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { GenerationPlan } from '../generate/files.js';
 import type { PostStepResult } from '../generate/postSteps.js';
@@ -27,6 +29,7 @@ export function renderPlan(
   context: ProjectContext,
   manifest: ProjectManifest,
   sources: SourceMap,
+  stack: StackSources,
   options: { showSources: boolean },
 ): string {
   const lines: string[] = [];
@@ -68,13 +71,17 @@ export function renderPlan(
    */
   lines.push('');
   lines.push(pc.bold('Stack'));
-  row('Framework', manifest.framework, 'dimension.framework');
-  row('Build tool', manifest.buildTool, 'dimension.buildTool');
-  row('Language', manifest.language, 'dimension.language');
-  row('Styling', manifest.styling, 'dimension.styling');
-  row('Component library', manifest.uiLibrary, 'dimension.uiLibrary');
-  row('Routing', manifest.router, 'dimension.router');
-  row('Architecture', manifest.architecture, 'dimension.architecture');
+  /*
+   * Rendered from the explanation rather than read field by field.
+   *
+   * The order, the labels and which dimensions exist are one list in
+   * `explain.ts`, so a future `--explain` prints the same thing this does and
+   * a dimension cannot appear in one and not the other.
+   */
+  for (const entry of explainStack(manifest, stack)) {
+    const origin = options.showSources && entry.source ? pc.dim(`  [${entry.source}]`) : '';
+    lines.push(`  ${label(entry.label)}${entry.value}${origin}`);
+  }
 
   lines.push('');
   lines.push(pc.dim(`  CLI ${context.cliVersion}  |  resolved ${context.generatedAt}`));
@@ -88,6 +95,7 @@ export function renderPlan(
 export function renderDryRun(
   generationPlan: GenerationPlan,
   manifest: ProjectManifest,
+  stack: StackSources,
   context: ProjectContext,
   sources: SourceMap,
   options: { verbose: boolean },
@@ -113,7 +121,7 @@ export function renderDryRun(
   lines.push('');
   lines.push(`Total: ${generationPlan.operations.length} files`);
   lines.push('');
-  lines.push(renderPlan(context, manifest, sources, { showSources: true }));
+  lines.push(renderPlan(context, manifest, sources, stack, { showSources: true }));
   return lines.join('\n');
 }
 

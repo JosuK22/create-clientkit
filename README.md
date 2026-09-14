@@ -384,7 +384,34 @@ CLI flags  >  --from file  >  interactive answers  >  template defaults  >  buil
 
 This holds per value, not per source: a file that sets `framework` and
 `styling` alongside `--styling bootstrap` contributes its framework and loses
-its styling. `--dry-run --debug` prints where each resolved value came from.
+its styling.
+
+### Where a value came from
+
+`--dry-run` prints the resolved stack, and with `--debug` each line names the
+layer that supplied it:
+
+```sh
+npm create clientkit@latest acme-app --preset react-mui --router react-router --dry-run --debug
+```
+
+```
+Stack
+  Framework         react           [preset]
+  Build tool        vite            [adapter]
+  Language          ts              [adapter]
+  Styling           tailwind        [preset]
+  Component library mui             [preset]
+  Routing           react-router    [flag]
+  Architecture      react-standard  [adapter]
+  Features          none            [default]
+```
+
+The sources are `flag`, `file`, `preset`, `prompt`, `adapter` and `default`.
+The last two are worth distinguishing: `adapter` means the framework you chose
+decided it — React needs Vite and says so — while `default` is a built-in
+preference no framework owns. Neither is a choice you made, and neither
+pretends to be.
 
 Prompts are only issued for values no higher-precedence source supplied, so a
 fully specified file needs no terminal and `--yes` never discards it.

@@ -430,32 +430,36 @@ describe('features follow the same rules as every other dimension', () => {
 
 describe('provenance names the layer that actually won', () => {
   it('labels interactively seeded values as preset', async () => {
-    const { sources } = await picking('react-mui', ['--router', 'react-router']);
-    expect(sources['dimension.framework']).toBe('preset');
-    expect(sources['dimension.styling']).toBe('preset');
-    expect(sources['dimension.uiLibrary']).toBe('preset');
-    expect(sources['dimension.router']).toBe('flag');
+    const { stack } = await picking('react-mui', ['--router', 'react-router']);
+    expect(stack['framework']).toBe('preset');
+    expect(stack['styling']).toBe('preset');
+    expect(stack['uiLibrary']).toBe('preset');
+    expect(stack['router']).toBe('flag');
   });
 
   it('labels an overridden dimension by its winner, not by the preset', async () => {
-    const { sources } = await picking('react-mui', ['--ui-library', 'none'], {
+    const { stack } = await picking('react-mui', ['--ui-library', 'none'], {
       stack: { styling: 'bootstrap' },
     });
-    expect(sources['dimension.framework']).toBe('preset');
-    expect(sources['dimension.styling']).toBe('file');
-    expect(sources['dimension.uiLibrary']).toBe('flag');
+    expect(stack['framework']).toBe('preset');
+    expect(stack['styling']).toBe('file');
+    expect(stack['uiLibrary']).toBe('flag');
   });
 
   it('records no dimension row for the preset question itself', async () => {
     // `preset` is a question, not a dimension; a source beside a value the
     // summary never prints would be noise.
-    const { sources } = await picking('react-mui');
-    expect(sources['dimension.preset']).toBeUndefined();
+    const { stack } = await picking('react-mui');
+    expect(stack['preset']).toBeUndefined();
   });
 
-  it('leaves a derived dimension unattributed', async () => {
-    const { sources } = await picking('react-tailwind');
-    expect(sources['dimension.buildTool']).toBeUndefined();
+  it('attributes a derived dimension to the framework that decided it', async () => {
+    // Stage 18 left this blank; Stage 19 fills it. Vite is React's declaration
+    // speaking, not a user choice and not a built-in preference.
+    const { stack } = await picking('react-tailwind');
+    expect(stack['buildTool']).toBe('adapter');
+    expect(stack['language']).toBe('adapter');
+    expect(stack['architecture']).toBe('adapter');
   });
 });
 
@@ -465,22 +469,20 @@ describe('provenance names the layer that actually won', () => {
 
 describe('a preset is never inferred', () => {
   it('flags that resemble a preset do not become one', async () => {
-    const { sources, manifest } = await fromFlags([
-      '--framework',
-      'react',
-      '--styling',
-      'tailwind',
-    ]);
-    expect(sources['dimension.framework']).toBe('flag');
-    expect(sources['dimension.styling']).toBe('flag');
+    const { stack, manifest } = await fromFlags(['--framework', 'react', '--styling', 'tailwind']);
+    expect(stack['framework']).toBe('flag');
+    expect(stack['styling']).toBe('flag');
     expect(manifest).toMatchObject({ framework: 'react', styling: 'tailwind' });
   });
 
   it('--yes with no preset resolves the default stack', async () => {
-    const { manifest, sources } = await fromFlags([]);
+    const { manifest, stack } = await fromFlags([]);
     expect(manifest.framework).toBe('astro');
     expect(manifest.styling).toBe('tailwind');
-    expect(sources['dimension.framework']).toBeUndefined();
+    // Attributed to the built-in default, never to a preset - the distinction
+    // this whole section exists to hold.
+    expect(stack['framework']).toBe('default');
+    expect(stack['styling']).toBe('default');
   });
 
   it('--yes never reaches the preset question', async () => {

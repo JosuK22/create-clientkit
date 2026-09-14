@@ -325,18 +325,21 @@ describe('a flag beats the file, per dimension', () => {
   });
 
   it('records which source each dimension came from', async () => {
-    const { sources } = await fromConfig({ stack: { framework: 'react', styling: 'tailwind' } }, [
+    const { stack } = await fromConfig({ stack: { framework: 'react', styling: 'tailwind' } }, [
       '--styling',
       'bootstrap',
     ]);
-    expect(sources['dimension.framework']).toBe('file');
-    expect(sources['dimension.styling']).toBe('flag');
+    expect(stack['framework']).toBe('file');
+    expect(stack['styling']).toBe('flag');
   });
 
-  it('records nothing for a dimension nobody stated', async () => {
-    const { sources } = await fromConfig({ stack: { framework: 'react' } });
-    expect(sources['dimension.framework']).toBe('file');
-    expect(sources['dimension.uiLibrary']).toBeUndefined();
+  it('attributes a dimension nobody stated to whoever derived it', async () => {
+    const { stack } = await fromConfig({ stack: { framework: 'react' } });
+    expect(stack['framework']).toBe('file');
+    // No framework owns the component library, so this is a built-in default
+    // rather than the adapter speaking.
+    expect(stack['uiLibrary']).toBe('default');
+    expect(stack['buildTool']).toBe('adapter');
   });
 });
 

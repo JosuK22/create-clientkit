@@ -94,7 +94,8 @@ export function helpText(): string {
         --no-git          Skip git initialisation
         --no-install      Skip dependency installation
         --pm <manager>    Force a package manager (${PACKAGE_MANAGERS.join(' | ')})
-        --debug           Print diagnostics and full stack traces
+        --debug           Print diagnostics, stack traces, and where each
+                          resolved value came from
     -h, --help            Show this help
     -v, --version         Show the version
 
