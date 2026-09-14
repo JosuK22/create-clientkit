@@ -12,7 +12,7 @@ import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
 import type { ArchitectureDefinition } from '../domain/roles.js';
 import type { TemplateManifest } from '../templates/manifest.js';
-import { starterLayerFor } from './starters.js';
+import { planStarterLayers, selectStarter } from '../domain/starter.js';
 
 /**
  * The React framework adapter.
@@ -154,6 +154,15 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
 
     resolve(manifest: ProjectManifest): AdapterResolution {
       return {
+        /*
+         * What the selected starter guarantees the finished project contains.
+         *
+         * Declared rather than assumed: a template layer that shipped no home
+         * page would otherwise generate a project whose entry point is missing,
+         * and nothing would say so until someone opened it. Checked against the
+         * plan by resolved path, so the framework's own template satisfies it.
+         */
+        requiredRoles: selectStarter(manifest.features).guarantees,
         minNode: REACT_DECLARATION.minNode ?? '>=20.19.0',
         extensions: {
           source: manifest.language === 'js' ? '.js' : '.ts',
@@ -166,27 +175,23 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
     },
 
     contribute(project: ResolvedProject): Contribution {
-      const starter = starterLayerFor(project.manifest.features);
+      const starter = selectStarter(project.manifest.features);
 
       return {
         ...emptyContribution(OWNER),
 
-        templateLayers: [
-          {
-            name: 'base',
-            root: path.join(templateRoot, 'base'),
-            owner: OWNER,
-            order: 0,
-            reason: 'the React application every starter shares',
+        // Same two halves as Astro's, and the same contract joining them. Two
+        // frameworks arranging their layers identically is a coincidence; the
+        // contract is what stops the third from arranging them differently.
+        templateLayers: planStarterLayers({
+          starter,
+          owner: OWNER,
+          roots: {
+            base: path.join(templateRoot, 'base'),
+            starter: path.join(templateRoot, 'modes', starter.layer),
           },
-          {
-            name: `modes/${starter}`,
-            root: path.join(templateRoot, 'modes', starter),
-            owner: OWNER,
-            order: 10,
-            reason: `the "${starter}" starter selected by the manifest`,
-          },
-        ],
+          baseReason: 'the React application every starter shares',
+        }),
 
         /**
          * The React plugin is contributed as a build-config entry rather than

@@ -10,6 +10,7 @@ feature:accessibility        feature
 
 == REQUIRED ROLES ==
 app.layout                   -> src/layouts/BaseLayout.astro
+page.home                    -> src/pages/index.astro
 
 == CLAIMS BY SLOT ==
 metadata          (none)

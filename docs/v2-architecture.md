@@ -683,6 +683,60 @@ the Astro adapter is correct when it reproduces those snapshots exactly. That
 converts "did we break the existing product?" from a judgement call into a test
 result.
 
+### 14.3 The starter contribution contract — DECIDED (Stage 20)
+
+§14.1's shape was a proposal; the tree that exists differs from it in one
+respect worth recording, because the difference is the decision. There is no
+`features/starter/` directory and there is no directory per stack. A starter is
+a _contract_ in `src/domain/starter.ts`, and each framework answers it with two
+directories of its own.
+
+```
+src/domain/starter.ts              which starters exist, what each guarantees,
+                                   which layers a selection produces
+templates/astro-tailwind/base/     ┐ Astro's answer: two directories
+templates/astro-tailwind/modes/*/  ┘
+templates/react-vite/base/         ┐ React's answer: the same two, arranged
+templates/react-vite/modes/*/      ┘ however React wants them
+templates/styling/<id>/            one directory per option, never per combination
+templates/ui-library/<id>/
+templates/feature/<id>/
+```
+
+Four questions a `react-tailwind-starter/` directory would answer all at once,
+kept apart:
+
+| Question                                | Owner                    |
+| --------------------------------------- | ------------------------ |
+| What does the project start containing? | the starter contract     |
+| How is that represented?                | the framework adapter    |
+| Where does the representation live?     | the architecture's roles |
+| How does everything else attach?        | the composition engine   |
+
+A new framework contributes starters by calling `planStarterLayers` with its own
+two roots and one sentence explaining its shared layer. It adds no starter
+definition, and no existing adapter changes. The arithmetic that motivated this
+— frameworks × styling × UI library × router × starter — never runs: the count
+on disk is two directories per framework, and adding a styling system adds none.
+
+The contract is enforced negatively, because that is where the failure mode is:
+
+- It may not name a framework, build tool, styling system, component library,
+  router, architecture, or any feature other than the starters themselves. A
+  test strips the prose and walks the source for every dimension id.
+- It reads no filesystem, spawns nothing, and imports no `path` — both layer
+  roots are handed to it. A path it could join is a layout it has an opinion
+  about.
+- Its output is a pure function of its input, ordered explicitly rather than by
+  array position, with an owner and a reason on every layer.
+
+Each starter also declares the semantic **roles** a project built from it must
+end up with — `page.home` for both of today's starters. The check runs against
+the finished plan by resolved path, so whoever produces the file satisfies it,
+and a starter layer that shipped no home page fails before anything is written.
+`selectStarter` refuses a manifest naming two starters, and refuses an unknown
+one, where its predecessor answered `coming-soon` to both.
+
 ---
 
 ## 15. Prompt flow — PROPOSED

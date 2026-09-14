@@ -11,7 +11,7 @@ import { emptyContribution } from '../domain/contributions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
 import type { ArchitectureDefinition } from '../domain/roles.js';
-import { starterLayerFor } from './starters.js';
+import { planStarterLayers, selectStarter } from '../domain/starter.js';
 
 /**
  * The Astro framework adapter: the first concrete adapter, and the one whose
@@ -135,6 +135,15 @@ export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
      */
     resolve(manifest: ProjectManifest): AdapterResolution {
       return {
+        /*
+         * What the selected starter guarantees the finished project contains.
+         *
+         * Declared rather than assumed: a template layer that shipped no home
+         * page would otherwise generate a project whose entry point is missing,
+         * and nothing would say so until someone opened it. Checked against the
+         * plan by resolved path, so the framework's own template satisfies it.
+         */
+        requiredRoles: selectStarter(manifest.features).guarantees,
         minNode: ASTRO_DECLARATION.minNode ?? '>=22.12.0',
         extensions: {
           source: manifest.language === 'js' ? '.js' : '.ts',
@@ -146,27 +155,26 @@ export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
     },
 
     contribute(project: ResolvedProject): Contribution {
-      const starter = starterLayerFor(project.manifest.features);
+      const starter = selectStarter(project.manifest.features);
 
       return {
         ...emptyContribution(OWNER),
 
-        templateLayers: [
-          {
-            name: 'base',
-            root: path.join(templateRoot, 'base'),
-            owner: OWNER,
-            order: 0,
-            reason: 'the Astro project every mode shares',
+        /*
+         * Which layers, in what order, from the shared starter contract; where
+         * they live, from here. This adapter knows Astro keeps its layers under
+         * `base` and `modes/<name>`, and the contract knows a starter is a base
+         * plus one selection - neither knows the other's half.
+         */
+        templateLayers: planStarterLayers({
+          starter,
+          owner: OWNER,
+          roots: {
+            base: path.join(templateRoot, 'base'),
+            starter: path.join(templateRoot, 'modes', starter.layer),
           },
-          {
-            name: `modes/${starter}`,
-            root: path.join(templateRoot, 'modes', starter),
-            owner: OWNER,
-            order: 10,
-            reason: `the "${starter}" starter selected by the manifest`,
-          },
-        ],
+          baseReason: 'the Astro project every mode shares',
+        }),
 
         // Exactly the versions in templates/astro-tailwind/base/_package.json.
         // A test asserts that equality, so a template bump that forgets this

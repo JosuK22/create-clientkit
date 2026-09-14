@@ -10,6 +10,7 @@ styling:tailwind         styling
 feature:not-found        feature
 
 == REQUIRED ROLES ==
+page.home                -> src/pages/index.astro
 page.notFound            -> src/pages/404.astro
 
 == TEMPLATE-OWNED ROLES ==

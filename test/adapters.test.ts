@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { ASTRO_ARCHITECTURE, ASTRO_DECLARATION } from '../src/adapters/astro.js';
-import { starterLayerFor } from '../src/adapters/starters.js';
+import { selectStarter } from '../src/domain/starter.js';
 import { layersFrom, planWithAdapters, resolveWithAdapters } from '../src/adapters/bridge.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
 import { checkCompatibility, resolveProject, selectAdapters } from '../src/adapters/selection.js';
@@ -140,9 +140,12 @@ describe('Astro adapter contribution', () => {
   });
 
   it('selects the other starter from the feature, not from a mode field', () => {
-    expect(starterLayerFor(['starter:full'])).toBe('full');
-    expect(starterLayerFor(['starter:coming-soon'])).toBe('coming-soon');
-    expect(starterLayerFor([])).toBe('coming-soon'); // V1's default
+    // Stage 20 replaced the shared helper with a starter contract. The
+    // mapping it performed is unchanged and asserted here through its
+    // successor; the contract's own suite covers what the helper could not say.
+    expect(selectStarter(['starter:full']).layer).toBe('full');
+    expect(selectStarter(['starter:coming-soon']).layer).toBe('coming-soon');
+    expect(selectStarter([]).layer).toBe('coming-soon'); // V1's default
     expect(contributionsOf('full').flatMap((c) => c.templateLayers)[1]!.name).toBe('modes/full');
   });
 

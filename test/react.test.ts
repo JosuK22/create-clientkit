@@ -619,7 +619,7 @@ describe('the React template stays out of the V1 CLI', () => {
 
 describe('structural isolation', () => {
   it('the React and Vite adapters touch no filesystem or process API', () => {
-    for (const file of ['react.ts', 'vite.ts', 'starters.ts']) {
+    for (const file of ['react.ts', 'vite.ts']) {
       const source = readFileSync(
         path.resolve(import.meta.dirname, '..', 'src', 'adapters', file),
         'utf8',

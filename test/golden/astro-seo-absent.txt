@@ -8,7 +8,7 @@ framework:astro          framework
 styling:tailwind         styling
 
 == REQUIRED ROLES ==
-(none)
+page.home                -> src/pages/index.astro
 
 == METADATA CLAIMS ==
 (none)

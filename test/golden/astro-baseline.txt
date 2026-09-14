@@ -9,7 +9,7 @@ framework:astro          framework
 styling:tailwind         styling
 
 == REQUIRED ROLES ==
-(none)
+page.home                -> src/pages/index.astro
 
 == TEMPLATE-OWNED ROLES ==
 config.framework

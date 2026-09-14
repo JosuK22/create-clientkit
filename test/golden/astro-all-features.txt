@@ -13,6 +13,7 @@ feature:structured-data      feature
 
 == REQUIRED ROLES ==
 app.layout                   -> src/layouts/BaseLayout.astro
+page.home                    -> src/pages/index.astro
 page.notFound                -> src/pages/404.astro
 
 == CLAIMS BY SLOT ==

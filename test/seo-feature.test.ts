@@ -510,8 +510,13 @@ describe('the guarantee is load-bearing', () => {
 
   it('passes when the metadata surface exists', () => {
     const { project } = resolveProject(astro(['starter:coming-soon', 'seo']), adapters);
+    // `src/pages/index.astro` is the starter's guarantee, not SEO's. Every plan
+    // carries it now, so a minimal one written by hand has to as well.
     expect(() =>
-      assertRequiredRoles(project, operationsFor(['src/layouts/BaseLayout.astro'])),
+      assertRequiredRoles(
+        project,
+        operationsFor(['src/layouts/BaseLayout.astro', 'src/pages/index.astro']),
+      ),
     ).not.toThrow();
   });
 

@@ -518,7 +518,13 @@ describe('an architecture that cannot do without a role says so', () => {
     expect(architecture?.requiredRoles).toBeUndefined();
   });
 
-  it('requires nothing when the architecture declares nothing', () => {
+  it('adds nothing of its own when the architecture declares nothing', () => {
+    // Astro's architecture declares no required role, so the only one left is
+    // the starter's `page.home` - which every project has and which says
+    // nothing about styling. Asserting the exact list rather than "nothing is
+    // required" keeps the claim about *this* architecture: were it to start
+    // demanding a stylesheet the way the Bootstrap-composing one does, this
+    // would fail rather than quietly widen.
     const astro = adapters.framework('astro');
     const project = resolveProject(
       {
@@ -529,6 +535,11 @@ describe('an architecture that cannot do without a role says so', () => {
       },
       adapters,
     ).project;
-    expect(() => assertRequiredRoles(project, [])).not.toThrow();
+    expect(project.requiredRoles).toEqual(['page.home']);
+    expect(() =>
+      assertRequiredRoles(project, [
+        { type: 'write', path: 'src/pages/index.astro', content: '', origin: 'test' },
+      ]),
+    ).not.toThrow();
   });
 });

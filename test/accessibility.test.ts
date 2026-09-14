@@ -598,8 +598,14 @@ describe('the required role is load-bearing', () => {
 
   it('passes when the shell exists', () => {
     const { project } = resolveProject(astro(['starter:coming-soon', 'accessibility']), adapters);
+    // The home page is in this list because the starter guarantees `page.home`,
+    // not because accessibility asks for it. A plan without one is not a
+    // project, so the minimal plan this feature runs against has to contain it.
     expect(() =>
-      assertRequiredRoles(project, operationsFor(['src/layouts/BaseLayout.astro'])),
+      assertRequiredRoles(
+        project,
+        operationsFor(['src/layouts/BaseLayout.astro', 'src/pages/index.astro']),
+      ),
     ).not.toThrow();
   });
 

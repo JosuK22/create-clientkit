@@ -10,6 +10,7 @@ feature:seo              feature
 
 == REQUIRED ROLES ==
 app.layout               -> src/layouts/BaseLayout.astro
+page.home                -> src/pages/index.astro
 
 == METADATA CLAIMS ==
 owner   feature:seo

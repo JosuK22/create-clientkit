@@ -432,8 +432,11 @@ describe('the guarantee is load-bearing', () => {
 
   it('passes when something produces the page', () => {
     const { project } = resolveProject(astro(['starter:coming-soon', 'not-found']), adapters);
+    // Two required roles now, from two different places: `page.notFound` from
+    // the feature and `page.home` from the starter. Both are checked the same
+    // way, which is the point - the check does not care who asked.
     expect(() =>
-      assertRequiredRoles(project, operationsFor(['src/pages/404.astro'])),
+      assertRequiredRoles(project, operationsFor(['src/pages/404.astro', 'src/pages/index.astro'])),
     ).not.toThrow();
   });
 
@@ -456,8 +459,14 @@ describe('the guarantee is load-bearing', () => {
   });
 
   it('does not require the page when the feature is absent', () => {
+    // Stated twice over, because an empty plan no longer proves it: the starter
+    // requires `page.home` of every project, so "nothing is required" stopped
+    // being the same claim as "the 404 page is not required".
     const { project } = resolveProject(astro(['starter:coming-soon']), adapters);
-    expect(() => assertRequiredRoles(project, operationsFor([]))).not.toThrow();
+    expect(project.requiredRoles).not.toContain('page.notFound');
+    expect(() =>
+      assertRequiredRoles(project, operationsFor(['src/pages/index.astro'])),
+    ).not.toThrow();
   });
 });
 

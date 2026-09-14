@@ -555,8 +555,14 @@ describe('the guarantee is load-bearing', () => {
 
   it('passes when the surface exists', () => {
     const { project } = resolveProject(astro(['starter:coming-soon', 'structured-data']), adapters);
+    // `src/pages/index.astro` satisfies the starter's `page.home` guarantee. It
+    // is unrelated to structured data and present for the same reason it is
+    // present in every other plan.
     expect(() =>
-      assertRequiredRoles(project, operationsFor(['src/layouts/BaseLayout.astro'])),
+      assertRequiredRoles(
+        project,
+        operationsFor(['src/layouts/BaseLayout.astro', 'src/pages/index.astro']),
+      ),
     ).not.toThrow();
   });
 
