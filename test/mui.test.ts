@@ -139,8 +139,13 @@ describe('a UI library is not a styling system', () => {
 // ---------------------------------------------------------------------------
 
 describe('MUI requires a capability, not an adapter', () => {
-  it('requires the React runtime and nothing else', () => {
-    expect(requiredCapabilities(MUI_DECLARATION)).toEqual(['react-runtime']);
+  it('requires a React runtime and somewhere to mount context, and nothing else', () => {
+    // `client-app-root` was split out of `react-runtime` in Stage 22. The
+    // declaration always said MUI mounts context above the tree; asking only
+    // for the runtime was sufficient while React was the only framework that
+    // provided one, and stopped being sufficient when Next arrived with a
+    // server-rendered root.
+    expect(requiredCapabilities(MUI_DECLARATION)).toEqual(['react-runtime', 'client-app-root']);
   });
 
   it('names no framework, build tool or styling system anywhere in what it declares', () => {
@@ -150,7 +155,7 @@ describe('MUI requires a capability, not an adapter', () => {
     }
     // `react-runtime` is a capability and legitimately contains "react"; the
     // requirement is that no *adapter id* is used to encode compatibility.
-    expect(requiredCapabilities(MUI_DECLARATION)).toEqual(['react-runtime']);
+    expect(requiredCapabilities(MUI_DECLARATION)).toEqual(['react-runtime', 'client-app-root']);
   });
 
   it('names no adapter in its code, only in prose explaining the design', () => {
@@ -179,7 +184,7 @@ describe('MUI requires a capability, not an adapter', () => {
       id: 'preact' as never,
       kind: 'framework',
       displayName: 'A framework that is not React',
-      provides: ['react-runtime', 'jsx', 'typescript', 'composed-stylesheet'],
+      provides: ['react-runtime', 'jsx', 'typescript', 'composed-stylesheet', 'client-app-root'],
       requires: [],
     };
     const report = evaluateCombination([hypothetical, MUI_DECLARATION]);

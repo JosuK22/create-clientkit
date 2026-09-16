@@ -64,6 +64,18 @@ const ACCESSIBILITY_DECLARATION: AdapterDeclaration = {
       because:
         'the language, landmarks and heading it guarantees have to be in the document before any script runs',
     },
+    {
+      /*
+       * Split out from `document-metadata` in Stage 22. Having a head that is
+       * rendered before the response is sent is not the same as having one this
+       * generator writes into, and the difference only became visible with a
+       * third framework: on Next this feature was accepted and then produced a
+       * byte-identical project.
+       */
+      kind: 'requires',
+      capability: 'composed-metadata',
+      because: 'its guarantees are about the document shell this generator composes',
+    },
   ],
 };
 

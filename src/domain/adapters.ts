@@ -1,6 +1,13 @@
 import type { Capability, Constraint } from './capabilities.js';
 import type { Contribution } from './contributions.js';
-import type { ArchitectureId, BuildToolId, LanguageId, RouterId } from './dimensions.js';
+import type {
+  ArchitectureId,
+  BuildToolId,
+  LanguageId,
+  RouterId,
+  StylingId,
+  UiLibraryId,
+} from './dimensions.js';
 import type { ProjectManifest } from './manifest.js';
 import type { ResolvedProject, SourceExtensions } from './resolved.js';
 import type { ArchitectureDefinition, FileRole } from './roles.js';
@@ -150,6 +157,22 @@ export interface FrameworkAdapter extends Adapter {
   readonly languages: DimensionOptions<LanguageId>;
   readonly routers: DimensionOptions<RouterId>;
   readonly architectures: DimensionOptions<ArchitectureId>;
+  /**
+   * What the framework ships with when nobody asks for anything else.
+   *
+   * Not ownership. Styling and the component library are global dimensions -
+   * no framework decides how CSS is authored, and these do not change that. A
+   * value stated by a flag, a config file, a preset or a prompt still wins, and
+   * still reaches the compatibility engine, which is where an impossible
+   * combination must be refused.
+   *
+   * What they settle is the *unstated* case. `--framework nextjs` alone would
+   * otherwise inherit the built-in default of Tailwind and be refused for a
+   * choice the user never made. Both are optional: Astro and React declare
+   * neither and resolve exactly as they always have.
+   */
+  readonly defaultStyling?: StylingId;
+  readonly defaultUiLibrary?: UiLibraryId;
   /**
    * Roles this framework satisfies from its own template layers.
    *

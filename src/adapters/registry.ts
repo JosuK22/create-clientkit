@@ -18,6 +18,7 @@ import { createReactAdapter } from './react.js';
 import { createReactRouterAdapter } from './react-router.js';
 import { createTailwindAdapter } from './tailwind.js';
 import { createMuiAdapter } from './mui.js';
+import { createNextjsAdapter } from './nextjs.js';
 import { createNotFoundAdapter } from './not-found.js';
 import { createSeoAdapter } from './seo.js';
 import { createStructuredDataAdapter } from './structured-data.js';
@@ -26,9 +27,9 @@ import { createViteAdapter } from './vite.js';
 /**
  * The adapter registry, holding exactly what exists.
  *
- * Two frameworks, one build tool, two styling systems, one UI library, one
- * router and five features - because those are what is implemented. The id unions in
- * `domain/dimensions.ts` name more (`nextjs`, `angular`, `chakra`, `scss`,
+ * Three frameworks, one build tool, two styling systems, one UI library, one
+ * router and five features - because those are what is implemented. The id
+ * unions in `domain/dimensions.ts` name more (`angular`, `chakra`, `scss`,
  * `sitemap`), and asking for any of them fails here rather than resolving to a
  * stub or, far worse, quietly falling back to something that happens to work.
  *
@@ -94,6 +95,7 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   const frameworks = new Map<FrameworkId, FrameworkAdapter>([
     ['astro', createAstroAdapter(path.join(templatesRoot, 'astro-tailwind'))],
     ['react', createReactAdapter(path.join(templatesRoot, 'react-vite'))],
+    ['nextjs', createNextjsAdapter(path.join(templatesRoot, 'nextjs'))],
   ]);
   const buildTools = new Map<BuildToolId, Adapter>([['vite', createViteAdapter()]]);
   const styling = new Map<StylingId, Adapter>([

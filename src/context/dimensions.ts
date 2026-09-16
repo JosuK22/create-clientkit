@@ -368,8 +368,16 @@ export function resolveDimensions(
           adapter.architectureDefinitions.map((definition) => definition.id),
         );
 
+  /*
+   * The framework gets to say what it ships with, and only that.
+   *
+   * An explicit value still wins and still reaches the compatibility engine -
+   * `--framework nextjs --styling tailwind` resolves to Tailwind and is refused
+   * there, not here. This settles the unstated case, which would otherwise
+   * inherit V1's Tailwind default and refuse a choice nobody made.
+   */
   const styling = known(
-    input.styling ?? DIMENSION_DEFAULTS.styling,
+    input.styling ?? adapter.defaultStyling ?? DIMENSION_DEFAULTS.styling,
     STYLING_IDS,
     'styling system',
     '--styling',
@@ -377,7 +385,7 @@ export function resolveDimensions(
   );
 
   const uiLibrary = known(
-    input.uiLibrary ?? DIMENSION_DEFAULTS.uiLibrary,
+    input.uiLibrary ?? adapter.defaultUiLibrary ?? DIMENSION_DEFAULTS.uiLibrary,
     UI_LIBRARY_IDS,
     'UI library',
     '--ui-library',
@@ -403,9 +411,19 @@ export function resolveDimensions(
       language: originOf(input.language, 'adapter'),
       router: originOf(input.router, 'adapter'),
       architecture: originOf(input.architecture, 'adapter'),
-      // The two it does not. No framework decides how CSS is authored.
-      styling: originOf(input.styling, 'default'),
-      uiLibrary: originOf(input.uiLibrary, 'default'),
+      /*
+       * The two no framework owns. A framework may still state what it ships
+       * with, and when it does the value is the adapter's rather than the
+       * built-in default - which is what the summary then says.
+       */
+      styling: originOf(
+        input.styling,
+        adapter.defaultStyling === undefined ? 'default' : 'adapter',
+      ),
+      uiLibrary: originOf(
+        input.uiLibrary,
+        adapter.defaultUiLibrary === undefined ? 'default' : 'adapter',
+      ),
       /*
        * An empty list is not an answer - the Stage 18 rule, and the reason
        * `stated` is a length check rather than a presence one. A flag that was

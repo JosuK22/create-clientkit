@@ -1,0 +1,596 @@
+== PLAN ==
+templateId       nextjs
+templateVersion  0.1.0
+mode             coming-soon
+targetDir        <TARGET_DIR>
+operationCount   13
+
+== ORDER ==
+write  .client-site.json
+copy   .gitattributes
+write  .gitignore
+write  app/layout.tsx
+write  app/page.tsx
+write  components/ui/Mark.tsx
+write  lib/site.config.ts
+write  next.config.ts
+write  package.json
+write  public/favicon.svg
+write  README.md
+write  styles/globals.css
+write  tsconfig.json
+
+== FILES ==
+
+---- .client-site.json ----
+type    write
+origin  cli
+----
+{
+  "$schema": "https://create-clientkit.dev/schema/client-site.json",
+  "cliVersion": "9.9.9",
+  "template": {
+    "id": "nextjs",
+    "version": "0.1.0",
+    "framework": "nextjs",
+    "frameworkVersion": "16.3.5"
+  },
+  "mode": "coming-soon",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "config": {
+    "projectName": "acme-site",
+    "siteName": "Acme Ltd",
+    "siteUrl": "https://acme.example",
+    "locale": "en",
+    "packageManager": "npm",
+    "features": []
+  }
+}
+
+
+---- .gitattributes ----
+type    copy
+origin  base
+source  <TEMPLATES>/nextjs/base/_gitattributes
+(binary; copied byte-for-byte, never token-substituted)
+
+---- .gitignore ----
+type    write
+origin  base
+----
+node_modules
+.next
+out
+next-env.d.ts
+*.local
+
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+
+---- app/layout.tsx ----
+type    write
+origin  base
+----
+import type { Metadata } from 'next';
+
+import { SITE } from '../lib/site.config';
+import '../styles/globals.css';
+
+/**
+ * The root layout: the top of the tree, and the only place `<html>` exists.
+ *
+ * A server component, deliberately. Nothing here needs state, effects or
+ * browser APIs, so nothing here needs to reach the browser as JavaScript.
+ *
+ * `metadata` is baseline only - a title and a description taken from the one
+ * config file. There is no canonical URL, no Open Graph block and no social
+ * card, because those need a production URL and a considered decision per page,
+ * and inventing either would put claims in the head that nobody made.
+ */
+export const metadata: Metadata = {
+  title: SITE.name,
+  description: SITE.description,
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang={SITE.locale || 'en'}>
+      <body>{children}</body>
+    </html>
+  );
+}
+
+
+---- app/page.tsx ----
+type    write
+origin  modes/coming-soon
+----
+import { Mark } from '../components/ui/Mark';
+import { CONTACT, SITE } from '../lib/site.config';
+
+/**
+ * One page, centred, and nothing that needs JavaScript.
+ *
+ * A server component with no interactivity at all: no countdown, no form, no
+ * client bundle. A countdown in particular is a promise with a date attached,
+ * and a launch page that silently passes its own deadline is worse than one
+ * that never made the claim.
+ *
+ * Every optional piece is omitted rather than filled with a placeholder - an
+ * empty `CONTACT.email` renders nothing, not `hello@example.com`.
+ */
+export default function HomePage() {
+  return (
+    <main className="centered">
+      <Mark />
+
+      <p className="eyebrow">Coming soon</p>
+
+      <h1>{SITE.name}</h1>
+
+      {SITE.description ? <p className="lede">{SITE.description}</p> : null}
+
+      {CONTACT.email ? (
+        <p className="contact">
+          <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
+        </p>
+      ) : null}
+    </main>
+  );
+}
+
+
+---- components/ui/Mark.tsx ----
+type    write
+origin  base
+----
+import { SITE } from '../../lib/site.config';
+
+/**
+ * A placeholder brand mark: the client's initials in a bordered square.
+ *
+ * Deliberately not an image. A generated project has no logo file, and shipping
+ * a stand-in graphic would be something to find and delete later; initials read
+ * as intentional until a real mark replaces them. Decorative, so it is hidden
+ * from assistive technology - the name is already text on the page.
+ */
+export function Mark() {
+  const initials = SITE.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <div className="mark" aria-hidden="true">
+      {initials || '—'}
+    </div>
+  );
+}
+
+
+---- lib/site.config.ts ----
+type    write
+origin  base
+----
+/**
+ * Everything client-specific, in one file.
+ *
+ * An empty string means "not set", and the UI omits that piece rather than
+ * rendering a placeholder. Nothing here is ever invented for you.
+ */
+
+export interface NavItem {
+  label: string;
+  /** In-page anchor ('#services') or a route path. */
+  href: string;
+}
+
+export interface SiteIdentity {
+  name: string;
+  description: string;
+  /**
+   * Production URL. Empty is a supported state, not a broken one - nothing
+   * absolute is emitted until you fill it in, so no page ever points at a
+   * domain nobody owns.
+   */
+  url: string;
+  locale: string;
+  author: string;
+}
+
+export interface ContactDetails {
+  email: string;
+  phone: string;
+}
+
+export const SITE: SiteIdentity = {
+  name: 'Acme Ltd',
+  description: 'Bespoke widgets.',
+  url: 'https://acme.example',
+  locale: 'en',
+  author: '',
+};
+
+/** Header links. Empty means no menu is rendered at all. */
+export const NAV: NavItem[] = [];
+
+/** Each field is optional and hidden when empty. */
+export const CONTACT: ContactDetails = {
+  email: '',
+  phone: '',
+};
+
+
+---- next.config.ts ----
+type    write
+origin  base
+----
+import type { NextConfig } from 'next';
+
+/**
+ * Deliberately empty.
+ *
+ * Every option Next offers here is a decision about deployment, images or
+ * experimental behaviour, and none of those can be made correctly before the
+ * project has a host. An empty config is the honest starting point; add to it
+ * when there is something to add.
+ */
+const nextConfig: NextConfig = {};
+
+export default nextConfig;
+
+
+---- package.json ----
+type    write
+origin  base + modes/coming-soon
+----
+{
+  "name": "acme-site",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "keywords": [
+    "nextjs",
+    "client-site",
+    "landing-page"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}
+
+
+---- public/favicon.svg ----
+type    write
+origin  base
+----
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M20 40V24h6.4c4.8 0 7.6 2.7 7.6 7s-2.8 7-7.6 7H20Zm4.4-3.4h1.9c2.6 0 4-1.4 4-3.6s-1.4-3.6-4-3.6h-1.9v7.2Z" fill="#f8fafc" />
+  <circle cx="42" cy="38" r="3" fill="#38bdf8" />
+</svg>
+
+
+---- README.md ----
+type    write
+origin  base
+----
+# Acme Ltd
+
+Bespoke widgets.
+
+Built with [Next.js](https://nextjs.org) (App Router), TypeScript and plain CSS.
+
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+The site runs at http://localhost:3000.
+
+## Scripts
+
+| Script              | What it does                          |
+| ------------------- | ------------------------------------- |
+| `npm run dev`       | Development server with hot reloading |
+| `npm run build`     | Production build                      |
+| `npm run start`     | Serves the production build           |
+| `npm run typecheck` | Type-checks without emitting          |
+
+There is no `lint` script. Next 16 removed the `next lint` command, and adding
+one would mean adding ESLint and its Next configuration - a choice better made
+by you than assumed here.
+
+## Where things live
+
+```
+app/
+  layout.tsx      the root layout: <html>, <body>, baseline metadata
+  page.tsx        the home page
+components/ui/    presentational pieces
+lib/
+  site.config.ts  everything client-specific, in one file
+public/           static assets served from /
+styles/
+  globals.css     the only stylesheet; custom properties are the design system
+```
+
+## First things to change
+
+- `lib/site.config.ts` — name, description, locale and contact all live there.
+- Set `SITE.url` once the domain is known. It is empty on purpose: nothing
+  absolute is emitted until it is filled in, so no page points at a domain
+  nobody owns.
+- Replace `public/favicon.svg` with the client mark.
+
+## What is deliberately not here
+
+No CSS framework, no component library, no client-side router, no analytics and
+no deployment configuration. Each of those is a decision with consequences, and
+a scaffold that makes them for you is one you have to undo first.
+
+
+---- styles/globals.css ----
+type    write
+origin  base
+----
+/*
+ * Plain CSS, and not much of it.
+ *
+ * No framework, no preprocessor, no build step beyond the one Next already
+ * runs. Custom properties are the whole system: change them here and the
+ * palette, rhythm and type scale follow everywhere.
+ */
+
+:root {
+  --ink: #16181d;
+  --ink-soft: #565b66;
+  --paper: #ffffff;
+  --paper-soft: #f6f7f9;
+  --line: #e3e6ea;
+  --accent: #1f6feb;
+
+  --measure: 42rem;
+  --gutter: clamp(1.25rem, 5vw, 3rem);
+  --step: clamp(3rem, 8vh, 5.5rem);
+
+  --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f2f4f7;
+    --ink-soft: #a2a9b6;
+    --paper: #101216;
+    --paper-soft: #171a20;
+    --line: #262a32;
+    --accent: #6ea8ff;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Layout primitives ------------------------------------------------------- */
+
+.container {
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.section {
+  padding-block: var(--step);
+}
+
+.section + .section {
+  border-top: 1px solid var(--line);
+}
+
+.stack > * + * {
+  margin-top: 1rem;
+}
+
+.lede {
+  color: var(--ink-soft);
+  font-size: 1.125rem;
+  max-width: var(--measure);
+}
+
+.eyebrow {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Components -------------------------------------------------------------- */
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--paper-soft);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  min-height: 100svh;
+  padding: var(--gutter);
+  text-align: center;
+}
+
+.centered .lede {
+  margin-inline: auto;
+}
+
+.grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--paper-soft);
+  padding: 1.5rem;
+}
+
+.card h3 {
+  font-size: 1.0625rem;
+}
+
+.card p {
+  color: var(--ink-soft);
+  margin-top: 0.5rem;
+}
+
+.contact {
+  font-weight: 500;
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  padding-block: 2rem;
+}
+
+
+---- tsconfig.json ----
+type    write
+origin  base
+----
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+

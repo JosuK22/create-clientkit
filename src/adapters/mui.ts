@@ -62,7 +62,17 @@ const MUI_DECLARATION: AdapterDeclaration = {
     {
       kind: 'requires',
       capability: 'react-runtime',
-      because: 'its components are React components and it mounts React context above them',
+      because: 'its components are React components',
+    },
+    {
+      // Split out from `react-runtime` in Stage 22. The prose above always
+      // said MUI mounts context above the tree; the constraint only asked for
+      // the runtime, which was the same thing while React was the only
+      // framework providing one. Next provides the runtime and no client root,
+      // and that is exactly the case this has to refuse.
+      kind: 'requires',
+      capability: 'client-app-root',
+      because: 'it mounts a theme and style context above the whole application',
     },
   ],
 };

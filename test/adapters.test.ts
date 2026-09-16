@@ -328,15 +328,15 @@ describe('adapter registry', () => {
   });
 
   it('fails clearly for an id that has no adapter yet', () => {
-    // 'nextjs' is a valid FrameworkId but nothing implements it. Failing here,
+    // 'angular' is a valid FrameworkId but nothing implements it. Failing here,
     // by name, beats a stub resolving and breaking somewhere downstream.
     // (React moved from this list to the implemented one in Stage 4.)
-    expect(() => adapters.framework('nextjs')).toThrow(CliError);
+    expect(() => adapters.framework('angular')).toThrow(CliError);
     try {
-      adapters.framework('nextjs');
+      adapters.framework('angular');
     } catch (error) {
       const cli = error as CliError & { hint?: string };
-      expect(`${cli.message} ${cli.hint ?? ''}`).toContain('nextjs');
+      expect(`${cli.message} ${cli.hint ?? ''}`).toContain('angular');
       expect(`${cli.message} ${cli.hint ?? ''}`).toContain('astro');
     }
     // 'scss' is a known StylingId with no adapter; bootstrap became implemented
@@ -495,15 +495,15 @@ describe('adapter selection and compatibility for the real stack', () => {
   it('refuses an unimplemented framework instead of falling back to Astro', () => {
     // The failure mode that would be worst: silently generating an Astro
     // project for someone who asked for React.
-    expect(() => resolveProject({ ...manifestOf(), framework: 'nextjs' }, adapters)).toThrow(
+    expect(() => resolveProject({ ...manifestOf(), framework: 'angular' }, adapters)).toThrow(
       CliError,
     );
     try {
-      resolveProject({ ...manifestOf(), framework: 'nextjs' }, adapters);
+      resolveProject({ ...manifestOf(), framework: 'angular' }, adapters);
     } catch (error) {
       const cli = error as CliError & { hint?: string };
       const text = `${cli.message} ${cli.hint ?? ''}`;
-      expect(text).toContain('nextjs');
+      expect(text).toContain('angular');
       expect(text).toContain('does not support');
       expect(text).toContain('astro');
     }
@@ -513,8 +513,9 @@ describe('adapter selection and compatibility for the real stack', () => {
     expect(adapters.hasFramework('astro')).toBe(true);
     expect(adapters.hasFramework('react')).toBe(true);
     // still only a name in the vocabulary
-    expect(adapters.hasFramework('nextjs')).toBe(false);
-    expect(adapters.implementedFrameworks()).toEqual(['astro', 'react']);
+    expect(adapters.hasFramework('nextjs')).toBe(true);
+    expect(adapters.hasFramework('angular')).toBe(false);
+    expect(adapters.implementedFrameworks()).toEqual(['astro', 'nextjs', 'react']);
     expect(adapters.implementedBuildTools()).toEqual(['vite']);
     expect(adapters.implementedStyling()).toEqual(['bootstrap', 'tailwind']);
   });

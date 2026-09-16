@@ -8,7 +8,7 @@ import { PACKAGE_MANAGERS } from '../types.js';
  *
  * A hand-written list is a second source of truth, and the failure mode is
  * specific and bad: help that advertises an adapter which does not exist, or
- * omits one that does. The domain vocabulary knows `nextjs` and `chakra`; the
+ * omits one that does. The domain vocabulary knows `angular` and `chakra`; the
  * registry knows what is actually implemented, and that is what a user needs
  * printed. The distinction is spelled out in the Notes so nobody reads a short
  * list as the limit of the design.
@@ -157,7 +157,7 @@ ${presetRows()}
     does.
 
     The values listed above are the ones that work today. ClientKit's vocabulary
-    is wider - it knows names such as nextjs and chakra - and asking for one of
+    is wider - it knows names such as angular and chakra - and asking for one of
     those reports that no adapter implements it rather than quietly substituting
     something else.
 

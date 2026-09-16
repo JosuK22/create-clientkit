@@ -28,7 +28,7 @@ import { emptyFs, renderPlan, testLogger, TEST_CWD } from './helpers.js';
  *
  * The second is the one that matters. It asserts what the CLI does **not** do -
  * that an incompatible stack is refused by the compatibility engine rather than
- * by a branch in the parser, that `nextjs` is refused by the registry rather
+ * by a branch in the parser, that `angular` is refused by the registry rather
  * than by a list in the CLI, and that a legacy invocation resolves to exactly
  * the manifest it always did. A configuration layer that starts deciding these
  * things is a second implementation of the architecture, which is the failure
@@ -428,9 +428,9 @@ describe('unknown values are refused, never substituted', () => {
 // ---------------------------------------------------------------------------
 
 describe('a known id with no adapter is the registry’s answer, not the CLI’s', () => {
-  it('reports nextjs as unimplemented rather than unknown', async () => {
-    const error = await failure(['--framework', 'nextjs']);
-    expect(error.message).toContain('does not support framework "nextjs" yet');
+  it('reports angular as unimplemented rather than unknown', async () => {
+    const error = await failure(['--framework', 'angular']);
+    expect(error.message).toContain('does not support framework "angular" yet');
     expect(error.hint).toContain('no adapter implements it');
   });
 
@@ -449,18 +449,18 @@ describe('a known id with no adapter is the registry’s answer, not the CLI’s
     // two would drift, and this is what would notice.
     let fromRegistry = '';
     try {
-      adapters.framework('nextjs');
+      adapters.framework('angular');
     } catch (error) {
       fromRegistry = (error as CliError).message;
     }
-    expect(fromRegistry).toContain('does not support framework "nextjs" yet');
+    expect(fromRegistry).toContain('does not support framework "angular" yet');
   });
 
   it('names no framework id in the normaliser at all', () => {
     const code = readSource('src/context/dimensions.ts')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
-    expect(code).not.toContain("'nextjs'");
+    expect(code).not.toContain("'angular'");
     expect(code).not.toContain("'chakra'");
   });
 });
@@ -936,14 +936,14 @@ describe('help is accurate about what works', () => {
       expect(stackSection).toContain(framework);
     }
     // The vocabulary is wider, and the choice lists must not pretend otherwise.
-    expect(stackSection).not.toContain('nextjs');
+    expect(stackSection).not.toContain('angular');
     expect(stackSection).not.toContain('chakra');
     expect(stackSection).not.toContain('angular');
   });
 
   it('says plainly that the vocabulary is wider than the choices', () => {
     const notes = text.slice(text.indexOf('Notes'));
-    expect(notes).toContain('nextjs');
+    expect(notes).toContain('angular');
     expect(notes).toContain('no adapter implements it');
   });
 

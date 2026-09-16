@@ -20,11 +20,18 @@ and build config — and then gets out of the way.
 It is **not** a website builder. You own the generated source from the moment
 it lands on disk.
 
-**What it generates** — a static [Astro](https://astro.build) 7 +
+**What it generates** — by default a static [Astro](https://astro.build) 7 +
 [Tailwind CSS](https://tailwindcss.com) 4 site in TypeScript: responsive, light
 and dark themes, and no client-side JavaScript by default. Start in
 **Coming Soon** mode for a launch page, **Full** for a small multi-section home
 page, or **URL-less** when the domain is not decided yet.
+
+**Three frameworks** — [Astro](https://astro.build),
+[React](https://react.dev) + [Vite](https://vite.dev), and
+[Next.js](https://nextjs.org) (App Router). They are independent choices rather
+than three products: the same starters, the same modes and the same
+compatibility rules apply to each, and what a framework cannot support is
+refused with the reason rather than silently ignored.
 
 **What it is** — one bundled CLI with **zero runtime dependencies**, MIT
 licensed, published from CI with
@@ -114,10 +121,10 @@ npm create clientkit@latest acme-app \
 
 | Flag                  | Configures        | Currently supported                                                             | Default         |
 | --------------------- | ----------------- | ------------------------------------------------------------------------------- | --------------- |
-| `--framework <id>`    | the framework     | `astro`, `react`                                                                | `astro`         |
-| `--build-tool <id>`   | the bundler       | `vite` (`astro` owns its own)                                                   | the framework's |
+| `--framework <id>`    | the framework     | `astro`, `react`, `nextjs`                                                      | `astro`         |
+| `--build-tool <id>`   | the bundler       | `vite` (`astro` and `nextjs` own theirs)                                        | the framework's |
 | `--language <id>`     | the language      | `ts`, `js`                                                                      | the framework's |
-| `--styling <id>`      | how CSS is built  | `tailwind`, `bootstrap`, `none`                                                 | `tailwind`      |
+| `--styling <id>`      | how CSS is built  | `tailwind`, `bootstrap`, `none`                                                 | the framework's |
 | `--ui-library <id>`   | component library | `mui`, `none`                                                                   | `none`          |
 | `--router <id>`       | routing           | `react-router`, `file-based`, `none`                                            | the framework's |
 | `--architecture <id>` | folder layout     | whatever the framework defines                                                  | the framework's |
@@ -128,8 +135,12 @@ above. `--features` takes a comma-separated list, rejects an id it does not
 know, and rejects the same id twice rather than quietly collapsing it.
 
 Anything you leave out is filled in for you. Where the framework owns the
-answer — React implies Vite, Astro is its own build tool — it is read from the
-framework itself rather than guessed.
+answer — React implies Vite, Astro and Next.js are their own build tools — it is
+read from the framework itself rather than guessed. A framework may also say
+what it ships with: Next.js ships plain CSS, so an unstated `--styling` resolves
+to `none` there and to `tailwind` everywhere else. Stating one anyway still
+reaches the compatibility check, which is where an impossible pairing is
+refused.
 
 #### Combinations are checked, not assumed
 
@@ -416,19 +427,26 @@ pretends to be.
 Prompts are only issued for values no higher-precedence source supplied, so a
 fully specified file needs no terminal and `--yes` never discards it.
 
-## Templates and modes
+## Frameworks, templates and modes
 
-One template ships in V1:
+Three frameworks ship. Each is chosen with `--framework`; `--template` names
+the V1 Astro stack and is kept for compatibility.
 
-| Template         | Stack                                   | Modes                 |
-| ---------------- | --------------------------------------- | --------------------- |
-| `astro-tailwind` | Astro 7, Tailwind CSS 4, TypeScript 5.9 | `coming-soon`, `full` |
+| Framework | Stack                                                        | Modes                 |
+| --------- | ------------------------------------------------------------ | --------------------- |
+| `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                      | `coming-soon`, `full` |
+| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap      | `coming-soon`, `full` |
+| `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, plain CSS | `coming-soon`, `full` |
 
-- **`coming-soon`** — a single polished launch page you can put live today,
-  with an optional launch date and a progressive-enhancement countdown.
+- **`coming-soon`** — a single polished launch page you can put live today.
 - **`full`** — a small multi-section home page, on the same design system.
 
-Both include the custom 404, the design system and the full SEO layer.
+The Astro stack includes the custom 404, the design system and the full SEO
+layer. What each framework supports differs, and the differences are enforced
+rather than documented: Next.js ships its own stylesheet and composes its own
+document head, so a CSS framework, a component library, a client-side router
+and the SEO, structured-data and accessibility features are refused there, each
+naming the capability that is missing.
 
 ### URL-less
 

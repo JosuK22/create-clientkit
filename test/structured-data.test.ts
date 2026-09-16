@@ -166,7 +166,13 @@ describe('it requires a capability and names nothing', () => {
     // script in the document head that must be in the response a crawler
     // reads - which is exactly what document-metadata already means. A second
     // capability for the same requirement would fragment the vocabulary.
-    expect(requiredCapabilities(STRUCTURED_DATA_DECLARATION)).toEqual(['document-metadata']);
+    // `composed-metadata` was split out of `document-metadata` in Stage 22:
+    // a head rendered before the response is sent is not the same as a head
+    // this generator writes into, and Next has the first without the second.
+    expect(requiredCapabilities(STRUCTURED_DATA_DECLARATION)).toEqual([
+      'document-metadata',
+      'composed-metadata',
+    ]);
   });
 
   it('requires no build tool, styling system, UI library or language', () => {
@@ -273,7 +279,7 @@ describe('compatibility is decided by capability', () => {
       id: 'nextjs',
       kind: 'framework',
       displayName: 'A framework that is not Astro',
-      provides: ['document-metadata', 'ssr'],
+      provides: ['document-metadata', 'composed-metadata', 'ssr'],
       requires: [],
     };
     expect(evaluateCombination([hypothetical, STRUCTURED_DATA_DECLARATION]).compatible).toBe(true);

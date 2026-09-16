@@ -102,7 +102,7 @@ describe('React and Vite are separate dimensions', () => {
   it('there is no react-vite framework id', () => {
     // The failure mode this stage exists to avoid: a combined product masking
     // two dimensions as one.
-    expect(adapters.implementedFrameworks()).toEqual(['astro', 'react']);
+    expect(adapters.implementedFrameworks()).toEqual(['astro', 'nextjs', 'react']);
     expect(adapters.implementedBuildTools()).toEqual(['vite']);
   });
 

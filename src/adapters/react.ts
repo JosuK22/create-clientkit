@@ -46,7 +46,16 @@ const REACT_DECLARATION: AdapterDeclaration = {
    * no plugin system satisfy Tailwind's requirement, which would be a lie the
    * compatibility engine could not catch.
    */
-  provides: ['react-runtime', 'jsx', 'typescript', 'spa-routing', 'composed-stylesheet'],
+  provides: [
+    'react-runtime',
+    'jsx',
+    'typescript',
+    'spa-routing',
+    'composed-stylesheet',
+    // `main.tsx` renders the tree in the browser, so anything that needs to
+    // wrap the application in React context has somewhere to do it.
+    'client-app-root',
+  ],
   requires: [],
   minNode: '>=20.19.0',
 };

@@ -172,7 +172,13 @@ describe('it requires a capability and names nothing', () => {
     // Every guarantee is about the document *before any script runs*, which is
     // the property that capability already names. A second capability for one
     // requirement would fragment the vocabulary.
-    expect(requiredCapabilities(ACCESSIBILITY_DECLARATION)).toEqual(['document-metadata']);
+    // `composed-metadata` was split out of `document-metadata` in Stage 22:
+    // a head rendered before the response is sent is not the same as a head
+    // this generator writes into, and Next has the first without the second.
+    expect(requiredCapabilities(ACCESSIBILITY_DECLARATION)).toEqual([
+      'document-metadata',
+      'composed-metadata',
+    ]);
   });
 
   it('requires no build tool, styling system, UI library or language', () => {
@@ -295,7 +301,7 @@ describe('compatibility is decided by capability', () => {
       id: 'nextjs',
       kind: 'framework',
       displayName: 'A framework that is not Astro',
-      provides: ['document-metadata', 'ssr'],
+      provides: ['document-metadata', 'composed-metadata', 'ssr'],
       requires: [],
     };
     expect(evaluateCombination([hypothetical, ACCESSIBILITY_DECLARATION]).compatible).toBe(true);

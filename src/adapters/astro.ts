@@ -47,6 +47,9 @@ const ASTRO_DECLARATION: AdapterDeclaration = {
     'document-metadata',
     'typescript',
     'vite-plugins',
+    // Astro's BaseLayout is assembled from contributed metadata, which is what
+    // makes a head contribution land somewhere rather than vanish.
+    'composed-metadata',
   ],
   requires: [],
   /** Astro 7's own floor, matching templates/astro-tailwind/template.json. */

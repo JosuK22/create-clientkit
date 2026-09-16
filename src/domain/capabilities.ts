@@ -88,6 +88,44 @@ export const CAPABILITIES = [
    */
   'composed-stylesheet',
 
+  /**
+   * The document head is composed from contributions rather than declared by
+   * the framework's own template.
+   *
+   * The exact sibling of `composed-stylesheet`, and it exists for the same
+   * reason: a contribution aimed at a surface nobody composes does not fail, it
+   * disappears. Astro's layout is built from contributed metadata, so it
+   * provides this. Next's `app/layout.tsx` declares its own `metadata` export
+   * and reads no contributions, so it does not - and a feature that writes into
+   * the head is refused there instead of being accepted and ignored.
+   *
+   * Distinct from `document-metadata`, which is a claim about *when* the head
+   * reaches the client. Next genuinely has a server-rendered head; what it does
+   * not have is one this generator composes. Stage 22 found the difference by
+   * generating a project with `--features seo` that was byte-identical to one
+   * without it.
+   */
+  'composed-metadata',
+
+  /**
+   * The application has a client-rendered root that React context can be
+   * mounted above.
+   *
+   * Distinct from `react-runtime`, and the distinction only became visible when
+   * a third framework arrived. React + Vite provides both: `main.tsx` renders
+   * the tree in the browser, so a provider can wrap it. Next's App Router
+   * provides the runtime and *not* this - its root is a server component, and
+   * putting a context provider above it needs a client boundary that ClientKit
+   * does not generate.
+   *
+   * Two adapters said they needed this all along, in prose: MUI "mounts React
+   * context above them", React Router "mounts React context above them". Both
+   * only asked for `react-runtime`, which was sufficient while React was the
+   * only thing providing either. It is the capability, not the runtime, that
+   * they actually depend on.
+   */
+  'client-app-root',
+
   // styling pipeline
   'postcss',
   'sass',

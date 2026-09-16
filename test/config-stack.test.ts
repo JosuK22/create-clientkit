@@ -416,8 +416,8 @@ describe('a value the file cannot have', () => {
   }
 
   it('reports a known id with no adapter as unimplemented, not unknown', async () => {
-    const error = await failure({ stack: { framework: 'nextjs' } });
-    expect(error.message).toContain('does not support framework "nextjs" yet');
+    const error = await failure({ stack: { framework: 'angular' } });
+    expect(error.message).toContain('does not support framework "angular" yet');
     expect(error.hint).toContain('no adapter implements it');
   });
 

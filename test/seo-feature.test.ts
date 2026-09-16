@@ -141,7 +141,13 @@ describe('SEO is a feature', () => {
 
 describe('SEO requires a capability and names nothing', () => {
   it('requires exactly a document metadata surface', () => {
-    expect(requiredCapabilities(SEO_DECLARATION)).toEqual(['document-metadata']);
+    // `composed-metadata` was split out of `document-metadata` in Stage 22:
+    // a head rendered before the response is sent is not the same as a head
+    // this generator writes into, and Next has the first without the second.
+    expect(requiredCapabilities(SEO_DECLARATION)).toEqual([
+      'document-metadata',
+      'composed-metadata',
+    ]);
   });
 
   it('requires no build tool, styling system, UI library or language', () => {
@@ -244,7 +250,7 @@ describe('compatibility is decided by capability', () => {
       id: 'nextjs',
       kind: 'framework',
       displayName: 'A framework that is not Astro',
-      provides: ['document-metadata', 'ssr', 'typescript'],
+      provides: ['document-metadata', 'composed-metadata', 'ssr', 'typescript'],
       requires: [],
     };
     expect(evaluateCombination([hypothetical, SEO_DECLARATION]).compatible).toBe(true);

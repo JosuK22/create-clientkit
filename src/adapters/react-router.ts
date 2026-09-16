@@ -60,7 +60,15 @@ const REACT_ROUTER_DECLARATION: AdapterDeclaration = {
     {
       kind: 'requires',
       capability: 'react-runtime',
-      because: 'its routes are React components and it mounts React context above them',
+      because: 'its routes are React components',
+    },
+    {
+      // The same split as MUI's, for the same reason. A framework that routes
+      // its own files has no single-page shell for a client route table to
+      // own, and nesting one inside it breaks the framework's own navigation.
+      kind: 'requires',
+      capability: 'client-app-root',
+      because: 'it mounts a client route table above the whole application',
     },
   ],
 };

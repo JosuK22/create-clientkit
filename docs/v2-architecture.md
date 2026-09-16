@@ -2730,3 +2730,82 @@ including that a client-side catch-all does not change the status.
   client-side router works unmodified; a second _framework_ would need its own
   view, the same way `not-found` leaves markup to whoever knows the framework.
 - **No public CLI selection**, and no release: the version stays 1.0.2.
+
+### Stage 22 — Next.js, and what a third framework costs (landed)
+
+Astro proved the contract could describe an existing product. React proved it
+generalised to a second framework with a separate build tool. Both were the easy
+direction: Astro and React overlap in almost nothing, so "no shared assumptions"
+was cheap to hold.
+
+Next is the hard direction, because it is _nearly_ React:
+
+```
+provides react-runtime      ->  every React-only library is a candidate
+routes its own files        ->  a client router has nothing to own
+root is a server component  ->  nothing can wrap it in context
+ships its own CSS + head    ->  no adapter composes either
+```
+
+Three of those four are refusals, and every one comes out of the capability set.
+The compatibility engine contains no mention of Next; the Next adapter mentions
+no other adapter; the starter contract learned nothing.
+
+```
+src/adapters/nextjs.ts        the adapter, the architecture, the template identity
+templates/nextjs/base/        app/layout.tsx, styles/globals.css, lib/, next.config.ts
+templates/nextjs/modes/*/     the same two starters every framework answers to
+```
+
+**What it cost: two capabilities that had been one.**
+
+`react-runtime` and `client-app-root` were indistinguishable while React was the
+only thing providing either. MUI and React Router both said in prose that they
+"mount React context above" the application; both only required the runtime.
+Next provides the runtime and no client root, which made the conflation visible
+and load-bearing. The same split was needed for the head: `document-metadata`
+says the head is rendered before the response is sent, which Next genuinely
+does; `composed-metadata` says this generator writes into it, which Next does
+not. Without the second, `--features seo` on Next was accepted and produced a
+byte-identical project.
+
+| Capability            | Astro | React | Next |
+| --------------------- | ----- | ----- | ---- |
+| `react-runtime`       |       | ●     | ●    |
+| `client-app-root`     |       | ●     |      |
+| `file-based-routing`  | ●     |       | ●    |
+| `document-metadata`   | ●     |       | ●    |
+| `composed-metadata`   | ●     |       |      |
+| `composed-stylesheet` |       | ●     |      |
+| `vite-plugins`        | ●     |       |      |
+
+Every Stage 22 refusal is a missing cell in that table, and none of them is a
+rule naming a framework.
+
+**One contract change.** `FrameworkAdapter` gained optional `defaultStyling` and
+`defaultUiLibrary`. Styling remains a global dimension that no framework owns -
+a stated value still wins and still reaches the compatibility engine - but a
+framework may now say what it ships with when nobody asks. Without it,
+`--framework nextjs` alone would inherit V1's Tailwind default and be refused
+for a choice the user never made. Astro and React declare neither and resolve
+exactly as before.
+
+**Unchanged.** The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no
+existing golden moved, no new runtime dependency, and the version stays 1.0.2.
+
+**Known limitations, stated rather than implied:**
+
+- **No `lint` script.** Next 16 removed `next lint`, so there is no native
+  command to bind it to, and adding one would mean ESLint plus its Next config -
+  outside this stage's dependency baseline. The generated README says so.
+- **No not-found page.** `page.notFound` is deliberately unmapped rather than
+  pointed at `app/not-found.tsx`, because nothing writes that file. Selecting
+  `--features not-found` is refused by name.
+- **No static export.** `next build` produces a server application; Next does
+  not declare `static-output` and no deployment configuration is generated.
+- **Next reformats `tsconfig.json` on first build.** The values it wants are
+  already there - the file survives a build semantically unchanged - but Next
+  rewrites the JSON with one array element per line.
+- **No SEO, structured data or accessibility.** Each is refused rather than
+  ignored, and each would need Next's layout to compose contributed metadata.

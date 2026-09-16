@@ -180,8 +180,13 @@ describe('the router is opt-in', () => {
 // ---------------------------------------------------------------------------
 
 describe('it requires a capability and names nothing', () => {
-  it('requires the React runtime and nothing else', () => {
-    expect(requiredCapabilities(REACT_ROUTER_DECLARATION)).toEqual(['react-runtime']);
+  it('requires a React runtime and a client root, and nothing else', () => {
+    // See MUI's equivalent: `client-app-root` is the half of `react-runtime`
+    // that a framework routing its own files does not provide.
+    expect(requiredCapabilities(REACT_ROUTER_DECLARATION)).toEqual([
+      'react-runtime',
+      'client-app-root',
+    ]);
   });
 
   it('requires no build tool, styling system, UI library or feature', () => {
@@ -294,7 +299,7 @@ describe('compatibility is decided by capability', () => {
       id: 'preact' as never,
       kind: 'framework',
       displayName: 'A framework that is not React',
-      provides: ['react-runtime', 'jsx', 'composed-stylesheet'],
+      provides: ['react-runtime', 'jsx', 'composed-stylesheet', 'client-app-root'],
       requires: [],
     };
     expect(evaluateCombination([hypothetical, REACT_ROUTER_DECLARATION]).compatible).toBe(true);

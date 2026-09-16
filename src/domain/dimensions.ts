@@ -62,7 +62,9 @@ export type RouterId = (typeof ROUTER_IDS)[number];
 export const ARCHITECTURE_IDS = [
   'astro-standard',
   'react-standard',
-  'nextjs-app',
+  // Named for the build tool and the router it implies, matching the 'next'
+  // build-tool id rather than the 'nextjs' framework id.
+  'next-app',
   'angular-standard',
 ] as const;
 export type ArchitectureId = (typeof ARCHITECTURE_IDS)[number];

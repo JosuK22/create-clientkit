@@ -57,6 +57,18 @@ const STRUCTURED_DATA_DECLARATION: AdapterDeclaration = {
       because:
         'a JSON-LD block has to be in the document the crawler reads, not added after it loads',
     },
+    {
+      /*
+       * Split out from `document-metadata` in Stage 22. Having a head that is
+       * rendered before the response is sent is not the same as having one this
+       * generator writes into, and the difference only became visible with a
+       * third framework: on Next this feature was accepted and then produced a
+       * byte-identical project.
+       */
+      kind: 'requires',
+      capability: 'composed-metadata',
+      because: 'it writes a JSON-LD script into the head',
+    },
   ],
 };
 
