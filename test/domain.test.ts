@@ -22,6 +22,7 @@ import {
   STYLING_IDS,
   UI_LIBRARY_IDS,
 } from '../src/domain/index.js';
+import { STARTER_IDS } from '../src/domain/starter.js';
 import type {
   AdapterDeclaration,
   ArchitectureDefinition,
@@ -136,6 +137,7 @@ describe('dimensions stay separate', () => {
       uiLibrary: UI_LIBRARY_IDS,
       router: ROUTER_IDS,
       architecture: ARCHITECTURE_IDS,
+      starter: STARTER_IDS,
       feature: FEATURE_IDS,
       capability: CAPABILITIES,
       role: FILE_ROLES,
@@ -194,15 +196,19 @@ describe('the V1 stack is expressible in the V2 vocabulary', () => {
     expect(manifest.architecture).toBe('astro-standard');
   });
 
-  it('maps V1 mode onto a starter feature rather than a core concept', () => {
+  it('maps V1 mode onto a starter rather than a core concept', () => {
     const comingSoon = manifestFromProjectContext(
       makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode: 'coming-soon' } }),
     );
     const full = manifestFromProjectContext(
       makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode: 'full' } }),
     );
-    expect(comingSoon.features).toEqual(['starter:coming-soon']);
-    expect(full.features).toEqual(['starter:full']);
+    expect(comingSoon.starter).toBe('coming-soon');
+    expect(full.starter).toBe('full');
+    // Neither mode contributes a feature. The starter used to be one, which
+    // made every feature list carry an entry no feature adapter could answer.
+    expect(comingSoon.features).toEqual([]);
+    expect(full.features).toEqual([]);
     // and "mode" is gone from the vocabulary entirely
     expect(Object.keys(full)).not.toContain('mode');
   });
@@ -428,7 +434,7 @@ describe('the adapter contract', () => {
         styling: 'tailwind',
         uiLibrary: 'none',
         router: 'file-based',
-        features: ['starter:coming-soon'],
+        features: [],
       },
     };
 

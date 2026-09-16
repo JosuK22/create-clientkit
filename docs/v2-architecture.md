@@ -734,8 +734,63 @@ Each starter also declares the semantic **roles** a project built from it must
 end up with — `page.home` for both of today's starters. The check runs against
 the finished plan by resolved path, so whoever produces the file satisfies it,
 and a starter layer that shipped no home page fails before anything is written.
-`selectStarter` refuses a manifest naming two starters, and refuses an unknown
-one, where its predecessor answered `coming-soon` to both.
+
+### 14.4 Starter identity — DECIDED (Stage 21)
+
+Stage 20 generalised how a starter _contributes_. This generalises what a
+starter _is_, and the question it answers is whether `coming-soon` / `full` is
+the long-term model or a two-valued flag that happens to look like one.
+
+It is the long-term model, with one correction: a starter had been a **feature**
+since Stage 1.
+
+```
+before                                   after
+────────────────────────────────────     ────────────────────────────────────
+FEATURE_IDS: [..., 'starter:full']       STARTER_IDS: ['coming-soon', 'full']
+manifest.features: ['starter:full']      manifest.starter: 'full'
+                                         manifest.features: []
+```
+
+Carrying the starter inside the feature list meant seven places had to filter
+`starter:*` back out of lists it did not belong in — adapter selection, the
+provenance file, the explanation, compatibility probing, the `--features`
+parser — and **two** functions independently mapped `--mode` onto it. Two copies
+of one rule is a disagreement waiting for someone to add a starter.
+`starterFromMode` is now the only mapping, and both callers use it.
+
+The identity is deliberately thin:
+
+| Field         | Why it exists                                                   |
+| ------------- | --------------------------------------------------------------- |
+| `id`          | what the manifest carries; what a framework maps to a directory |
+| `displayName` | what a menu, `--help` or a diagnostic shows                     |
+| `description` | the same, one line down                                         |
+| `guarantees`  | what makes a starter checkable rather than merely named         |
+
+There is no `layer` (Stage 20 had one; it was always the id), no `root`, no
+`framework`, and no `extends`. The last would be starter inheritance, which is
+out of scope and should be decided on its own evidence rather than smuggled in
+as a field nothing uses.
+
+`STARTERS` is a registry validated at construction: unique non-empty ids, a name
+and description, at least one guarantee, and every guarantee a real `FileRole`.
+A starter that guarantees nothing is the defect worth catching there — it would
+select, plan and generate perfectly, and produce a project with nothing in it.
+
+**What this buys.** `portfolio`, `marketing`, `saas` and `documentation` are
+each a definition plus one line in `STARTER_IDS` — no adapter changes, no
+framework learns a new name. A test proves it by registering a `portfolio`
+starter that does not ship and driving validation, selection, metadata and layer
+planning through the generic machinery, and a structural test asserts no
+framework adapter compares against a starter id at all. **None of those starters
+is implemented, registered or offered.** The two that ship are still the two
+that ship.
+
+**What is unchanged.** `--mode coming-soon | full` is the public surface and
+stays exactly as it is; there is no `--starter` flag and the configuration file
+gained no starter key. One project still has exactly one starter — now by
+construction, since a single field cannot hold two.
 
 ---
 

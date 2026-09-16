@@ -162,7 +162,7 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
          * and nothing would say so until someone opened it. Checked against the
          * plan by resolved path, so the framework's own template satisfies it.
          */
-        requiredRoles: selectStarter(manifest.features).guarantees,
+        requiredRoles: selectStarter(manifest.starter).guarantees,
         minNode: REACT_DECLARATION.minNode ?? '>=20.19.0',
         extensions: {
           source: manifest.language === 'js' ? '.js' : '.ts',
@@ -175,7 +175,7 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
     },
 
     contribute(project: ResolvedProject): Contribution {
-      const starter = selectStarter(project.manifest.features);
+      const starter = selectStarter(project.manifest.starter);
 
       return {
         ...emptyContribution(OWNER),
@@ -188,7 +188,7 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
           owner: OWNER,
           roots: {
             base: path.join(templateRoot, 'base'),
-            starter: path.join(templateRoot, 'modes', starter.layer),
+            starter: path.join(templateRoot, 'modes', starter.id),
           },
           baseReason: 'the React application every starter shares',
         }),

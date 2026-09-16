@@ -133,6 +133,7 @@ describe('every dimension has a source', () => {
         uiLibrary: 'none',
         router: 'file-based',
         architecture: 'astro-standard',
+        starter: 'coming-soon',
         features: [],
       } as never,
       {},
@@ -364,9 +365,12 @@ describe('features are attributed like any other dimension', () => {
     const features = explainStack(run.manifest, run.stack).find(
       (entry) => entry.dimension === 'features',
     );
-    // `starter:full` is carried in the manifest but printed as the mode.
+    // The starter is printed as the mode, on its own line. Until Stage 21 it
+    // was also in this list and had to be filtered back out; now it is simply
+    // somewhere else, and the assertion below is what proves it.
     expect(features?.value).toBe('seo');
-    expect(run.manifest.features).toContain('starter:full');
+    expect(run.manifest.starter).toBe('full');
+    expect(run.manifest.features).toEqual(['seo']);
   });
 
   it('shows an empty set as none rather than blank', async () => {
@@ -557,6 +561,7 @@ describe('the debug output explains the stack', () => {
       uiLibrary: 'none',
       router: 'none',
       architecture: 'react-standard',
+      starter: 'coming-soon',
       features: [],
     } as never;
     const context = {

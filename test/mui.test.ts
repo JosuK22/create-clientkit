@@ -63,7 +63,8 @@ const manifest = (
   uiLibrary,
   router: 'none',
   architecture: 'react-standard',
-  features: ['starter:coming-soon'],
+  starter: 'coming-soon',
+  features: [],
   site: {
     name: 'Acme Ltd',
     url: 'https://acme.example',
@@ -82,7 +83,7 @@ const planFor = (uiLibrary: UiLibraryId, over: Partial<ProjectManifest> = {}) =>
     registry: v1Registry,
     cliVersion: '9.9.9',
     generatedAt: '2026-01-01T00:00:00.000Z',
-    mode: over.features?.includes('starter:full') === true ? 'full' : 'coming-soon',
+    mode: over.starter ?? 'coming-soon',
   });
 
 const contributionsOf = (uiLibrary: UiLibraryId) =>
@@ -689,7 +690,7 @@ describe('golden: React + Vite + TypeScript + Tailwind + MUI', () => {
     {
       name: 'MUI Full + URL',
       file: './golden/react-mui-full-url.txt',
-      over: { features: ['starter:full'] as const },
+      over: { starter: 'full', features: [] as const },
     },
     {
       name: 'MUI URL-less',

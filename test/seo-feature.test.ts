@@ -62,6 +62,7 @@ const astro = (features: readonly FeatureId[], site: SiteContext = SITE): Projec
   uiLibrary: 'none',
   router: 'file-based',
   architecture: 'astro-standard',
+  starter: 'coming-soon',
   features,
   site,
   packageManager: 'npm',
@@ -74,6 +75,7 @@ const react = (features: readonly FeatureId[]): ProjectManifest => ({
   framework: 'react' as FrameworkId,
   router: 'none',
   architecture: 'react-standard',
+  starter: 'coming-soon',
 });
 
 const planAstro = (features: readonly FeatureId[], site: SiteContext = SITE) =>
@@ -111,10 +113,9 @@ describe('SEO is a feature', () => {
   });
 
   it('coexists with the other feature without either changing', () => {
-    const refs = selectAdapters(
-      astro(['starter:coming-soon', 'seo', 'not-found']),
-      adapters,
-    ).adapters.map((entry) => entry.ref);
+    const refs = selectAdapters(astro(['seo', 'not-found']), adapters).adapters.map(
+      (entry) => entry.ref,
+    );
     expect(refs).toContain('feature:seo');
     expect(refs).toContain('feature:not-found');
   });
@@ -125,10 +126,10 @@ describe('SEO is a feature', () => {
     // not framework-specific. Both are features; neither pattern is the rule.
     const seo = adapters
       .feature('seo')
-      .contribute(resolveProject(astro(['starter:coming-soon', 'seo']), adapters).project);
+      .contribute(resolveProject(astro(['seo']), adapters).project);
     const notFound = adapters
       .feature('not-found')
-      .contribute(resolveProject(astro(['starter:coming-soon', 'not-found']), adapters).project);
+      .contribute(resolveProject(astro(['not-found']), adapters).project);
     expect(seo.config).toHaveLength(1);
     expect(notFound.config).toHaveLength(0);
   });
@@ -206,9 +207,7 @@ describe('SEO requires a capability and names nothing', () => {
 
 describe('compatibility is decided by capability', () => {
   it('Astro + Tailwind + SEO is compatible', () => {
-    expect(checkCompatibility(astro(['starter:coming-soon', 'seo']), adapters).compatible).toBe(
-      true,
-    );
+    expect(checkCompatibility(astro(['seo']), adapters).compatible).toBe(true);
   });
 
   it('React + Vite + Tailwind + SEO is refused', () => {
@@ -216,15 +215,13 @@ describe('compatibility is decided by capability', () => {
     // reading the initial response sees the entry HTML and nothing the feature
     // contributed. Server rendering is the fix; a runtime metadata package is
     // not, and adding one is not this stage's job.
-    expect(checkCompatibility(react(['starter:coming-soon', 'seo']), adapters).compatible).toBe(
-      false,
-    );
+    expect(checkCompatibility(react(['seo']), adapters).compatible).toBe(false);
   });
 
   it('the refusal names the missing capability and the reason', () => {
     let error: CliError | undefined;
     try {
-      resolveProject(react(['starter:coming-soon', 'seo']), adapters);
+      resolveProject(react(['seo']), adapters);
     } catch (thrown) {
       error = thrown as CliError;
     }
@@ -416,7 +413,7 @@ describe('no URL is ever fabricated', () => {
   });
 
   it('the planned project carries no fabricated URL either', () => {
-    const { metadata } = planAstro(['starter:coming-soon', 'seo'], urlless);
+    const { metadata } = planAstro(['seo'], urlless);
     expect(JSON.stringify(metadata)).not.toContain('example.com');
     expect(metadata[0]?.contract.canonical).toBe('');
   });
@@ -428,7 +425,7 @@ describe('no URL is ever fabricated', () => {
 
 describe('contributions', () => {
   const contribution = () =>
-    resolveWithAdapters(astro(['starter:coming-soon', 'seo']), TEMPLATES_ROOT).contributions.find(
+    resolveWithAdapters(astro(['seo']), TEMPLATES_ROOT).contributions.find(
       (entry) => entry.owner === 'feature:seo',
     );
 
@@ -446,20 +443,18 @@ describe('contributions', () => {
   });
 
   it('changes nothing in the generated package manifest', () => {
-    const withSeo = planAstro(['starter:coming-soon', 'seo']).plan.operations.find(
+    const withSeo = planAstro(['seo']).plan.operations.find(
       (entry) => entry.path === 'package.json',
     );
-    const without = planAstro(['starter:coming-soon']).plan.operations.find(
-      (entry) => entry.path === 'package.json',
-    );
+    const without = planAstro([]).plan.operations.find((entry) => entry.path === 'package.json');
     expect(withSeo?.type === 'write' ? withSeo.content : '').toBe(
       without?.type === 'write' ? without.content : 'x',
     );
   });
 
   it('generates no extra file at all', () => {
-    expect(planAstro(['starter:coming-soon', 'seo']).plan.operations.map((e) => e.path)).toEqual(
-      planAstro(['starter:coming-soon']).plan.operations.map((e) => e.path),
+    expect(planAstro(['seo']).plan.operations.map((e) => e.path)).toEqual(
+      planAstro([]).plan.operations.map((e) => e.path),
     );
   });
 
@@ -478,22 +473,22 @@ describe('contributions', () => {
   });
 
   it('requests the layout as a required role', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'seo']), adapters);
+    const { project } = resolveProject(astro(['seo']), adapters);
     expect(project.requiredRoles).toContain('app.layout');
   });
 
   it('requires nothing extra when SEO is not selected', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon']), adapters);
+    const { project } = resolveProject(astro([]), adapters);
     expect(project.requiredRoles).not.toContain('app.layout');
   });
 
   it('lets the architecture decide where the surface lives', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'seo']), adapters);
+    const { project } = resolveProject(astro(['seo']), adapters);
     expect(project.architecture.roles['app.layout']).toBe('src/layouts/BaseLayout.astro');
   });
 
   it('leaves the layout owned by the framework template', () => {
-    const layout = planAstro(['starter:coming-soon', 'seo']).plan.operations.find(
+    const layout = planAstro(['seo']).plan.operations.find(
       (entry) => entry.path === 'src/layouts/BaseLayout.astro',
     );
     expect(layout?.origin).toBe('base');
@@ -509,7 +504,7 @@ describe('the guarantee is load-bearing', () => {
     paths.map((entry) => ({ type: 'write', path: entry, content: '', origin: 'test' }));
 
   it('passes when the metadata surface exists', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'seo']), adapters);
+    const { project } = resolveProject(astro(['seo']), adapters);
     // `src/pages/index.astro` is the starter's guarantee, not SEO's. Every plan
     // carries it now, so a minimal one written by hand has to as well.
     expect(() =>
@@ -521,7 +516,7 @@ describe('the guarantee is load-bearing', () => {
   });
 
   it('fails before writing when nothing produces it', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'seo']), adapters);
+    const { project } = resolveProject(astro(['seo']), adapters);
     expect(() => assertRequiredRoles(project, operationsFor([]))).toThrow(CliError);
     expect(() => assertRequiredRoles(project, operationsFor([]))).toThrow(/app\.layout/);
   });
@@ -574,7 +569,7 @@ describe('metadata claims are composed, not overwritten', () => {
   });
 
   it('the plan carries the claim with its owner and reason', () => {
-    const { metadata } = planAstro(['starter:coming-soon', 'seo']);
+    const { metadata } = planAstro(['seo']);
     expect(metadata).toHaveLength(1);
     expect(metadata[0]?.owner).toBe('feature:seo');
     expect(metadata[0]?.reason.length).toBeGreaterThan(0);
@@ -582,12 +577,12 @@ describe('metadata claims are composed, not overwritten', () => {
   });
 
   it('carries no claim when SEO is not selected', () => {
-    expect(planAstro(['starter:coming-soon']).metadata).toEqual([]);
+    expect(planAstro([]).metadata).toEqual([]);
   });
 
   it('the conflict is detected during planning, not only in the unit', () => {
     // Guards the wiring. A collector nothing calls protects nothing.
-    const project = resolveProject(astro(['starter:coming-soon', 'seo']), adapters).project;
+    const project = resolveProject(astro(['seo']), adapters).project;
     const conflicting = [
       { ...claim('feature:seo') },
       { ...claim('feature:alpha', { ...SITE, name: 'Other' }) },
@@ -633,7 +628,7 @@ describe('the SEO adapter stays inside the contract', () => {
   });
 
   it('is a pure function of its inputs', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'seo']), adapters);
+    const { project } = resolveProject(astro(['seo']), adapters);
     const adapter = adapters.feature('seo');
     expect(JSON.stringify(adapter.contribute(project))).toBe(
       JSON.stringify(adapter.contribute(project)),
@@ -647,19 +642,19 @@ describe('the SEO adapter stays inside the contract', () => {
 
 describe('determinism', () => {
   it('the same manifest produces the same plan twice', () => {
-    expect(renderPlan(planAstro(['starter:coming-soon', 'seo']).plan, TEMPLATES_ROOT)).toBe(
-      renderPlan(planAstro(['starter:coming-soon', 'seo']).plan, TEMPLATES_ROOT),
+    expect(renderPlan(planAstro(['seo']).plan, TEMPLATES_ROOT)).toBe(
+      renderPlan(planAstro(['seo']).plan, TEMPLATES_ROOT),
     );
   });
 
   it('feature order does not affect the result', () => {
-    expect(renderPlan(planAstro(['seo', 'starter:coming-soon']).plan, TEMPLATES_ROOT)).toBe(
-      renderPlan(planAstro(['starter:coming-soon', 'seo']).plan, TEMPLATES_ROOT),
+    expect(renderPlan(planAstro(['seo']).plan, TEMPLATES_ROOT)).toBe(
+      renderPlan(planAstro(['seo']).plan, TEMPLATES_ROOT),
     );
   });
 
   it('no generated content carries a machine value or an unresolved token', () => {
-    for (const operation of planAstro(['starter:coming-soon', 'seo']).plan.operations) {
+    for (const operation of planAstro(['seo']).plan.operations) {
       if (operation.type !== 'write') continue;
       expect(operation.content).not.toContain(TEST_CWD);
       expect(operation.content).not.toContain('\r\n');
@@ -809,7 +804,8 @@ const renderSeoComposition = (features: readonly FeatureId[], site: SiteContext)
   lines.push('== MANIFEST ==');
   lines.push(`site.name   ${site.name}`);
   lines.push(`site.url    ${site.url ?? '(none)'}`);
-  lines.push(`features    ${[...project.selection.features].sort().join(', ')}`);
+  lines.push(`starter     ${project.manifest.starter}`);
+  lines.push(`features    ${[...project.selection.features].sort().join(', ') || '(none)'}`);
   lines.push('');
   lines.push('== SELECTED ADAPTERS ==');
   for (const entry of selection.adapters) {
@@ -839,30 +835,30 @@ const renderSeoComposition = (features: readonly FeatureId[], site: SiteContext)
 
 describe('golden: Astro + Tailwind + SEO', () => {
   it('golden: with a site URL', async () => {
-    await expect(renderSeoComposition(['starter:coming-soon', 'seo'], SITE)).toMatchFileSnapshot(
+    await expect(renderSeoComposition(['seo'], SITE)).toMatchFileSnapshot(
       './golden/astro-seo-url.txt',
     );
   });
 
   it('golden: without a site URL', async () => {
-    await expect(
-      renderSeoComposition(['starter:coming-soon', 'seo'], { ...SITE, url: null }),
-    ).toMatchFileSnapshot('./golden/astro-seo-urlless.txt');
+    await expect(renderSeoComposition(['seo'], { ...SITE, url: null })).toMatchFileSnapshot(
+      './golden/astro-seo-urlless.txt',
+    );
   });
 
   it('golden: no SEO feature selected', async () => {
-    await expect(renderSeoComposition(['starter:coming-soon'], SITE)).toMatchFileSnapshot(
+    await expect(renderSeoComposition([], SITE)).toMatchFileSnapshot(
       './golden/astro-seo-absent.txt',
     );
   });
 
   it('the three are genuinely different snapshots', () => {
-    const withUrl = renderSeoComposition(['starter:coming-soon', 'seo'], SITE);
-    const withoutUrl = renderSeoComposition(['starter:coming-soon', 'seo'], {
+    const withUrl = renderSeoComposition(['seo'], SITE);
+    const withoutUrl = renderSeoComposition(['seo'], {
       ...SITE,
       url: null,
     });
-    const absent = renderSeoComposition(['starter:coming-soon'], SITE);
+    const absent = renderSeoComposition([], SITE);
     expect(new Set([withUrl, withoutUrl, absent]).size).toBe(3);
   });
 });

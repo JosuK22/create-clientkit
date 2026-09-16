@@ -464,7 +464,8 @@ const manifestFor = (styling: StylingId): ProjectManifest => ({
   uiLibrary: 'none',
   router: 'none',
   architecture: 'react-standard',
-  features: ['starter:coming-soon'],
+  starter: 'coming-soon',
+  features: [],
   site: {
     name: 'Acme Ltd',
     url: 'https://acme.example',

@@ -1,7 +1,8 @@
 == MANIFEST ==
 site.name    Acme Ltd
 site.locale  en-GB
-features     starter:coming-soon
+starter      coming-soon
+features     (none)
 
 == SELECTED ADAPTERS ==
 framework:astro              framework

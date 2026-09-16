@@ -9,6 +9,7 @@ import type {
   StylingId,
   UiLibraryId,
 } from './dimensions.js';
+import { starterFromMode, type StarterId } from './starter.js';
 
 /**
  * What the user asked for. Nothing about how it will be built.
@@ -40,6 +41,16 @@ export interface ProjectManifest {
   readonly uiLibrary: UiLibraryId;
   readonly router: RouterId;
   readonly architecture: ArchitectureId;
+  /**
+   * What the project starts out containing.
+   *
+   * Its own field since Stage 21. It spent Stages 1-20 inside `features` as
+   * `starter:full`, which read as a feature, sorted as a feature and had to be
+   * filtered out of every list a feature belonged in. One project has exactly
+   * one starter, and a single field is how that stops being a rule anyone has
+   * to enforce.
+   */
+  readonly starter: StarterId;
   readonly features: readonly FeatureId[];
 
   /**
@@ -81,8 +92,10 @@ export function manifestFromProjectContext(context: ProjectContext): ProjectMani
     architecture: 'astro-standard',
 
     // `mode` was never a core concept - it was an Astro template detail that
-    // reached src/types.ts. Here it is what it always was: a starter choice.
-    features: [context.template.mode === 'full' ? 'starter:full' : 'starter:coming-soon'],
+    // reached src/types.ts. Here it is what it always was: a starter choice,
+    // mapped by the one function that owns that mapping.
+    starter: starterFromMode(context.template.mode),
+    features: [],
 
     site: context.site,
     packageManager: context.packageManager,

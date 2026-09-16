@@ -174,7 +174,8 @@ describe('the stack block carries every dimension', () => {
       uiLibrary: 'mui',
       router: 'react-router',
       architecture: 'react-standard',
-      features: ['starter:coming-soon', 'client-route-fallback'],
+      starter: 'coming-soon',
+      features: ['client-route-fallback'],
     });
   });
 
@@ -212,6 +213,7 @@ describe('the stack block carries every dimension', () => {
       language: 'ts',
       router: 'none',
       architecture: 'react-standard',
+      starter: 'coming-soon',
       // Not framework-owned, so these come from the same defaults a bare
       // invocation uses - there is no config-file default anywhere.
       styling: 'tailwind',
@@ -236,19 +238,14 @@ describe('the stack block carries every dimension', () => {
 describe('features in a configuration file', () => {
   it('takes one', async () => {
     const { manifest } = await fromConfig({ stack: { features: ['seo'] } });
-    expect(manifest.features).toEqual(['starter:coming-soon', 'seo']);
+    expect(manifest.features).toEqual(['seo']);
   });
 
   it('takes several', async () => {
     const { manifest } = await fromConfig({
       stack: { features: ['seo', 'structured-data', 'accessibility'] },
     });
-    expect(manifest.features).toEqual([
-      'starter:coming-soon',
-      'accessibility',
-      'seo',
-      'structured-data',
-    ]);
+    expect(manifest.features).toEqual(['accessibility', 'seo', 'structured-data']);
   });
 
   it('sorts them, so two orderings are one request', async () => {
@@ -259,7 +256,7 @@ describe('features in a configuration file', () => {
 
   it('treats an empty array as no features', async () => {
     const { manifest } = await fromConfig({ stack: { features: [] } });
-    expect(manifest.features).toEqual(['starter:coming-soon']);
+    expect(manifest.features).toEqual([]);
   });
 
   it('rejects a duplicate, the same way the flag does', async () => {
@@ -278,6 +275,9 @@ describe('features in a configuration file', () => {
   });
 
   it('rejects a starter, because the mode field owns that', async () => {
+    // The legacy spelling, which is no longer a feature id at all. It is
+    // recognised here for exactly one reason: to say where starters are chosen
+    // rather than report an unknown feature.
     expect(textOf(await failure({ stack: { features: ['starter:full'] } }))).toContain('--mode');
   });
 
@@ -321,7 +321,7 @@ describe('a flag beats the file, per dimension', () => {
       '--features',
       'accessibility',
     ]);
-    expect(manifest.features).toEqual(['starter:coming-soon', 'accessibility']);
+    expect(manifest.features).toEqual(['accessibility']);
   });
 
   it('records which source each dimension came from', async () => {

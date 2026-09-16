@@ -21,6 +21,7 @@ import type {
   UiLibraryId,
 } from '../domain/dimensions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
+import { LEGACY_STARTER_PREFIX, starterFromMode } from '../domain/starter.js';
 import { CliError, EXIT_USAGE } from '../errors.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { PackageManager, SiteContext, TemplateMode } from '../types.js';
@@ -270,11 +271,11 @@ function parseFeatures(
       }
 
       /*
-       * `starter:*` is vocabulary, but not this flag's. It selects a template
-       * layer, which is what `--mode` already does, and two ways to say one
-       * thing is how a configuration surface becomes ambiguous.
+       * `starter:*` is no longer a feature id at all, so this would otherwise
+       * fail as "unknown feature" - technically true and unhelpful. The
+       * legacy spelling is recognised purely to say where starters are chosen.
        */
-      if (value.startsWith('starter:')) {
+      if (value.startsWith(LEGACY_STARTER_PREFIX)) {
         throw new CliError(`"${value}" cannot be selected with --features.`, {
           exitCode: EXIT_USAGE,
           hint: 'Starters are chosen with --mode: coming-soon | full.',
@@ -436,10 +437,11 @@ export interface ManifestIdentity {
  * `template` string ended up with fallbacks in four files.
  *
  * `mode` arrives here rather than being resolved with the other dimensions
- * because it is not one. It selects a starter layer, and the feature list is
- * how the pipeline has expressed that since Stage 1 - the same mapping
- * `manifestFromProjectContext` makes, which is why a legacy invocation produces
- * a byte-identical manifest through either route.
+ * because it is not one: it names a starter, and `starterFromMode` is the one
+ * function that turns it into one. `manifestFromProjectContext` calls the same
+ * function, which is why a legacy invocation produces an identical manifest
+ * through either route - previously each made the mapping itself, and two
+ * copies of one rule is a disagreement waiting for someone to add a starter.
  */
 export function manifestFrom(
   identity: ManifestIdentity,
@@ -457,9 +459,8 @@ export function manifestFrom(
     uiLibrary: dimensions.uiLibrary,
     router: dimensions.router,
     architecture: dimensions.architecture,
-    // The starter first, so a default invocation produces exactly the
-    // single-entry list the V1 goldens assert.
-    features: [mode === 'full' ? 'starter:full' : 'starter:coming-soon', ...dimensions.features],
+    starter: starterFromMode(mode),
+    features: dimensions.features,
 
     site: identity.site,
     packageManager: identity.packageManager,

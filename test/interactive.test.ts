@@ -101,7 +101,8 @@ describe('a user who presses Enter through the whole flow gets V1', () => {
       uiLibrary: 'none',
       router: 'file-based',
       architecture: 'astro-standard',
-      features: ['starter:coming-soon'],
+      starter: 'coming-soon',
+      features: [],
     });
   });
 
@@ -128,7 +129,7 @@ describe('a user who presses Enter through the whole flow gets V1', () => {
 
   it('selects no feature unless one is chosen', async () => {
     const { manifest } = await run([]);
-    expect(manifest.features).toEqual(['starter:coming-soon']);
+    expect(manifest.features).toEqual([]);
   });
 });
 
@@ -317,7 +318,7 @@ describe('a dimension given as a flag is never asked about', () => {
       'client-route-fallback',
     ]);
     expect(asked).not.toContain('features');
-    expect(manifest.features).toEqual(['starter:coming-soon', 'client-route-fallback']);
+    expect(manifest.features).toEqual(['client-route-fallback']);
   });
 });
 
@@ -446,12 +447,12 @@ describe('answering the questions and typing the flags produce one manifest', ()
 describe('feature selection', () => {
   it('none selected leaves only the starter', async () => {
     const { manifest } = await run(['acme-site'], { features: [] });
-    expect(manifest.features).toEqual(['starter:coming-soon']);
+    expect(manifest.features).toEqual([]);
   });
 
   it('one selected reaches the manifest', async () => {
     const { manifest } = await run(['acme-site'], { features: ['seo'] });
-    expect(manifest.features).toEqual(['starter:coming-soon', 'seo']);
+    expect(manifest.features).toEqual(['seo']);
   });
 
   it('several are sorted, whatever order they were ticked in', async () => {
@@ -461,12 +462,7 @@ describe('feature selection', () => {
     const backwards = await run(['acme-site'], {
       features: ['seo', 'accessibility', 'structured-data'],
     });
-    expect(forwards.manifest.features).toEqual([
-      'starter:coming-soon',
-      'accessibility',
-      'seo',
-      'structured-data',
-    ]);
+    expect(forwards.manifest.features).toEqual(['accessibility', 'seo', 'structured-data']);
     expect(forwards.manifest.features).toEqual(backwards.manifest.features);
   });
 
@@ -507,7 +503,7 @@ describe('--yes', () => {
     });
     expect(manifest.framework).toBe('astro');
     expect(manifest.styling).toBe('tailwind');
-    expect(manifest.features).toEqual(['starter:coming-soon']);
+    expect(manifest.features).toEqual([]);
   });
 
   it('resolves the same stack it did before the prompts existed', async () => {

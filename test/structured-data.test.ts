@@ -70,6 +70,7 @@ const astro = (features: readonly FeatureId[], site: SiteContext = SITE): Projec
   uiLibrary: 'none',
   router: 'file-based',
   architecture: 'astro-standard',
+  starter: 'coming-soon',
   features,
   site,
   packageManager: 'npm',
@@ -82,6 +83,7 @@ const react = (features: readonly FeatureId[]): ProjectManifest => ({
   framework: 'react' as FrameworkId,
   router: 'none',
   architecture: 'react-standard',
+  starter: 'coming-soon',
 });
 
 const planAstro = (features: readonly FeatureId[], site: SiteContext = SITE) =>
@@ -127,19 +129,17 @@ describe('structured data is a feature, and a sibling of SEO', () => {
   });
 
   it('can be selected without SEO', () => {
-    const refs = selectAdapters(
-      astro(['starter:coming-soon', 'structured-data']),
-      adapters,
-    ).adapters.map((entry) => entry.ref);
+    const refs = selectAdapters(astro(['structured-data']), adapters).adapters.map(
+      (entry) => entry.ref,
+    );
     expect(refs).toContain('feature:structured-data');
     expect(refs).not.toContain('feature:seo');
   });
 
   it('can be selected with SEO', () => {
-    const refs = selectAdapters(
-      astro(['starter:coming-soon', 'seo', 'structured-data']),
-      adapters,
-    ).adapters.map((entry) => entry.ref);
+    const refs = selectAdapters(astro(['seo', 'structured-data']), adapters).adapters.map(
+      (entry) => entry.ref,
+    );
     expect(refs).toContain('feature:structured-data');
     expect(refs).toContain('feature:seo');
   });
@@ -248,21 +248,17 @@ describe('it requires a capability and names nothing', () => {
 
 describe('compatibility is decided by capability', () => {
   it('Astro + Tailwind + structured-data is compatible', () => {
-    expect(
-      checkCompatibility(astro(['starter:coming-soon', 'structured-data']), adapters).compatible,
-    ).toBe(true);
+    expect(checkCompatibility(astro(['structured-data']), adapters).compatible).toBe(true);
   });
 
   it('React + Vite + Tailwind + structured-data is refused', () => {
-    expect(
-      checkCompatibility(react(['starter:coming-soon', 'structured-data']), adapters).compatible,
-    ).toBe(false);
+    expect(checkCompatibility(react(['structured-data']), adapters).compatible).toBe(false);
   });
 
   it('the refusal names the missing capability and the reason', () => {
     let error: CliError | undefined;
     try {
-      resolveProject(react(['starter:coming-soon', 'structured-data']), adapters);
+      resolveProject(react(['structured-data']), adapters);
     } catch (thrown) {
       error = thrown as CliError;
     }
@@ -321,9 +317,7 @@ describe('compatibility is decided by capability', () => {
     }
     let refs: readonly string[];
     try {
-      refs = selectAdapters(astro(['starter:coming-soon', 'sitemap']), adapters).adapters.map(
-        (entry) => entry.ref,
-      );
+      refs = selectAdapters(astro(['sitemap']), adapters).adapters.map((entry) => entry.ref);
     } catch {
       refs = [];
     }
@@ -413,7 +407,7 @@ describe('no value is ever fabricated', () => {
   });
 
   it('the planned project carries no fabricated value either', () => {
-    const { structuredData } = planAstro(['starter:coming-soon', 'structured-data'], urlless);
+    const { structuredData } = planAstro(['structured-data'], urlless);
     const serialised = JSON.stringify(structuredData);
     expect(serialised).not.toContain('example.com');
     expect(structuredData[0]?.value.url).toBeUndefined();
@@ -481,10 +475,9 @@ describe('serialisation is deterministic and valid', () => {
 
 describe('contributions', () => {
   const contribution = () =>
-    resolveWithAdapters(
-      astro(['starter:coming-soon', 'structured-data']),
-      TEMPLATES_ROOT,
-    ).contributions.find((entry) => entry.owner === 'feature:structured-data');
+    resolveWithAdapters(astro(['structured-data']), TEMPLATES_ROOT).contributions.find(
+      (entry) => entry.owner === 'feature:structured-data',
+    );
 
   it('adds no dependency, script, file or template layer', () => {
     expect(contribution()?.dependencies).toEqual([]);
@@ -494,21 +487,19 @@ describe('contributions', () => {
   });
 
   it('changes nothing in the generated package manifest', () => {
-    const withFeature = planAstro(['starter:coming-soon', 'structured-data']).plan.operations.find(
+    const withFeature = planAstro(['structured-data']).plan.operations.find(
       (entry) => entry.path === 'package.json',
     );
-    const without = planAstro(['starter:coming-soon']).plan.operations.find(
-      (entry) => entry.path === 'package.json',
-    );
+    const without = planAstro([]).plan.operations.find((entry) => entry.path === 'package.json');
     expect(withFeature?.type === 'write' ? withFeature.content : '').toBe(
       without?.type === 'write' ? without.content : 'x',
     );
   });
 
   it('generates no extra file at all', () => {
-    expect(
-      planAstro(['starter:coming-soon', 'structured-data']).plan.operations.map((e) => e.path),
-    ).toEqual(planAstro(['starter:coming-soon']).plan.operations.map((e) => e.path));
+    expect(planAstro(['structured-data']).plan.operations.map((e) => e.path)).toEqual(
+      planAstro([]).plan.operations.map((e) => e.path),
+    );
   });
 
   it('describes its own slot on the shared role', () => {
@@ -520,7 +511,7 @@ describe('contributions', () => {
 
   it('uses a different slot from SEO, which is what lets them compose', () => {
     const all = resolveWithAdapters(
-      astro(['starter:coming-soon', 'seo', 'structured-data']),
+      astro(['seo', 'structured-data']),
       TEMPLATES_ROOT,
     ).contributions.flatMap((entry) => entry.config);
     const slots = all.filter((entry) => entry.target === 'app.layout').map((entry) => entry.at);
@@ -528,17 +519,17 @@ describe('contributions', () => {
   });
 
   it('requests the layout as a required role', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'structured-data']), adapters);
+    const { project } = resolveProject(astro(['structured-data']), adapters);
     expect(project.requiredRoles).toContain('app.layout');
   });
 
   it('requires nothing extra when the feature is not selected', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon']), adapters);
+    const { project } = resolveProject(astro([]), adapters);
     expect(project.requiredRoles).not.toContain('app.layout');
   });
 
   it('leaves the implementation owned by the framework template', () => {
-    const layout = planAstro(['starter:coming-soon', 'structured-data']).plan.operations.find(
+    const layout = planAstro(['structured-data']).plan.operations.find(
       (entry) => entry.path === 'src/layouts/BaseLayout.astro',
     );
     expect(layout?.origin).toBe('base');
@@ -554,7 +545,7 @@ describe('the guarantee is load-bearing', () => {
     paths.map((entry) => ({ type: 'write', path: entry, content: '', origin: 'test' }));
 
   it('passes when the surface exists', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'structured-data']), adapters);
+    const { project } = resolveProject(astro(['structured-data']), adapters);
     // `src/pages/index.astro` satisfies the starter's `page.home` guarantee. It
     // is unrelated to structured data and present for the same reason it is
     // present in every other plan.
@@ -567,7 +558,7 @@ describe('the guarantee is load-bearing', () => {
   });
 
   it('fails before writing when nothing produces it', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'structured-data']), adapters);
+    const { project } = resolveProject(astro(['structured-data']), adapters);
     expect(() => assertRequiredRoles(project, operationsFor([]))).toThrow(/app\.layout/);
   });
 });
@@ -658,7 +649,7 @@ describe('claims are composed, not overwritten', () => {
   });
 
   it('the plan carries the claim with its owner and reason', () => {
-    const { structuredData } = planAstro(['starter:coming-soon', 'structured-data']);
+    const { structuredData } = planAstro(['structured-data']);
     expect(structuredData).toHaveLength(1);
     expect(structuredData[0]?.owner).toBe('feature:structured-data');
     expect(structuredData[0]?.reason.length).toBeGreaterThan(0);
@@ -666,15 +657,11 @@ describe('claims are composed, not overwritten', () => {
   });
 
   it('carries no claim when the feature is not selected', () => {
-    expect(planAstro(['starter:coming-soon']).structuredData).toEqual([]);
+    expect(planAstro([]).structuredData).toEqual([]);
   });
 
   it('carries both claims independently when both features are selected', () => {
-    const { metadata, structuredData } = planAstro([
-      'starter:coming-soon',
-      'seo',
-      'structured-data',
-    ]);
+    const { metadata, structuredData } = planAstro(['seo', 'structured-data']);
     expect(metadata).toHaveLength(1);
     expect(structuredData).toHaveLength(1);
     expect(metadata[0]?.owner).toBe('feature:seo');
@@ -682,7 +669,7 @@ describe('claims are composed, not overwritten', () => {
   });
 
   it('carries structured data without SEO', () => {
-    const { metadata, structuredData } = planAstro(['starter:coming-soon', 'structured-data']);
+    const { metadata, structuredData } = planAstro(['structured-data']);
     expect(metadata).toEqual([]);
     expect(structuredData).toHaveLength(1);
   });
@@ -724,7 +711,7 @@ describe('the adapter stays inside the contract', () => {
   });
 
   it('is a pure function of its inputs', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'structured-data']), adapters);
+    const { project } = resolveProject(astro(['structured-data']), adapters);
     const adapter = adapters.feature('structured-data');
     expect(JSON.stringify(adapter.contribute(project))).toBe(
       JSON.stringify(adapter.contribute(project)),
@@ -738,15 +725,15 @@ describe('the adapter stays inside the contract', () => {
 
 describe('determinism', () => {
   it('the same manifest produces the same plan twice', () => {
-    expect(
-      renderPlan(planAstro(['starter:coming-soon', 'structured-data']).plan, TEMPLATES_ROOT),
-    ).toBe(renderPlan(planAstro(['starter:coming-soon', 'structured-data']).plan, TEMPLATES_ROOT));
+    expect(renderPlan(planAstro(['structured-data']).plan, TEMPLATES_ROOT)).toBe(
+      renderPlan(planAstro(['structured-data']).plan, TEMPLATES_ROOT),
+    );
   });
 
   it('feature order does not affect the result', () => {
-    expect(
-      renderPlan(planAstro(['structured-data', 'seo', 'starter:full']).plan, TEMPLATES_ROOT),
-    ).toBe(renderPlan(planAstro(['starter:full', 'seo', 'structured-data']).plan, TEMPLATES_ROOT));
+    expect(renderPlan(planAstro(['structured-data', 'seo']).plan, TEMPLATES_ROOT)).toBe(
+      renderPlan(planAstro(['seo', 'structured-data']).plan, TEMPLATES_ROOT),
+    );
   });
 });
 
@@ -842,7 +829,8 @@ const renderComposition = (features: readonly FeatureId[], site: SiteContext): s
   lines.push('== MANIFEST ==');
   lines.push(`site.name   ${site.name}`);
   lines.push(`site.url    ${site.url ?? '(none)'}`);
-  lines.push(`features    ${[...project.selection.features].sort().join(', ')}`);
+  lines.push(`starter     ${project.manifest.starter}`);
+  lines.push(`features    ${[...project.selection.features].sort().join(', ') || '(none)'}`);
   lines.push('');
   lines.push('== SELECTED ADAPTERS ==');
   for (const entry of selection.adapters) {
@@ -875,30 +863,30 @@ const renderComposition = (features: readonly FeatureId[], site: SiteContext): s
 
 describe('golden: Astro + Tailwind + structured-data', () => {
   it('golden: structured-data with a site URL', async () => {
-    await expect(
-      renderComposition(['starter:coming-soon', 'structured-data'], SITE),
-    ).toMatchFileSnapshot('./golden/astro-structured-data.txt');
+    await expect(renderComposition(['structured-data'], SITE)).toMatchFileSnapshot(
+      './golden/astro-structured-data.txt',
+    );
   });
 
   it('golden: structured-data without a site URL', async () => {
     await expect(
-      renderComposition(['starter:coming-soon', 'structured-data'], { ...SITE, url: null }),
+      renderComposition(['structured-data'], { ...SITE, url: null }),
     ).toMatchFileSnapshot('./golden/astro-structured-data-urlless.txt');
   });
 
   it('golden: SEO and structured-data together', async () => {
-    await expect(
-      renderComposition(['starter:coming-soon', 'seo', 'structured-data'], SITE),
-    ).toMatchFileSnapshot('./golden/astro-seo-structured-data.txt');
+    await expect(renderComposition(['seo', 'structured-data'], SITE)).toMatchFileSnapshot(
+      './golden/astro-seo-structured-data.txt',
+    );
   });
 
   it('the three are genuinely different snapshots', () => {
-    const a = renderComposition(['starter:coming-soon', 'structured-data'], SITE);
-    const b = renderComposition(['starter:coming-soon', 'structured-data'], {
+    const a = renderComposition(['structured-data'], SITE);
+    const b = renderComposition(['structured-data'], {
       ...SITE,
       url: null,
     });
-    const c = renderComposition(['starter:coming-soon', 'seo', 'structured-data'], SITE);
+    const c = renderComposition(['seo', 'structured-data'], SITE);
     expect(new Set([a, b, c]).size).toBe(3);
   });
 });

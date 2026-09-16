@@ -38,6 +38,7 @@ import type {
 } from '../src/domain/index.js';
 import { evaluateCombination } from '../src/domain/index.js';
 import { collectRoutes } from '../src/domain/route-composition.js';
+import type { StarterId } from '../src/domain/starter.js';
 import { CliError } from '../src/errors.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { renderPlan, TEST_CWD } from './helpers.js';
@@ -73,7 +74,8 @@ const react = (over: Partial<ProjectManifest> = {}): ProjectManifest => ({
   uiLibrary: 'none',
   router: 'react-router',
   architecture: 'react-standard',
-  features: ['starter:full', 'client-route-fallback'],
+  starter: 'full',
+  features: ['client-route-fallback'],
   site: {
     name: 'Acme Ltd',
     url: 'https://acme.example',
@@ -94,6 +96,7 @@ const astro = (features: readonly FeatureId[]): ProjectManifest => ({
   framework: 'astro',
   router: 'file-based',
   architecture: 'astro-standard',
+  starter: 'coming-soon',
   features,
 });
 
@@ -213,7 +216,7 @@ describe('the supported and refused combinations', () => {
   });
 
   it('React + Vite + React Router + not-found is refused', () => {
-    const text = refusalText(react({ features: ['starter:full', 'not-found'] }));
+    const text = refusalText(react({ starter: 'full', features: ['not-found'] }));
     expect(text).toContain('file-based-routing');
     expect(text).toContain('Not-found page');
   });
@@ -224,14 +227,14 @@ describe('the supported and refused combinations', () => {
     // response and the other is a render, and selecting a second feature never
     // satisfies the first one's capability.
     const text = refusalText(
-      react({ features: ['starter:full', 'not-found', 'client-route-fallback'] }),
+      react({ starter: 'full', features: ['not-found', 'client-route-fallback'] }),
     );
     expect(text).toContain('file-based-routing');
   });
 
   it('the refusal of that pair names not-found, not the fallback', () => {
     const text = refusalText(
-      react({ features: ['starter:full', 'not-found', 'client-route-fallback'] }),
+      react({ starter: 'full', features: ['not-found', 'client-route-fallback'] }),
     );
     // The refusal has to be about the requirement that is unmet, not about the
     // pair being selected together. Selecting the fallback is fine; what fails
@@ -255,21 +258,25 @@ describe('the supported and refused combinations', () => {
 
   it('Astro + not-found is supported and Astro + the fallback is not', () => {
     // The mirror image, and the reason neither feature subsumes the other.
-    expect(() => resolveProject(astro(['starter:full', 'not-found']), adapters)).not.toThrow();
-    expect(refusalText(astro(['starter:full', 'client-route-fallback']))).toContain(
-      'client-side-routing',
-    );
+    expect(() => resolveProject(astro(['not-found']), adapters)).not.toThrow();
+    expect(refusalText(astro(['client-route-fallback']))).toContain('client-side-routing');
     expect(ASTRO_DECLARATION.provides).toContain('file-based-routing');
     expect(ASTRO_DECLARATION.provides).not.toContain('client-side-routing');
   });
 
   it('the three-way distinction holds across all four feature selections', () => {
-    const cases: readonly { features: FeatureId[]; astroOk: boolean; reactOk: boolean }[] = [
-      { features: ['starter:full'], astroOk: true, reactOk: true },
-      { features: ['starter:full', 'not-found'], astroOk: true, reactOk: false },
-      { features: ['starter:full', 'client-route-fallback'], astroOk: false, reactOk: true },
+    const cases: readonly {
+      starter: StarterId;
+      features: FeatureId[];
+      astroOk: boolean;
+      reactOk: boolean;
+    }[] = [
+      { starter: 'full', features: [], astroOk: true, reactOk: true },
+      { starter: 'full', features: ['not-found'], astroOk: true, reactOk: false },
+      { starter: 'full', features: ['client-route-fallback'], astroOk: false, reactOk: true },
       {
-        features: ['starter:full', 'not-found', 'client-route-fallback'],
+        starter: 'full',
+        features: ['not-found', 'client-route-fallback'],
         astroOk: false,
         reactOk: false,
       },
@@ -452,11 +459,13 @@ describe('what the feature contributes, and what it refuses to', () => {
   });
 
   it('changes nothing in the generated package manifest', () => {
-    expect(fileAt('package.json')).toBe(fileAt('package.json', { features: ['starter:full'] }));
+    expect(fileAt('package.json')).toBe(fileAt('package.json', { starter: 'full', features: [] }));
   });
 
   it('changes nothing in the build configuration', () => {
-    expect(fileAt('vite.config.ts')).toBe(fileAt('vite.config.ts', { features: ['starter:full'] }));
+    expect(fileAt('vite.config.ts')).toBe(
+      fileAt('vite.config.ts', { starter: 'full', features: [] }),
+    );
   });
 
   it('contributes exactly one route, and only to the router', () => {
@@ -487,12 +496,12 @@ describe('what the feature contributes, and what it refuses to', () => {
   });
 
   it('contributes nothing at all when it is not selected', () => {
-    const owners = contributionsOf({ features: ['starter:full'] }).map(
+    const owners = contributionsOf({ starter: 'full', features: [] }).map(
       (contribution) => contribution.owner,
     );
     expect(owners).not.toContain('feature:client-route-fallback');
     expect(
-      planFor({ features: ['starter:full'] }).plan.operations.map((o) => o.path),
+      planFor({ starter: 'full', features: [] }).plan.operations.map((o) => o.path),
     ).not.toContain('src/pages/NotFoundPage.tsx');
   });
 });
@@ -518,7 +527,7 @@ describe('the guarantee is load-bearing', () => {
 
   it('requires no such role when the feature is absent', () => {
     expect(
-      resolveWithAdapters(react({ features: ['starter:full'] }), TEMPLATES_ROOT).project
+      resolveWithAdapters(react({ starter: 'full', features: [] }), TEMPLATES_ROOT).project
         .requiredRoles,
     ).not.toContain('page.notFound');
   });
@@ -554,7 +563,7 @@ describe('the route table composes rather than being edited', () => {
     // Matched against the JSX rather than the whole file: the routerless
     // version documents what a catch-all would buy, and that prose quotes
     // `path="*"` while emitting no such route.
-    const source = fileAt('src/routes/AppRouter.tsx', { features: ['starter:full'] });
+    const source = fileAt('src/routes/AppRouter.tsx', { starter: 'full', features: [] });
     expect(source).not.toContain('<Route path="*"');
     expect(source).not.toContain('NotFoundPage');
   });
@@ -686,9 +695,12 @@ describe('nothing generated claims an HTTP 404', () => {
     // Without the feature the router explains what a catch-all would and would
     // not buy; with it, the same caveat about the same catch-all. A reader must
     // not have to select the feature to learn the limitation.
-    for (const features of [['starter:full'], ['starter:full', 'client-route-fallback']]) {
-      const source = fileAt('src/routes/AppRouter.tsx', { features: features as FeatureId[] });
-      expect(source, features.join('+')).toMatch(/not a 404/);
+    for (const features of [[], ['client-route-fallback']]) {
+      const source = fileAt('src/routes/AppRouter.tsx', {
+        starter: 'full',
+        features: features as FeatureId[],
+      });
+      expect(source, features.join('+') || 'no features').toMatch(/not a 404/);
     }
   });
 
@@ -838,7 +850,7 @@ describe('the rest of the project is untouched', () => {
       ),
     );
     const without = new Map(
-      planFor({ features: ['starter:full'] }).plan.operations.flatMap((operation) =>
+      planFor({ starter: 'full', features: [] }).plan.operations.flatMap((operation) =>
         operation.type === 'write' ? [[operation.path, operation.content] as const] : [],
       ),
     );
@@ -875,7 +887,7 @@ describe('the rest of the project is untouched', () => {
         }).plan,
         TEMPLATES_ROOT,
       );
-    expect(plan(['starter:full'])).toBe(plan(['starter:full']));
+    expect(plan([])).toBe(plan([]));
   });
 
   it('the same manifest produces the same plan twice', () => {
@@ -935,7 +947,10 @@ describe('golden: React + Vite + React Router + client-route-fallback', () => {
   it('each differs from the same stack without the feature', () => {
     for (const scenario of scenarios) {
       expect(renderPlan(planFor(scenario.over).plan, TEMPLATES_ROOT)).not.toBe(
-        renderPlan(planFor({ ...scenario.over, features: ['starter:full'] }).plan, TEMPLATES_ROOT),
+        renderPlan(
+          planFor({ ...scenario.over, starter: 'full', features: [] }).plan,
+          TEMPLATES_ROOT,
+        ),
       );
     }
   });
@@ -954,7 +969,7 @@ describe('selection', () => {
 
   it('de-duplicates a feature asked for twice', () => {
     const twice = selectAdapters(
-      react({ features: ['starter:full', 'client-route-fallback', 'client-route-fallback'] }),
+      react({ starter: 'full', features: ['client-route-fallback', 'client-route-fallback'] }),
       adapters,
     ).adapters.filter((entry) => entry.ref === 'feature:client-route-fallback');
     expect(twice).toHaveLength(1);
@@ -963,7 +978,7 @@ describe('selection', () => {
   it('produces the same plan whether the feature is listed once or twice', () => {
     expect(
       renderPlan(
-        planFor({ features: ['starter:full', 'client-route-fallback', 'client-route-fallback'] })
+        planFor({ starter: 'full', features: ['client-route-fallback', 'client-route-fallback'] })
           .plan,
         TEMPLATES_ROOT,
       ),

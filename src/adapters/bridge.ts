@@ -711,20 +711,18 @@ export function planManifest(
      * project generated with three features shipped a `.client-site.json`
      * saying it had none.
      *
-     * Starters are excluded rather than merged in. One is already recorded as
-     * `mode` two lines above, and naming the same choice twice under two keys
-     * would make the provenance file describe one decision as two. It is also
-     * what keeps `"features": []` in the V1 goldens, whose manifests carry
-     * exactly one starter and nothing else.
+     * The starter is not merged in. It is already recorded as `mode` two lines
+     * above, and naming one decision twice under two keys would make the
+     * provenance file describe it as two. Until Stage 21 that took a filter
+     * here, because the starter travelled inside this very list; it now has a
+     * field of its own and simply is not in it.
      *
      * De-duplicated and sorted, exactly as `selectAdapters` does. Not cosmetic:
      * without it, asking for one feature twice, or in the other order, produced
      * a different generated file - and two tests that had held since Stage 8
      * caught precisely that.
      */
-    features: [
-      ...new Set(manifest.features.filter((feature) => !feature.startsWith('starter:'))),
-    ].sort(),
+    features: [...new Set(manifest.features)].sort(),
     packageManager: manifest.packageManager,
     git: manifest.git,
     install: manifest.install,

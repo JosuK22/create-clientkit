@@ -1,7 +1,8 @@
 == MANIFEST ==
 site.name   Acme Ltd
 site.url    https://acme.example
-features    starter:coming-soon, structured-data
+starter     coming-soon
+features    structured-data
 
 == SELECTED ADAPTERS ==
 framework:astro              framework

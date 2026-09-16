@@ -40,7 +40,8 @@ const manifest = (styling: StylingId, over: Partial<ProjectManifest> = {}): Proj
   uiLibrary: 'none',
   router: 'none',
   architecture: 'react-standard',
-  features: ['starter:coming-soon'],
+  starter: 'coming-soon',
+  features: [],
   site: {
     name: 'Acme Ltd',
     url: 'https://acme.example',
@@ -59,7 +60,7 @@ const planFor = (styling: StylingId, over: Partial<ProjectManifest> = {}) =>
     registry: v1Registry,
     cliVersion: '9.9.9',
     generatedAt: '2026-01-01T00:00:00.000Z',
-    mode: over.features?.includes('starter:full') === true ? 'full' : 'coming-soon',
+    mode: over.starter ?? 'coming-soon',
   });
 
 // ---------------------------------------------------------------------------
@@ -184,6 +185,7 @@ describe('compatibility', () => {
         framework: 'astro',
         buildTool: 'astro',
         architecture: 'astro-standard',
+        starter: 'coming-soon',
       },
       adapters,
     );
@@ -201,6 +203,7 @@ describe('compatibility', () => {
         framework: 'astro',
         buildTool: 'astro',
         architecture: 'astro-standard',
+        starter: 'coming-soon',
       },
       adapters,
     );
@@ -397,6 +400,7 @@ describe('the composed stylesheet', () => {
         framework: 'astro',
         buildTool: 'astro',
         architecture: 'astro-standard',
+        starter: 'coming-soon',
       },
       adapters,
     );
@@ -410,7 +414,7 @@ describe('golden: React + Vite + TypeScript + Bootstrap', () => {
     {
       name: 'Full + URL',
       file: './golden/react-bootstrap-full-url.txt',
-      over: { features: ['starter:full'] as ProjectManifest['features'] },
+      over: { starter: 'full' } as Partial<ProjectManifest>,
     },
     {
       name: 'URL-less',
@@ -532,6 +536,7 @@ describe('an architecture that cannot do without a role says so', () => {
         framework: 'astro',
         buildTool: 'vite',
         architecture: astro.architectureDefinitions[0]!.id,
+        starter: 'coming-soon',
       },
       adapters,
     ).project;

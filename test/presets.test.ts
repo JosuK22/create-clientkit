@@ -229,6 +229,7 @@ describe('every shipped preset resolves to a buildable project', () => {
       uiLibrary: 'none',
       router: 'file-based',
       architecture: 'astro-standard',
+      starter: 'coming-soon',
     },
     'react-tailwind': {
       framework: 'react',
@@ -238,6 +239,7 @@ describe('every shipped preset resolves to a buildable project', () => {
       uiLibrary: 'none',
       router: 'none',
       architecture: 'react-standard',
+      starter: 'coming-soon',
     },
     'react-bootstrap': { framework: 'react', styling: 'bootstrap', uiLibrary: 'none' },
     'react-mui': { framework: 'react', styling: 'tailwind', uiLibrary: 'mui' },
@@ -344,7 +346,7 @@ describe('a preset supplies defaults and never overrides', () => {
       '--features',
       'client-route-fallback',
     ]);
-    expect(manifest.features).toEqual(['starter:coming-soon', 'client-route-fallback']);
+    expect(manifest.features).toEqual(['client-route-fallback']);
   });
 
   /*
@@ -387,7 +389,7 @@ describe('a preset supplies defaults and never overrides', () => {
 
   it('a preset can state features, and they reach the manifest', async () => {
     const { manifest } = await usingFeaturePreset(['--preset', 'opinionated']);
-    expect(manifest.features).toEqual(['starter:coming-soon', 'accessibility', 'seo']);
+    expect(manifest.features).toEqual(['accessibility', 'seo']);
   });
 
   it('an explicit feature flag replaces the preset list rather than merging', async () => {
@@ -399,7 +401,7 @@ describe('a preset supplies defaults and never overrides', () => {
       '--features',
       'structured-data',
     ]);
-    expect(manifest.features).toEqual(['starter:coming-soon', 'structured-data']);
+    expect(manifest.features).toEqual(['structured-data']);
     expect(manifest.features).not.toContain('seo');
   });
 
@@ -407,7 +409,7 @@ describe('a preset supplies defaults and never overrides', () => {
     const { manifest } = await usingFeaturePreset([], {
       stack: { preset: 'opinionated', features: ['structured-data'] },
     });
-    expect(manifest.features).toEqual(['starter:coming-soon', 'structured-data']);
+    expect(manifest.features).toEqual(['structured-data']);
   });
 
   it('a config value beats the preset', async () => {
@@ -800,12 +802,7 @@ describe('determinism', () => {
       fs: emptyFs,
       presets: withFeatures,
     });
-    expect(manifest.features).toEqual([
-      'starter:coming-soon',
-      'accessibility',
-      'seo',
-      'structured-data',
-    ]);
+    expect(manifest.features).toEqual(['accessibility', 'seo', 'structured-data']);
   });
 });
 

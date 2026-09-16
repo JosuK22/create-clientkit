@@ -1,7 +1,8 @@
 == MANIFEST ==
 site.name   Acme Ltd
 site.url    (none)
-features    seo, starter:coming-soon
+starter     coming-soon
+features    seo
 
 == SELECTED ADAPTERS ==
 framework:astro          framework

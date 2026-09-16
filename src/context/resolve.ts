@@ -407,10 +407,11 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
      */
     presets: namedPreset === undefined ? presets : undefined,
     /*
-     * A provisional starter, and provably inconsequential: `selectAdapters`
-     * skips every `starter:*` feature, so no candidate manifest's compatibility
-     * can turn on it. Passed rather than plumbed backwards because the real
-     * answer is not known until the question below.
+     * A provisional starter, and provably inconsequential: compatibility is
+     * decided from capabilities the stack dimensions declare, and the starter
+     * is not one of them - no candidate manifest's compatibility can turn on
+     * it. Passed rather than plumbed backwards because the real answer is not
+     * known until the question below.
      */
     mode: explicit.mode ?? DEFAULTS.mode,
   });

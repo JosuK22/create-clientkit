@@ -83,16 +83,12 @@ export function explainStack(
   return DIMENSIONS.map(({ key, label }) => {
     const raw = manifest[key];
     /*
-     * The starter is filtered out of the feature list, not hidden.
-     *
-     * `starter:coming-soon` is in `manifest.features` because that is how the
-     * pipeline carries `--mode`, and the summary already prints the mode on its
-     * own line. Showing it twice under two names would describe one choice as
-     * two - the same reasoning that keeps it out of the provenance file.
+     * The starter is not here, and does not need excluding any more: it is a
+     * field of its own, and the summary prints it on the `Mode` line as it
+     * always has. Before Stage 21 this list contained it and had to filter it
+     * back out, which described one choice under two names.
      */
-    const value = Array.isArray(raw)
-      ? raw.filter((entry) => !String(entry).startsWith('starter:')).join(', ') || NO_FEATURES
-      : String(raw);
+    const value = Array.isArray(raw) ? raw.join(', ') || NO_FEATURES : String(raw);
 
     return { dimension: key, label, value, source: sources[key] };
   });

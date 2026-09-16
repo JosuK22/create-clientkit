@@ -72,8 +72,12 @@ export type ArchitectureId = (typeof ARCHITECTURE_IDS)[number];
  * how it is implemented is not, which is why the implementation belongs to the
  * framework adapter rather than to the feature.
  *
- * `starter:*` is where V1's `mode` lands. It was never a core concept - it was
- * an Astro template detail that reached `src/types.ts` and stayed there.
+ * A starter is not in this list, and its absence is Stage 21's correction.
+ * `starter:coming-soon` and `starter:full` lived here from Stage 1, which made
+ * "what does this project start out being?" a member of "what else should it be
+ * able to do?". Seven places then had to filter the answer back out. A starter
+ * is its own dimension now - see `domain/starter.ts` - and `--mode` is still
+ * how it is chosen.
  */
 export const FEATURE_IDS = [
   'accessibility',
@@ -87,7 +91,5 @@ export const FEATURE_IDS = [
   'sitemap',
   'structured-data',
   'social-metadata',
-  'starter:coming-soon',
-  'starter:full',
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];

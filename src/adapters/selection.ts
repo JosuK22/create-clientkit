@@ -115,12 +115,11 @@ export function selectAdapters(manifest: ProjectManifest, registry: AdapterRegis
     adapters.push({ ref: adapterRef(router.declaration), adapter: router });
   }
 
-  // Features are a list rather than a single choice, and `starter:*` is not an
-  // adapter at all - it picks a template layer. De-duplicated, because asking
-  // for the same feature twice is one request, not two, and letting it through
-  // would contribute everything twice.
+  // Features are a list rather than a single choice. De-duplicated, because
+  // asking for the same feature twice is one request, not two, and letting it
+  // through would contribute everything twice. The starter used to need
+  // skipping here; it is its own field now and never reaches this loop.
   for (const feature of [...new Set(manifest.features)].sort()) {
-    if (feature.startsWith('starter:')) continue;
     const adapter = registry.feature(feature);
     adapters.push({ ref: adapterRef(adapter.declaration), adapter });
   }

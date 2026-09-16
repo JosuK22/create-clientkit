@@ -32,6 +32,7 @@ import type {
   ProjectManifest,
 } from '../src/domain/index.js';
 import { evaluateCombination } from '../src/domain/index.js';
+import type { StarterId } from '../src/domain/starter.js';
 import { validateLocale } from '../src/context/validate.js';
 import { CliError } from '../src/errors.js';
 import type { FileOperation } from '../src/generate/files.js';
@@ -64,7 +65,11 @@ const SITE: SiteContext = {
   author: null,
 };
 
-const astro = (features: readonly FeatureId[], site: SiteContext = SITE): ProjectManifest => ({
+const astro = (
+  features: readonly FeatureId[],
+  site: SiteContext = SITE,
+  starter: StarterId = 'coming-soon',
+): ProjectManifest => ({
   targetDir: path.join(TEST_CWD, 'acme-site'),
   projectName: 'acme-site',
   framework: 'astro',
@@ -74,6 +79,7 @@ const astro = (features: readonly FeatureId[], site: SiteContext = SITE): Projec
   uiLibrary: 'none',
   router: 'file-based',
   architecture: 'astro-standard',
+  starter,
   features,
   site,
   packageManager: 'npm',
@@ -86,14 +92,19 @@ const react = (features: readonly FeatureId[]): ProjectManifest => ({
   framework: 'react' as FrameworkId,
   router: 'none',
   architecture: 'react-standard',
+  starter: 'coming-soon',
 });
 
-const planAstro = (features: readonly FeatureId[], site: SiteContext = SITE) =>
-  planManifest(astro(features, site), {
+const planAstro = (
+  features: readonly FeatureId[],
+  site: SiteContext = SITE,
+  starter: StarterId = 'coming-soon',
+) =>
+  planManifest(astro(features, site, starter), {
     registry: v1Registry,
     cliVersion: '9.9.9',
     generatedAt: '2026-01-01T00:00:00.000Z',
-    mode: 'coming-soon',
+    mode: starter,
     templateId: 'astro-tailwind',
   });
 
@@ -128,10 +139,9 @@ describe('accessibility is a feature', () => {
   });
 
   it('is selectable on its own', () => {
-    const refs = selectAdapters(
-      astro(['starter:coming-soon', 'accessibility']),
-      adapters,
-    ).adapters.map((entry) => entry.ref);
+    const refs = selectAdapters(astro(['accessibility']), adapters).adapters.map(
+      (entry) => entry.ref,
+    );
     expect(refs).toContain('feature:accessibility');
     expect(refs).not.toContain('feature:seo');
     expect(refs).not.toContain('feature:structured-data');
@@ -139,7 +149,7 @@ describe('accessibility is a feature', () => {
 
   it('is selectable alongside every other feature', () => {
     const refs = selectAdapters(
-      astro(['starter:full', 'accessibility', 'seo', 'structured-data', 'not-found']),
+      astro(['accessibility', 'seo', 'structured-data', 'not-found'], SITE, 'full'),
       adapters,
     ).adapters.map((entry) => entry.ref);
     for (const ref of [
@@ -258,23 +268,19 @@ describe('it requires a capability and names nothing', () => {
 
 describe('compatibility is decided by capability', () => {
   it('Astro + Tailwind + accessibility is compatible', () => {
-    expect(
-      checkCompatibility(astro(['starter:coming-soon', 'accessibility']), adapters).compatible,
-    ).toBe(true);
+    expect(checkCompatibility(astro(['accessibility']), adapters).compatible).toBe(true);
   });
 
   it('React + Vite + Tailwind + accessibility is refused', () => {
     // The React shell is assembled after hydration, so nothing in the response
     // carries the language, landmarks or heading the contract guarantees.
-    expect(
-      checkCompatibility(react(['starter:coming-soon', 'accessibility']), adapters).compatible,
-    ).toBe(false);
+    expect(checkCompatibility(react(['accessibility']), adapters).compatible).toBe(false);
   });
 
   it('the refusal names the missing capability and the reason', () => {
     let error: CliError | undefined;
     try {
-      resolveProject(react(['starter:coming-soon', 'accessibility']), adapters);
+      resolveProject(react(['accessibility']), adapters);
     } catch (thrown) {
       error = thrown as CliError;
     }
@@ -345,9 +351,7 @@ describe('compatibility is decided by capability', () => {
     }
     let refs: readonly string[];
     try {
-      refs = selectAdapters(astro(['starter:coming-soon', 'sitemap']), adapters).adapters.map(
-        (entry) => entry.ref,
-      );
+      refs = selectAdapters(astro(['sitemap']), adapters).adapters.map((entry) => entry.ref);
     } catch {
       refs = [];
     }
@@ -459,15 +463,13 @@ describe('no accessibility semantics are fabricated', () => {
   it('refuses to generate when the language tag is malformed', () => {
     // Substituting a plausible default would put a language on the document
     // that nobody chose, and assistive technology would announce it as fact.
-    expect(() =>
-      planAstro(['starter:coming-soon', 'accessibility'], { ...SITE, locale: 'Nope' }),
-    ).toThrow(CliError);
+    expect(() => planAstro(['accessibility'], { ...SITE, locale: 'Nope' })).toThrow(CliError);
   });
 
   it('the refusal says it will not guess', () => {
     let hint = '';
     try {
-      planAstro(['starter:coming-soon', 'accessibility'], { ...SITE, locale: 'Nope' });
+      planAstro(['accessibility'], { ...SITE, locale: 'Nope' });
     } catch (error) {
       hint = (error as CliError).hint ?? '';
     }
@@ -495,9 +497,7 @@ describe('no accessibility semantics are fabricated', () => {
   });
 
   it('refuses to generate when the language is missing entirely', () => {
-    expect(() =>
-      planAstro(['starter:coming-soon', 'accessibility'], { ...SITE, locale: '' }),
-    ).toThrow(CliError);
+    expect(() => planAstro(['accessibility'], { ...SITE, locale: '' })).toThrow(CliError);
   });
 
   it('invents no accessible names, labels or descriptions', () => {
@@ -523,10 +523,9 @@ describe('no accessibility semantics are fabricated', () => {
 
 describe('contributions', () => {
   const contribution = () =>
-    resolveWithAdapters(
-      astro(['starter:coming-soon', 'accessibility']),
-      TEMPLATES_ROOT,
-    ).contributions.find((entry) => entry.owner === 'feature:accessibility');
+    resolveWithAdapters(astro(['accessibility']), TEMPLATES_ROOT).contributions.find(
+      (entry) => entry.owner === 'feature:accessibility',
+    );
 
   it('adds no dependency, script, file or template layer', () => {
     expect(contribution()?.dependencies).toEqual([]);
@@ -536,21 +535,19 @@ describe('contributions', () => {
   });
 
   it('changes nothing in the generated package manifest', () => {
-    const withFeature = planAstro(['starter:coming-soon', 'accessibility']).plan.operations.find(
+    const withFeature = planAstro(['accessibility']).plan.operations.find(
       (entry) => entry.path === 'package.json',
     );
-    const without = planAstro(['starter:coming-soon']).plan.operations.find(
-      (entry) => entry.path === 'package.json',
-    );
+    const without = planAstro([]).plan.operations.find((entry) => entry.path === 'package.json');
     expect(withFeature?.type === 'write' ? withFeature.content : '').toBe(
       without?.type === 'write' ? without.content : 'x',
     );
   });
 
   it('generates no extra file at all', () => {
-    expect(
-      planAstro(['starter:coming-soon', 'accessibility']).plan.operations.map((e) => e.path),
-    ).toEqual(planAstro(['starter:coming-soon']).plan.operations.map((e) => e.path));
+    expect(planAstro(['accessibility']).plan.operations.map((e) => e.path)).toEqual(
+      planAstro([]).plan.operations.map((e) => e.path),
+    );
   });
 
   it('describes its own slot on the shared shell role', () => {
@@ -562,7 +559,7 @@ describe('contributions', () => {
 
   it('uses a slot no other feature uses', () => {
     const all = resolveWithAdapters(
-      astro(['starter:full', 'accessibility', 'seo', 'structured-data']),
+      astro(['accessibility', 'seo', 'structured-data'], SITE, 'full'),
       TEMPLATES_ROOT,
     ).contributions.flatMap((entry) => entry.config);
     const slots = all.filter((entry) => entry.target === 'app.layout').map((entry) => entry.at);
@@ -571,17 +568,17 @@ describe('contributions', () => {
   });
 
   it('requests the shell as a required role', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'accessibility']), adapters);
+    const { project } = resolveProject(astro(['accessibility']), adapters);
     expect(project.requiredRoles).toContain('app.layout');
   });
 
   it('requires nothing extra when the feature is not selected', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon']), adapters);
+    const { project } = resolveProject(astro([]), adapters);
     expect(project.requiredRoles).not.toContain('app.layout');
   });
 
   it('leaves the shell owned by the framework template', () => {
-    const layout = planAstro(['starter:coming-soon', 'accessibility']).plan.operations.find(
+    const layout = planAstro(['accessibility']).plan.operations.find(
       (entry) => entry.path === 'src/layouts/BaseLayout.astro',
     );
     expect(layout?.origin).toBe('base');
@@ -597,7 +594,7 @@ describe('the required role is load-bearing', () => {
     paths.map((entry) => ({ type: 'write', path: entry, content: '', origin: 'test' }));
 
   it('passes when the shell exists', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'accessibility']), adapters);
+    const { project } = resolveProject(astro(['accessibility']), adapters);
     // The home page is in this list because the starter guarantees `page.home`,
     // not because accessibility asks for it. A plan without one is not a
     // project, so the minimal plan this feature runs against has to contain it.
@@ -610,7 +607,7 @@ describe('the required role is load-bearing', () => {
   });
 
   it('fails before writing when nothing produces it', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'accessibility']), adapters);
+    const { project } = resolveProject(astro(['accessibility']), adapters);
     expect(() => assertRequiredRoles(project, operationsFor([]))).toThrow(/app\.layout/);
   });
 });
@@ -678,7 +675,7 @@ describe('claims are composed, not overwritten', () => {
   });
 
   it('the plan carries the claim with its owner and reason', () => {
-    const { accessibility } = planAstro(['starter:coming-soon', 'accessibility']);
+    const { accessibility } = planAstro(['accessibility']);
     expect(accessibility).toHaveLength(1);
     expect(accessibility[0]?.owner).toBe('feature:accessibility');
     expect(accessibility[0]?.reason.length).toBeGreaterThan(0);
@@ -686,17 +683,15 @@ describe('claims are composed, not overwritten', () => {
   });
 
   it('carries no claim when the feature is not selected', () => {
-    expect(planAstro(['starter:coming-soon']).accessibility).toEqual([]);
+    expect(planAstro([]).accessibility).toEqual([]);
   });
 
   it('carries all four claims independently when every feature is selected', () => {
-    const { metadata, structuredData, accessibility } = planAstro([
-      'starter:full',
-      'accessibility',
-      'seo',
-      'structured-data',
-      'not-found',
-    ]);
+    const { metadata, structuredData, accessibility } = planAstro(
+      ['accessibility', 'seo', 'structured-data', 'not-found'],
+      SITE,
+      'full',
+    );
     expect(metadata).toHaveLength(1);
     expect(structuredData).toHaveLength(1);
     expect(accessibility).toHaveLength(1);
@@ -742,7 +737,7 @@ describe('the adapter stays inside the contract', () => {
   });
 
   it('is a pure function of its inputs', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'accessibility']), adapters);
+    const { project } = resolveProject(astro(['accessibility']), adapters);
     const adapter = adapters.feature('accessibility');
     expect(JSON.stringify(adapter.contribute(project))).toBe(
       JSON.stringify(adapter.contribute(project)),
@@ -756,14 +751,14 @@ describe('the adapter stays inside the contract', () => {
 
 describe('determinism', () => {
   it('the same manifest produces the same plan twice', () => {
-    expect(
-      renderPlan(planAstro(['starter:coming-soon', 'accessibility']).plan, TEMPLATES_ROOT),
-    ).toBe(renderPlan(planAstro(['starter:coming-soon', 'accessibility']).plan, TEMPLATES_ROOT));
+    expect(renderPlan(planAstro(['accessibility']).plan, TEMPLATES_ROOT)).toBe(
+      renderPlan(planAstro(['accessibility']).plan, TEMPLATES_ROOT),
+    );
   });
 
   it('feature order does not affect the result', () => {
-    const forwards = planAstro(['starter:full', 'seo', 'accessibility', 'structured-data']);
-    const backwards = planAstro(['structured-data', 'accessibility', 'seo', 'starter:full']);
+    const forwards = planAstro(['seo', 'accessibility', 'structured-data'], SITE, 'full');
+    const backwards = planAstro(['structured-data', 'accessibility', 'seo'], SITE, 'full');
     expect(renderPlan(forwards.plan, TEMPLATES_ROOT)).toBe(
       renderPlan(backwards.plan, TEMPLATES_ROOT),
     );
@@ -771,7 +766,7 @@ describe('determinism', () => {
   });
 
   it('no generated content carries a machine value or an unresolved token', () => {
-    for (const operation of planAstro(['starter:coming-soon', 'accessibility']).plan.operations) {
+    for (const operation of planAstro(['accessibility']).plan.operations) {
       if (operation.type !== 'write') continue;
       expect(operation.content).not.toContain(TEST_CWD);
       expect(operation.content).not.toContain('\r\n');
@@ -879,15 +874,20 @@ describe('the guarantees hold in the HTML Astro really emitted', () => {
 // Golden
 // ---------------------------------------------------------------------------
 
-const renderComposition = (features: readonly FeatureId[], site: SiteContext): string => {
-  const { project, selection } = resolveProject(astro(features, site), adapters);
-  const result = planAstro(features, site);
+const renderComposition = (
+  features: readonly FeatureId[],
+  site: SiteContext,
+  starter: StarterId = 'coming-soon',
+): string => {
+  const { project, selection } = resolveProject(astro(features, site, starter), adapters);
+  const result = planAstro(features, site, starter);
 
   const lines: string[] = [];
   lines.push('== MANIFEST ==');
   lines.push(`site.name    ${site.name}`);
   lines.push(`site.locale  ${site.locale}`);
-  lines.push(`features     ${[...project.selection.features].sort().join(', ')}`);
+  lines.push(`starter      ${project.manifest.starter}`);
+  lines.push(`features     ${[...project.selection.features].sort().join(', ') || '(none)'}`);
   lines.push('');
   lines.push('== SELECTED ADAPTERS ==');
   for (const entry of selection.adapters) {
@@ -926,33 +926,31 @@ const renderComposition = (features: readonly FeatureId[], site: SiteContext): s
 
 describe('golden: Astro + Tailwind + accessibility', () => {
   it('golden: accessibility alone', async () => {
-    await expect(
-      renderComposition(['starter:coming-soon', 'accessibility'], SITE),
-    ).toMatchFileSnapshot('./golden/astro-accessibility.txt');
+    await expect(renderComposition(['accessibility'], SITE)).toMatchFileSnapshot(
+      './golden/astro-accessibility.txt',
+    );
   });
 
   it('golden: every feature together', async () => {
     await expect(
-      renderComposition(
-        ['starter:full', 'accessibility', 'seo', 'structured-data', 'not-found'],
-        SITE,
-      ),
+      renderComposition(['accessibility', 'seo', 'structured-data', 'not-found'], SITE, 'full'),
     ).toMatchFileSnapshot('./golden/astro-all-features.txt');
   });
 
   it('golden: no accessibility feature selected', async () => {
-    await expect(renderComposition(['starter:coming-soon'], SITE)).toMatchFileSnapshot(
+    await expect(renderComposition([], SITE)).toMatchFileSnapshot(
       './golden/astro-accessibility-absent.txt',
     );
   });
 
   it('the three are genuinely different snapshots', () => {
-    const a = renderComposition(['starter:coming-soon', 'accessibility'], SITE);
+    const a = renderComposition(['accessibility'], SITE);
     const b = renderComposition(
-      ['starter:full', 'accessibility', 'seo', 'structured-data', 'not-found'],
+      ['accessibility', 'seo', 'structured-data', 'not-found'],
       SITE,
+      'full',
     );
-    const c = renderComposition(['starter:coming-soon'], SITE);
+    const c = renderComposition([], SITE);
     expect(new Set([a, b, c]).size).toBe(3);
   });
 });

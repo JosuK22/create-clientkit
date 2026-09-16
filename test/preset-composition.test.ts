@@ -367,16 +367,12 @@ describe('features follow the same rules as every other dimension', () => {
   };
 
   it('a chosen preset can seed features', async () => {
-    expect((await pick([])).manifest.features).toEqual([
-      'starter:coming-soon',
-      'accessibility',
-      'seo',
-    ]);
+    expect((await pick([])).manifest.features).toEqual(['accessibility', 'seo']);
   });
 
   it('an explicit feature flag settles the dimension, so the preset does not seed it', async () => {
     const { manifest } = await pick(['--features', 'structured-data']);
-    expect(manifest.features).toEqual(['starter:coming-soon', 'structured-data']);
+    expect(manifest.features).toEqual(['structured-data']);
     expect(manifest.features).not.toContain('seo');
   });
 

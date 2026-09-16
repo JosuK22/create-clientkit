@@ -2,7 +2,8 @@
 framework   astro
 styling     tailwind
 uiLibrary   none
-features    not-found, starter:coming-soon
+starter     coming-soon
+features    not-found
 
 == SELECTED ADAPTERS ==
 framework:astro          framework

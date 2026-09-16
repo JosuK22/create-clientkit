@@ -46,7 +46,8 @@ const reactManifest = (over: Partial<ProjectManifest> = {}): ProjectManifest => 
   uiLibrary: 'none',
   router: 'none',
   architecture: 'react-standard',
-  features: ['starter:coming-soon'],
+  starter: 'coming-soon',
+  features: [],
   site: {
     name: 'Acme Ltd',
     url: 'https://acme.example',
@@ -65,7 +66,7 @@ const planReact = (over: Partial<ProjectManifest> = {}) =>
     registry: v1Registry,
     cliVersion: '9.9.9',
     generatedAt: '2026-01-01T00:00:00.000Z',
-    mode: over.features?.includes('starter:full') === true ? 'full' : 'coming-soon',
+    mode: over.starter ?? 'coming-soon',
   });
 
 const templatePackage = JSON.parse(
@@ -195,6 +196,7 @@ describe('React selection and resolution', () => {
         framework: 'astro',
         buildTool: 'astro',
         architecture: 'astro-standard',
+        starter: 'coming-soon',
       },
       adapters,
     );
@@ -443,7 +445,7 @@ describe('React contributions', () => {
         .map((l) => l.name),
     ).toEqual(['base', 'modes/coming-soon']);
     expect(
-      contributionsOf({ features: ['starter:full'] })
+      contributionsOf({ starter: 'full', features: [] })
         .flatMap((c) => c.templateLayers)
         .map((l) => l.name),
     ).toEqual(['base', 'modes/full']);
@@ -485,7 +487,7 @@ describe('golden: React + Vite + TypeScript + Tailwind', () => {
     {
       name: 'Full + URL',
       file: './golden/react-full-url.txt',
-      over: { features: ['starter:full'] as ProjectManifest['features'] },
+      over: { starter: 'full' } as Partial<ProjectManifest>,
     },
     {
       name: 'URL-less',

@@ -139,13 +139,13 @@ describe('Astro adapter contribution', () => {
     expect(layers[0]!.order).toBeLessThan(layers[1]!.order);
   });
 
-  it('selects the other starter from the feature, not from a mode field', () => {
-    // Stage 20 replaced the shared helper with a starter contract. The
-    // mapping it performed is unchanged and asserted here through its
-    // successor; the contract's own suite covers what the helper could not say.
-    expect(selectStarter(['starter:full']).layer).toBe('full');
-    expect(selectStarter(['starter:coming-soon']).layer).toBe('coming-soon');
-    expect(selectStarter([]).layer).toBe('coming-soon'); // V1's default
+  it('selects the starter named by the manifest, and nothing else', () => {
+    // Stage 20 replaced the shared helper with a starter contract; Stage 21
+    // gave the manifest a `starter` field so the selection is a lookup rather
+    // than a search through the feature list. The contract's own suite covers
+    // what neither could say before.
+    expect(selectStarter('full').id).toBe('full');
+    expect(selectStarter('coming-soon').id).toBe('coming-soon');
     expect(contributionsOf('full').flatMap((c) => c.templateLayers)[1]!.name).toBe('modes/full');
   });
 

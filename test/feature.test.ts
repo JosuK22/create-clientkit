@@ -18,7 +18,7 @@ import type {
   FrameworkId,
   ProjectManifest,
 } from '../src/domain/index.js';
-import { evaluateCombination } from '../src/domain/index.js';
+import { evaluateCombination, FEATURE_IDS } from '../src/domain/index.js';
 import { CliError } from '../src/errors.js';
 import type { FileOperation } from '../src/generate/files.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
@@ -51,6 +51,7 @@ const astro = (features: readonly FeatureId[]): ProjectManifest => ({
   uiLibrary: 'none',
   router: 'file-based',
   architecture: 'astro-standard',
+  starter: 'coming-soon',
   features,
   site: {
     name: 'Acme Ltd',
@@ -70,6 +71,7 @@ const react = (features: readonly FeatureId[]): ProjectManifest => ({
   buildTool: 'vite',
   router: 'none',
   architecture: 'react-standard',
+  starter: 'coming-soon',
 });
 
 const planAstro = (features: readonly FeatureId[]) =>
@@ -203,9 +205,7 @@ describe('the feature requires a capability and names nothing', () => {
 
 describe('compatibility is decided by capability', () => {
   it('Astro + Tailwind + not-found is compatible', () => {
-    expect(
-      checkCompatibility(astro(['starter:coming-soon', 'not-found']), adapters).compatible,
-    ).toBe(true);
+    expect(checkCompatibility(astro(['not-found']), adapters).compatible).toBe(true);
   });
 
   it('React + Vite + Tailwind + not-found is refused', () => {
@@ -213,14 +213,14 @@ describe('compatibility is decided by capability', () => {
     // reaches the application - a generated 404 component would be a file that
     // looks like a feature and is dead code. The boundary holds until a router
     // adapter exists; adding one is not this stage's job.
-    const report = checkCompatibility(react(['starter:coming-soon', 'not-found']), adapters);
+    const report = checkCompatibility(react(['not-found']), adapters);
     expect(report.compatible).toBe(false);
   });
 
   it('the refusal names the missing capability, not just the framework', () => {
     let error: CliError | undefined;
     try {
-      resolveProject(react(['starter:coming-soon', 'not-found']), adapters);
+      resolveProject(react(['not-found']), adapters);
     } catch (thrown) {
       error = thrown as CliError;
     }
@@ -295,47 +295,49 @@ describe('compatibility is decided by capability', () => {
 describe('selection', () => {
   it('selects the feature alongside the other dimensions', () => {
     expect(
-      selectAdapters(astro(['starter:coming-soon', 'not-found']), adapters).adapters.map(
-        (entry) => entry.ref,
-      ),
+      selectAdapters(astro(['not-found']), adapters).adapters.map((entry) => entry.ref),
     ).toEqual(['framework:astro', 'styling:tailwind', 'feature:not-found']);
   });
 
   it('selects no feature adapter when none is asked for', () => {
-    expect(
-      selectAdapters(astro(['starter:coming-soon']), adapters).adapters.map((entry) => entry.ref),
-    ).toEqual(['framework:astro', 'styling:tailwind']);
+    expect(selectAdapters(astro([]), adapters).adapters.map((entry) => entry.ref)).toEqual([
+      'framework:astro',
+      'styling:tailwind',
+    ]);
   });
 
   it('treats a starter as a template layer, not an adapter', () => {
-    // `starter:*` is where V1's `mode` landed. Asking the registry for it would
-    // report a missing adapter for something that was never one.
-    const refs = selectAdapters(astro(['starter:full']), adapters).adapters.map(
-      (entry) => entry.ref,
-    );
-    expect(refs.some((ref) => ref.startsWith('feature:starter'))).toBe(false);
-    expect(() => selectAdapters(astro(['starter:full']), adapters)).not.toThrow();
+    // Stage 21 made this structural rather than behavioural. A starter used to
+    // travel inside the feature list and had to be skipped here; it is its own
+    // manifest field now, so "the registry is never asked for a starter" is
+    // true because a starter cannot reach the list at all.
+    expect(FEATURE_IDS.some((id) => id.startsWith('starter'))).toBe(false);
+    for (const starter of ['coming-soon', 'full'] as const) {
+      const refs = selectAdapters({ ...astro([]), starter }, adapters).adapters.map(
+        (entry) => entry.ref,
+      );
+      expect(refs.some((ref) => ref.startsWith('feature:starter'))).toBe(false);
+    }
   });
 
   it('de-duplicates a feature asked for twice', () => {
-    const refs = selectAdapters(
-      astro(['starter:coming-soon', 'not-found', 'not-found']),
-      adapters,
-    ).adapters.map((entry) => entry.ref);
+    const refs = selectAdapters(astro(['not-found', 'not-found']), adapters).adapters.map(
+      (entry) => entry.ref,
+    );
     expect(refs.filter((ref) => ref === 'feature:not-found')).toHaveLength(1);
   });
 
   it('produces the same plan whether the feature is listed once or twice', () => {
-    expect(renderPlan(planAstro(['starter:coming-soon', 'not-found']).plan, TEMPLATES_ROOT)).toBe(
-      renderPlan(planAstro(['starter:coming-soon', 'not-found', 'not-found']).plan, TEMPLATES_ROOT),
+    expect(renderPlan(planAstro(['not-found']).plan, TEMPLATES_ROOT)).toBe(
+      renderPlan(planAstro(['not-found', 'not-found']).plan, TEMPLATES_ROOT),
     );
   });
 
   it('selection order does not depend on how features were listed', () => {
-    const forwards = selectAdapters(astro(['not-found', 'starter:full']), adapters).adapters.map(
+    const forwards = selectAdapters(astro(['not-found', 'seo']), adapters).adapters.map(
       (entry) => entry.ref,
     );
-    const backwards = selectAdapters(astro(['starter:full', 'not-found']), adapters).adapters.map(
+    const backwards = selectAdapters(astro(['seo', 'not-found']), adapters).adapters.map(
       (entry) => entry.ref,
     );
     expect(forwards).toEqual(backwards);
@@ -346,16 +348,14 @@ describe('selection', () => {
     // 'structured-data' became implemented in Stage 10 and moved off this list.
     for (const id of ['sitemap', 'social-metadata', 'robots'] as const) {
       expect(() => adapters.feature(id)).toThrow(CliError);
-      expect(() => selectAdapters(astro(['starter:coming-soon', id]), adapters)).toThrow(CliError);
+      expect(() => selectAdapters(astro([id]), adapters)).toThrow(CliError);
     }
   });
 
   it('an unimplemented feature never becomes not-found', () => {
     let refs: readonly string[];
     try {
-      refs = selectAdapters(astro(['starter:coming-soon', 'sitemap']), adapters).adapters.map(
-        (entry) => entry.ref,
-      );
+      refs = selectAdapters(astro(['sitemap']), adapters).adapters.map((entry) => entry.ref);
     } catch {
       refs = [];
     }
@@ -369,10 +369,9 @@ describe('selection', () => {
 
 describe('contributions', () => {
   const contribution = () =>
-    resolveWithAdapters(
-      astro(['starter:coming-soon', 'not-found']),
-      TEMPLATES_ROOT,
-    ).contributions.find((entry) => entry.owner === 'feature:not-found');
+    resolveWithAdapters(astro(['not-found']), TEMPLATES_ROOT).contributions.find(
+      (entry) => entry.owner === 'feature:not-found',
+    );
 
   it('adds no dependency', () => {
     // A feature that quietly installed a package to render a 404 would be the
@@ -393,31 +392,29 @@ describe('contributions', () => {
   });
 
   it('changes nothing in the generated package manifest', () => {
-    const withFeature = planAstro(['starter:coming-soon', 'not-found']).plan.operations.find(
+    const withFeature = planAstro(['not-found']).plan.operations.find(
       (entry) => entry.path === 'package.json',
     );
-    const without = planAstro(['starter:coming-soon']).plan.operations.find(
-      (entry) => entry.path === 'package.json',
-    );
+    const without = planAstro([]).plan.operations.find((entry) => entry.path === 'package.json');
     expect(withFeature?.type === 'write' ? withFeature.content : '').toBe(
       without?.type === 'write' ? without.content : 'x',
     );
   });
 
   it('requests the not-found page as a semantic role', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'not-found']), adapters);
+    const { project } = resolveProject(astro(['not-found']), adapters);
     expect(project.requiredRoles).toContain('page.notFound');
   });
 
   it('requires nothing extra when the feature is not selected', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon']), adapters);
+    const { project } = resolveProject(astro([]), adapters);
     expect(project.requiredRoles).not.toContain('page.notFound');
   });
 
   it('lets the architecture decide where the page lives', () => {
     // The feature asked for a role. Astro's architecture is what turns that
     // into a path, and the feature never sees it.
-    const { project } = resolveProject(astro(['starter:coming-soon', 'not-found']), adapters);
+    const { project } = resolveProject(astro(['not-found']), adapters);
     expect(project.architecture.roles['page.notFound']).toBe('src/pages/404.astro');
   });
 });
@@ -431,7 +428,7 @@ describe('the guarantee is load-bearing', () => {
     paths.map((entry) => ({ type: 'write', path: entry, content: '', origin: 'test' }));
 
   it('passes when something produces the page', () => {
-    const { project } = resolveProject(astro(['starter:coming-soon', 'not-found']), adapters);
+    const { project } = resolveProject(astro(['not-found']), adapters);
     // Two required roles now, from two different places: `page.notFound` from
     // the feature and `page.home` from the starter. Both are checked the same
     // way, which is the point - the check does not care who asked.
@@ -443,7 +440,7 @@ describe('the guarantee is load-bearing', () => {
   it('fails before writing when nothing does', () => {
     // The whole point of selecting the feature. Without this a project could
     // claim a real 404 and ship the host's default one.
-    const { project } = resolveProject(astro(['starter:coming-soon', 'not-found']), adapters);
+    const { project } = resolveProject(astro(['not-found']), adapters);
     expect(() => assertRequiredRoles(project, operationsFor([]))).toThrow(CliError);
     expect(() => assertRequiredRoles(project, operationsFor([]))).toThrow(/page\.notFound/);
   });
@@ -452,7 +449,7 @@ describe('the guarantee is load-bearing', () => {
     // Astro's template ships the page. The check runs against the finished plan
     // by resolved path, so it never asks who produced it - which is what lets
     // the same feature work for a framework that contributes one instead.
-    const { plan } = planAstro(['starter:coming-soon', 'not-found']);
+    const { plan } = planAstro(['not-found']);
     const page = plan.operations.find((entry) => entry.path === 'src/pages/404.astro');
     expect(page).toBeDefined();
     expect(page?.origin).toBe('base');
@@ -462,7 +459,7 @@ describe('the guarantee is load-bearing', () => {
     // Stated twice over, because an empty plan no longer proves it: the starter
     // requires `page.home` of every project, so "nothing is required" stopped
     // being the same claim as "the 404 page is not required".
-    const { project } = resolveProject(astro(['starter:coming-soon']), adapters);
+    const { project } = resolveProject(astro([]), adapters);
     expect(project.requiredRoles).not.toContain('page.notFound');
     expect(() =>
       assertRequiredRoles(project, operationsFor(['src/pages/index.astro'])),
@@ -479,7 +476,7 @@ describe('ownership is not silently transferred', () => {
     // Deliberate, and the reason is worth stating: `.astro` markup cannot live
     // in a framework-agnostic feature without shipping one implementation per
     // framework, which is the matrix the architecture exists to prevent.
-    const { plan } = planAstro(['starter:coming-soon', 'not-found']);
+    const { plan } = planAstro(['not-found']);
     const page = plan.operations.find((entry) => entry.path === 'src/pages/404.astro');
     expect(page?.origin).toBe('base');
   });
@@ -489,15 +486,13 @@ describe('ownership is not silently transferred', () => {
     // collide rather than win. Astro lists page.notFound as template-owned, so
     // a contribution is skipped rather than applied - and this asserts the
     // arrangement is deliberate rather than accidental.
-    const { project } = resolveProject(astro(['starter:coming-soon', 'not-found']), adapters);
+    const { project } = resolveProject(astro(['not-found']), adapters);
     expect(project.templateOwnedRoles).toContain('page.notFound');
   });
 
   it('selecting the feature adds no file of its own', () => {
-    const withFeature = planAstro(['starter:coming-soon', 'not-found']).plan.operations.map(
-      (entry) => entry.path,
-    );
-    const without = planAstro(['starter:coming-soon']).plan.operations.map((entry) => entry.path);
+    const withFeature = planAstro(['not-found']).plan.operations.map((entry) => entry.path);
+    const without = planAstro([]).plan.operations.map((entry) => entry.path);
     expect(withFeature).toEqual(without);
   });
 });
@@ -539,7 +534,7 @@ describe('the feature adapter stays inside the contract', () => {
 
   it('is a pure function of its inputs', () => {
     const adapter = adapters.feature('not-found');
-    const manifest = astro(['starter:coming-soon', 'not-found']);
+    const manifest = astro(['not-found']);
     expect(JSON.stringify(adapter.resolve(manifest))).toBe(
       JSON.stringify(adapter.resolve(manifest)),
     );
@@ -559,19 +554,19 @@ describe('the feature adapter stays inside the contract', () => {
 
 describe('the rest of the project is untouched', () => {
   it('Astro without the feature generates exactly what it did before', () => {
-    const { plan } = planAstro(['starter:coming-soon']);
+    const { plan } = planAstro([]);
     expect(plan.operations).toHaveLength(22);
     expect(plan.operations.some((entry) => entry.path === 'src/pages/404.astro')).toBe(true);
   });
 
   it('the same manifest produces the same plan twice', () => {
-    expect(renderPlan(planAstro(['starter:coming-soon', 'not-found']).plan, TEMPLATES_ROOT)).toBe(
-      renderPlan(planAstro(['starter:coming-soon', 'not-found']).plan, TEMPLATES_ROOT),
+    expect(renderPlan(planAstro(['not-found']).plan, TEMPLATES_ROOT)).toBe(
+      renderPlan(planAstro(['not-found']).plan, TEMPLATES_ROOT),
     );
   });
 
   it('no generated content carries a machine-specific value or an unresolved token', () => {
-    for (const operation of planAstro(['starter:coming-soon', 'not-found']).plan.operations) {
+    for (const operation of planAstro(['not-found']).plan.operations) {
       if (operation.type !== 'write') continue;
       expect(operation.content).not.toContain(TEST_CWD);
       expect(operation.content).not.toContain('\r\n');
@@ -604,6 +599,7 @@ const renderComposition = (features: readonly FeatureId[]): string => {
   lines.push(`framework   ${project.selection.framework}`);
   lines.push(`styling     ${project.selection.styling}`);
   lines.push(`uiLibrary   ${project.selection.uiLibrary}`);
+  lines.push(`starter     ${project.manifest.starter}`);
   lines.push(`features    ${[...project.selection.features].sort().join(', ') || '(none)'}`);
   lines.push('');
 
@@ -642,37 +638,33 @@ const renderComposition = (features: readonly FeatureId[]): string => {
 
 describe('golden: Astro + Tailwind, with and without the feature', () => {
   it('golden: composition without the feature', async () => {
-    await expect(renderComposition(['starter:coming-soon'])).toMatchFileSnapshot(
-      './golden/astro-baseline.txt',
-    );
+    await expect(renderComposition([])).toMatchFileSnapshot('./golden/astro-baseline.txt');
   });
 
   it('golden: composition with not-found', async () => {
-    await expect(renderComposition(['starter:coming-soon', 'not-found'])).toMatchFileSnapshot(
+    await expect(renderComposition(['not-found'])).toMatchFileSnapshot(
       './golden/astro-not-found.txt',
     );
   });
 
   it('golden: the generated files themselves', async () => {
-    await expect(
-      renderPlan(planAstro(['starter:coming-soon', 'not-found']).plan, TEMPLATES_ROOT),
-    ).toMatchFileSnapshot('./golden/astro-not-found-files.txt');
+    await expect(renderPlan(planAstro(['not-found']).plan, TEMPLATES_ROOT)).toMatchFileSnapshot(
+      './golden/astro-not-found-files.txt',
+    );
   });
 
   it('the two compositions are not the same snapshot', () => {
     // Guards the goldens themselves. If these ever became identical the pair
     // would silently stop protecting anything about the feature.
-    expect(renderComposition(['starter:coming-soon'])).not.toBe(
-      renderComposition(['starter:coming-soon', 'not-found']),
-    );
+    expect(renderComposition([])).not.toBe(renderComposition(['not-found']));
   });
 
   it('the two differ in plan semantics even though the files match', () => {
     // Recorded rather than glossed over. Selecting the feature changes what the
     // project is allowed to be - the adapter set and the required-role set -
     // without changing a byte, because Astro's template already ships the page.
-    const withFeature = resolveProject(astro(['starter:coming-soon', 'not-found']), adapters);
-    const without = resolveProject(astro(['starter:coming-soon']), adapters);
+    const withFeature = resolveProject(astro(['not-found']), adapters);
+    const without = resolveProject(astro([]), adapters);
 
     expect(withFeature.selection.adapters.map((entry) => entry.ref)).toContain('feature:not-found');
     expect(without.selection.adapters.map((entry) => entry.ref)).not.toContain('feature:not-found');

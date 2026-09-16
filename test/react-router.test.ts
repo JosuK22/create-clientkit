@@ -59,7 +59,8 @@ const react = (over: Partial<ProjectManifest> = {}): ProjectManifest => ({
   uiLibrary: 'none',
   router: 'react-router',
   architecture: 'react-standard',
-  features: ['starter:full'],
+  starter: 'full',
+  features: [],
   site: {
     name: 'Acme Ltd',
     url: 'https://acme.example',
@@ -352,14 +353,14 @@ describe('a router is not file-based routing', () => {
     // whatever the host returned. Making this pass would ship a "404 page"
     // that answers 200 to every crawler.
     expect(
-      checkCompatibility(react({ features: ['starter:full', 'not-found'] }), adapters).compatible,
+      checkCompatibility(react({ starter: 'full', features: ['not-found'] }), adapters).compatible,
     ).toBe(false);
   });
 
   it('the refusal still names file-based routing, not the router', () => {
     let error: CliError | undefined;
     try {
-      resolveProject(react({ features: ['starter:full', 'not-found'] }), adapters);
+      resolveProject(react({ starter: 'full', features: ['not-found'] }), adapters);
     } catch (thrown) {
       error = thrown as CliError;
     }
@@ -406,20 +407,20 @@ describe('the router changes no feature', () => {
     // React still has no document-metadata; a client router does not give it
     // one, and pretending otherwise would ship metadata crawlers never see.
     expect(
-      checkCompatibility(react({ features: ['starter:full', 'seo'] }), adapters).compatible,
+      checkCompatibility(react({ starter: 'full', features: ['seo'] }), adapters).compatible,
     ).toBe(false);
   });
 
   it('structured data stays refused for React', () => {
     expect(
-      checkCompatibility(react({ features: ['starter:full', 'structured-data'] }), adapters)
+      checkCompatibility(react({ starter: 'full', features: ['structured-data'] }), adapters)
         .compatible,
     ).toBe(false);
   });
 
   it('accessibility stays refused for React', () => {
     expect(
-      checkCompatibility(react({ features: ['starter:full', 'accessibility'] }), adapters)
+      checkCompatibility(react({ starter: 'full', features: ['accessibility'] }), adapters)
         .compatible,
     ).toBe(false);
   });

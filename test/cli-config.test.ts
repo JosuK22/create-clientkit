@@ -105,7 +105,8 @@ describe('an invocation with no stack flags resolves to what V1 always produced'
       uiLibrary: 'none',
       router: 'file-based',
       architecture: 'astro-standard',
-      features: ['starter:coming-soon'],
+      starter: 'coming-soon',
+      features: [],
     });
   });
 
@@ -131,11 +132,17 @@ describe('an invocation with no stack flags resolves to what V1 always produced'
     }
   });
 
-  it('maps --mode onto the starter feature rather than onto a dimension', async () => {
-    expect((await manifestFor(['--mode', 'full'])).features).toEqual(['starter:full']);
-    expect((await manifestFor(['--mode', 'coming-soon'])).features).toEqual([
-      'starter:coming-soon',
-    ]);
+  it('maps --mode onto the starter field rather than onto a dimension', async () => {
+    // Through Stage 20 this landed in `features` as `starter:full`. It has a
+    // field of its own now, and the feature list is left alone - which is the
+    // assertion that would have failed under the old model.
+    const full = await manifestFor(['--mode', 'full']);
+    expect(full.starter).toBe('full');
+    expect(full.features).toEqual([]);
+
+    const comingSoon = await manifestFor(['--mode', 'coming-soon']);
+    expect(comingSoon.starter).toBe('coming-soon');
+    expect(comingSoon.features).toEqual([]);
   });
 
   it('keeps the default stack in one place rather than spread across the CLI', () => {
@@ -206,7 +213,8 @@ describe('each flag configures its own dimension', () => {
       uiLibrary: 'mui',
       router: 'react-router',
       architecture: 'react-standard',
-      features: ['starter:coming-soon'],
+      starter: 'coming-soon',
+      features: [],
     });
   });
 
@@ -251,6 +259,7 @@ describe('unstated dimensions come from the framework, not from a table of speci
       language: 'ts',
       router: 'none',
       architecture: 'react-standard',
+      starter: 'coming-soon',
     });
   });
 
@@ -259,6 +268,7 @@ describe('unstated dimensions come from the framework, not from a table of speci
       buildTool: 'astro',
       router: 'file-based',
       architecture: 'astro-standard',
+      starter: 'coming-soon',
     });
   });
 
@@ -305,16 +315,13 @@ function readSource(relative: string): string {
 
 describe('--features', () => {
   it('takes one feature', async () => {
-    expect((await manifestFor(['--features', 'not-found'])).features).toEqual([
-      'starter:coming-soon',
-      'not-found',
-    ]);
+    expect((await manifestFor(['--features', 'not-found'])).features).toEqual(['not-found']);
   });
 
   it('takes several, comma-separated', async () => {
     expect(
       (await manifestFor(['--features', 'seo,structured-data,accessibility'])).features,
-    ).toEqual(['starter:coming-soon', 'accessibility', 'seo', 'structured-data']);
+    ).toEqual(['accessibility', 'seo', 'structured-data']);
   });
 
   it('trims whitespace around each id', async () => {
@@ -326,7 +333,7 @@ describe('--features', () => {
   it('keeps every occurrence when the flag is repeated', async () => {
     expect(
       (await manifestFor(['--features', 'seo', '--features', 'accessibility'])).features,
-    ).toEqual(['starter:coming-soon', 'accessibility', 'seo']);
+    ).toEqual(['accessibility', 'seo']);
   });
 
   it('is order-independent', async () => {
@@ -486,7 +493,9 @@ describe('the legacy surface still works and still means what it did', () => {
   it('--mode is not a dimension and never becomes one', async () => {
     const manifest = await manifestFor(['--mode', 'full']);
     expect(Object.keys(manifest)).not.toContain('mode');
-    expect(manifest.features).toEqual(['starter:full']);
+    // A starter, not a stack dimension: it is absent from the dimension list
+    // the resolver explains, and present as its own field.
+    expect(manifest.starter).toBe('full');
   });
 
   it('an unknown template is still refused by the template registry', async () => {
@@ -742,7 +751,8 @@ describe('CLI arguments reach a real generation plan', () => {
       uiLibrary: 'none',
       router: 'react-router',
       architecture: 'react-standard',
-      features: ['starter:coming-soon'],
+      starter: 'coming-soon',
+      features: [],
       site: manifest.site,
       packageManager: manifest.packageManager,
       git: manifest.git,
@@ -884,12 +894,7 @@ describe('determinism', () => {
     // environment; the manifest must not.
     const features = (await manifestFor(['--features', 'structured-data,not-found,accessibility']))
       .features;
-    expect(features).toEqual([
-      'starter:coming-soon',
-      'accessibility',
-      'not-found',
-      'structured-data',
-    ]);
+    expect(features).toEqual(['accessibility', 'not-found', 'structured-data']);
   });
 
   it('resolution reads no environment beyond what it is given', async () => {
