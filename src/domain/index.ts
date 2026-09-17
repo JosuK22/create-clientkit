@@ -61,6 +61,30 @@ export type {
   SurfaceKind,
 } from './capability-contract.js';
 
+export {
+  canonicalDocumentContributions,
+  describeScope,
+  DOCUMENT_CONTRIBUTION_KINDS,
+  documentContributionIdentity,
+  EVERY_PAGE,
+  GUARANTEE_SURFACES,
+  guaranteesOnSurface,
+  onPage,
+  scopeKey,
+  stated,
+  suppressed,
+} from './document-contribution.js';
+export type {
+  CanonicalDocumentEntry,
+  DocumentContribution,
+  DocumentContributionKind,
+  DocumentGuaranteesContribution,
+  DocumentScope,
+  DocumentStance,
+  MetadataContribution,
+  StructuredDataContribution,
+} from './document-contribution.js';
+
 export { definesRole, FILE_ROLES, resolveRole } from './roles.js';
 export type { ArchitectureDefinition, FileRole } from './roles.js';
 

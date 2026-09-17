@@ -3488,3 +3488,174 @@ made rather than a drift nobody noticed.
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`). Next
 declares no new capability, no feature, framework, preset or starter was added,
 the CLI still has zero runtime dependencies, and the version stays 1.0.2.
+
+### Stage 31 — the document contribution payload model (landed)
+
+**Why Stage 30 could not proceed.** It set out to build a document-shell
+composer and stopped on a specific fact: the provider shell composes without a
+payload model because a provider has exactly one universal prop, `children`.
+Every wrapper is `{ importName, from }`, and the composer nests N of them
+knowing nothing about any of them. Head entries have no `children` equivalent,
+so a document composer has to carry a payload — and there was no model for one.
+Every candidate payload closed a different door: a component reference could not
+carry Astro's per-page parameters, structured head elements were the metadata
+semantics a later stage owns, and raw markup was ruled out outright.
+
+**What a payload model has to survive.** Two things, both discovered rather than
+assumed:
+
+1. The three concerns are not the same kind of thing. Metadata describes _this
+   page_ to a crawler; structured data describes _the organisation_ to a
+   knowledge graph and is JSON-LD with its own serialisation; document
+   guarantees are properties of the document itself, most of which are not head
+   entries at all.
+2. Statements vary per page, and the variation carries correctness weight. The
+   generated not-found page must not be indexed and must not claim to be the
+   organisation's home. Both facts lived only as props on a framework's own
+   layout, so the domain could not say either.
+
+#### The model
+
+A discriminated union, one variant per concern, each **wrapping the
+feature-level contract that already exists** rather than replacing it. The
+contracts were right; what was missing was a way to attach one to a document.
+
+```ts
+type DocumentContribution =
+  | { kind: 'metadata'; metadata: DocumentStance<SeoContract> }
+  | { kind: 'structured-data'; jsonLd: DocumentStance<OrganizationContract> }
+  | { kind: 'document-guarantees'; guarantees: DocumentStance<AccessibilityContract> };
+```
+
+Each carries an `owner`, a `reason` and a `scope`. There is no
+`Record<string, unknown>`, no markup, no component reference and no framework
+type anywhere in it — a structural test asserts each of those absences.
+
+**Scope** is how per-page statements became sayable:
+
+```ts
+type DocumentScope = { kind: 'every-page' } | { kind: 'page'; role: FileRole };
+```
+
+A page is named by the semantic role it already had. `page.notFound` is the
+generator's existing vocabulary for "the page an unmatched address reaches", it
+maps to a different file in every architecture, and it names no framework. That
+is the whole reason the 404's opt-outs can be expressed here without anything
+knowing what a `.astro` file is.
+
+**Stance** keeps three states apart that a two-state model would merge:
+
+```ts
+type DocumentStance<T> = { state: 'stated'; value: T } | { state: 'suppressed'; because: string };
+// and absent — no contribution at all
+```
+
+"Nobody configured structured data" and "this page deliberately suppresses
+structured data" produce the same document today and must not produce the same
+_model_. The first is a project that has not set anything up; the second is a
+correctness decision with a reason attached. Collapsing the middle state into
+`undefined` is how a later composer eventually restores a suppressed statement by
+"filling in a gap". `because` is mandatory on a suppression for the reason
+`Constraint.because` is: a decision nobody wrote a reason for is one nobody can
+review.
+
+#### Why the three stay distinct
+
+**SEO** keeps `SeoContract` whole — title, description, robots, canonical, and
+Open Graph and Twitter as nested structures rather than flattened strings. A
+round-trip test compares it field for field against what `resolveSeoContract`
+produced, so nothing may be dropped on the way in.
+
+**Structured data** keeps `OrganizationContract` as an object. It is never a
+string here and never a `<script>` element: JSON-LD has a serialisation of its
+own in `serialiseOrganization`, and an HTML representation on top of that, and
+both belong to whatever eventually renders it. A test asserts the serialised
+model contains neither `<script` nor `application/ld+json`, and that there is no
+path from a metadata statement to an `@type`.
+
+**Accessibility** keeps `AccessibilityContract` whole, including the
+`outOfScope` half — a model that carried only the promises would turn a bounded
+claim into an unbounded one. `GUARANTEE_SURFACES` records which part of the
+document each guarantee is about, and the spread is the evidence against the
+simplification a later stage will be tempted by:
+
+| Surface              | Guarantees                                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `document-element`   | `document-language`                                                                                         |
+| `head`               | `document-title`, `scalable-viewport`                                                                       |
+| `document-structure` | `main-landmark`, `skip-link`, `contentinfo-landmark`, `primary-heading`, `navigation-landmark-when-present` |
+
+Five of eight are body structure and one is an attribute on the root element.
+"Accessibility is head markup" is false, and now measurably so.
+
+#### The 404, said in the domain
+
+The correctness fact Stage 30 found sitting in a template prop:
+
+```ts
+// what an unmatched address should tell a crawler
+{ kind: 'metadata', scope: onPage('page.notFound'),
+  metadata: stated(resolveSeoContract(site, { pageTitle: 'Page not found', noindex: true })) }
+
+// an unmatched address is not the organisation home
+{ kind: 'structured-data', scope: onPage('page.notFound'),
+  jsonLd: suppressed('an unmatched address is not the organisation home') }
+```
+
+`robots` becomes `noindex, nofollow`, the canonical and `og:url` go empty, and
+the organisation claim is refused rather than missing — while every other page
+keeps `index, follow` and its structured data. A test asserts no framework name
+appears anywhere in that representation.
+
+#### Identity, ordering and collisions
+
+Identity is `kind` plus `scope`, deliberately **not** owner: two adapters
+describing the metadata of one page are making one statement about one thing,
+and including the owner would make every contribution unique and leave nothing to
+collide. Ordering comes from the `DOCUMENT_CONTRIBUTION_KINDS` literal, then
+scope, then owner — a declaration rather than arrival order, the same rule
+`CAPABILITIES` follows.
+
+The arbitration policy is inherited from `collectClaims`, which has arbitrated
+the same three features since Stage 10, rather than invented here: identical
+statements de-duplicate and keep every claimant; differing statements on one
+identity are a conflict naming both owners. There is no first-wins, last-wins,
+feature-order or framework precedence anywhere.
+
+**Field-level collisions are explicitly deferred.** Two owners both stating the
+metadata of one page conflict today even if one only wanted the canonical and
+the other only the title. Merging at field granularity needs a precedence rule
+per field, and inventing one here would be the unjustified winner policy this
+refuses. The abstraction boundary is `documentContributionIdentity` — that is
+where a field-level resolver slots in.
+
+#### What this stage did not do
+
+No composer. `canonicalDocumentContributions` orders, de-duplicates and
+arbitrates a list it is _handed_; it collects nothing, knows no architecture,
+resolves no role and emits nothing. It exists because deterministic identity and
+a collision policy cannot be demonstrated without something that orders and
+compares.
+
+**Nothing is wired up.** The model is imported by no adapter — a test asserts
+that `bridge.ts` does not mention it. The three features still contribute their
+`ConfigContribution` claims exactly as before, which is why no generated file
+moves. Astro, Next and React are untouched: `Next + seo`, `Next +
+structured-data` and `Next + accessibility` remain refused for the same reason
+Stage 29 established, `composed-metadata` remains ungranted on Next, and React
+still provides neither document capability. **A payload model is not coverage**,
+and no framework gained metadata support here.
+
+#### What Stage 32 needs
+
+The composer this was the prerequisite for: collection from contributions,
+architecture-neutral resolution, and per-architecture emission. It will also
+have to decide field-level precedence, and whether the three feature adapters
+start producing `DocumentContribution`s instead of — or alongside — their
+current claims.
+
+**Unchanged.** Zero goldens moved and no adapter, template or architecture file
+was touched. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no CLI
+flag, prompt, manifest dimension or preset was added, the CLI still has zero
+runtime dependencies, and the version stays 1.0.2.
