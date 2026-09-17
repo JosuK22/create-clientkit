@@ -3659,3 +3659,155 @@ was touched. The four V1 goldens are byte-identical
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no CLI
 flag, prompt, manifest dimension or preset was added, the CLI still has zero
 runtime dependencies, and the version stays 1.0.2.
+
+### Stage 32 — field-level document resolution (landed)
+
+**Why statement-level conflict was not enough.** Stage 31 arbitrated whole
+statements: two owners saying anything different about one identity were
+refused. That is too coarse in one direction and too quiet in the other. Two
+owners setting _disjoint_ metadata fields were refused for disagreeing when they
+had not; and when they genuinely did disagree, the diagnostic could only say
+"these two statements differ", never which field.
+
+**The rule the layer is built around.**
+
+```text
+deterministic ordering  ≠  semantic precedence
+```
+
+Contributions are ordered by vocabulary, then scope, then owner, so the same
+input always produces the same output and the same message. Nothing reads that
+order to decide whose value wins, because nothing decides that at all. There is
+no first-wins, last-wins, feature-order, CLI-order, alphabetical-owner or
+framework precedence anywhere. Two owners making incompatible claims about one
+field is a conflict, and the fix is for one of them to withdraw.
+
+Keeping those two ideas apart is the whole difficulty, and it is what the
+sharpest mutation in the suite attacks: replacing the conflict with "the last
+owner wins" produces output that is valid, deterministic and wrong.
+
+#### Granularity is declared per kind
+
+The three concerns do not resolve the same way, and forcing them through one
+mechanism is how the distinctions Stage 31 preserved would be lost again.
+
+| Kind                  | Granularity        | Why                                                                                                                                                            |
+| --------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata`            | field by field     | its fields are independent claims about a page, and a contributor may speak to only some                                                                       |
+| `structured-data`     | the whole object   | two JSON-LD descriptions are the same organisation or different ones; a field-wise merge would let two contributors assemble an organisation neither described |
+| `document-guarantees` | the whole contract | a guarantee is a promise about generated output, and unioning promises from separate owners asserts something nobody verified                                  |
+
+`MetadataContribution` widened from `SeoContract` to `Partial<SeoContract>`.
+That widening is what makes field-level resolution mean anything: Stage 31
+carried a complete contract because the one contributor that exists computes a
+complete one, so two owners could only agree entirely or disagree entirely, and
+"disjoint fields merge" was a case the type could not express. A complete
+contract is still a valid value.
+
+#### SEO, field by field
+
+| Field         | Rule                                                                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`       | single value — identical de-duplicates, differing conflicts                                                                                           |
+| `description` | single value                                                                                                                                          |
+| `robots`      | single value, never concatenated. Preferring `noindex` would be defensible and is still invented precedence; scope is how the 404 gets its own answer |
+| `canonical`   | single value. `''` means no canonical is claimed and is never replaced by a fabricated address                                                        |
+| `openGraph`   | **one unit**                                                                                                                                          |
+| `twitter`     | **one unit**                                                                                                                                          |
+
+The compound treatment of the social blocks is a correctness rule rather than a
+simplification. `resolveSeoContract` derives `openGraph.title` from `title`,
+`openGraph.description` from `description` and `openGraph.url` from `canonical`.
+Taking `title` from one owner and `openGraph` from another would emit a document
+whose `<title>` and `og:title` disagree — valid HTML, a clean build, and wrong in
+the only place it matters. So each block is resolved whole, by the owner that
+computed it.
+
+One honest note about `canonical`: `''` arises from two distinct causes — no
+configured site URL, or a page that is `noindex`. `SeoContract` already
+collapses them, and this stage did not invent a distinction that the contract
+does not make. What the resolver guarantees is narrower and checkable: it never
+turns an absent field into a value, and never manufactures a domain.
+
+#### Scope
+
+`every-page` and `page.notFound` are separate identities and each resolves on
+its own, so a site-wide statement cannot overwrite a page-specific one. There is
+deliberately **no inheritance**: how a page's statement relates to the
+document's is a composition question, and inventing a rule for it here would be
+precedence by another name. A page scope that claims only a title therefore
+resolves to only a title — the description is not inherited, and a test asserts
+that.
+
+#### Stance
+
+| Combination                | Result                                                             |
+| -------------------------- | ------------------------------------------------------------------ |
+| stated + stated, identical | de-duplicate, keep every claimant                                  |
+| stated + stated, differing | conflict, naming the field                                         |
+| stated + suppressed        | conflict — "say this" and "do not say this" is a real disagreement |
+| suppressed + suppressed    | agree; every reason is kept                                        |
+| absent + anything          | the anything; absence contributes nothing                          |
+
+A resolved suppression carries `becauses` rather than one `because`. Two owners
+refusing to state something agree about the document even if they explain it
+differently, so the reason is provenance rather than semantic content — the
+treatment `reason` gets everywhere else.
+
+#### Provenance
+
+Every resolved metadata field records the owners and reasons that claimed it,
+and every resolved statement records the owners that contributed to it. Owner
+identity is never part of semantic equality — two adapters computing the same
+value cooperate — but it is what makes a conflict actionable:
+
+```text
+Two adapters disagree about metadata.canonical for every page.
+  contributor:a
+    "https://acme.example/"
+    reason: …
+  contributor:b
+    "https://other.example/"
+    reason: …
+  One document can only say one of these, and nothing here picks a winner: the
+  order contributions are resolved in is fixed so the result is reproducible,
+  not so that one of them takes precedence.
+```
+
+#### The 404 invariant
+
+Still the fact the whole line of stages exists to protect, and now proven
+through resolution rather than only representation: with a site-wide SEO
+statement, a page-scoped SEO statement and a page-scoped structured-data
+suppression all present at once, `page.notFound` resolves to `noindex, nofollow`
+with no canonical, the organisation claim on that page stays suppressed, and the
+site-wide statement keeps `index, follow` and its organisation. A test asserts
+no framework name appears anywhere in the resolved result.
+
+#### What changed, and what did not
+
+`canonicalDocumentContributions` was superseded: it became
+`groupDocumentContributions`, which groups and orders and has no opinion about
+whether a group agrees, and all arbitration moved to
+`resolveDocumentContributions` so there is exactly one arbiter. Stage 31's tests
+now run through the resolver and all still pass.
+
+**Nothing is wired up.** The resolver is imported by no adapter — a test asserts
+`bridge.ts` does not mention it — so no generated file changes, `Next + seo`,
+`+ structured-data` and `+ accessibility` remain refused for the coverage
+reasons Stage 29 established, `composed-metadata` remains ungranted on Next, and
+React is untouched. A resolver is not coverage.
+
+#### What remains for Stage 33
+
+The document-shell composer this was the second prerequisite for: collection
+from real contributions, per-architecture emission, and the decision about
+whether the three feature adapters begin producing `DocumentContribution`s
+instead of their current claims. Scope precedence — how a page statement
+combines with the document's — is a composition question and is still open.
+
+**Unchanged.** Zero goldens moved and no adapter, template or architecture file
+was touched. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no CLI
+flag, prompt, manifest dimension or preset was added, the CLI still has zero
+runtime dependencies, and the version stays 1.0.2.

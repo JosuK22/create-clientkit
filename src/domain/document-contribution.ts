@@ -3,7 +3,6 @@ import { ACCESSIBILITY_GUARANTEES } from './accessibility.js';
 import type { FileRole } from './roles.js';
 import type { SeoContract } from './seo.js';
 import type { OrganizationContract } from './structured-data.js';
-import { CliError } from '../errors.js';
 
 /**
  * What an adapter can say about the generated document.
@@ -148,10 +147,30 @@ interface DocumentContributionBase {
   readonly scope: DocumentScope;
 }
 
+/**
+ * What a page should tell a crawler about itself, in whole or in part.
+ *
+ * Partial since Stage 32, and the widening is what makes field-level
+ * resolution mean anything. Stage 31 carried a complete `SeoContract` because
+ * the one contributor that exists computes a complete one - so two owners could
+ * only ever agree entirely or disagree entirely, and "disjoint fields merge"
+ * was a case the type could not express.
+ *
+ * A contributor that speaks only to the canonical address, or only to the
+ * social card, is the shape this is for. The existing complete contract is
+ * still a valid value, so nothing that worked stopped working.
+ *
+ * A *resolved* statement may therefore be partial too, and deliberately: a
+ * field nobody claimed stays absent rather than being filled in. Whoever
+ * eventually renders a head decides what to do with an absent field; inventing
+ * one here would be fabrication.
+ */
+export type MetadataStatement = Partial<SeoContract>;
+
 /** What a page should tell a crawler about itself. */
 export interface MetadataContribution extends DocumentContributionBase {
   readonly kind: 'metadata';
-  readonly metadata: DocumentStance<SeoContract>;
+  readonly metadata: DocumentStance<MetadataStatement>;
 }
 
 /**
@@ -236,7 +255,7 @@ export function documentContributionIdentity(contribution: DocumentContribution)
 }
 
 /** The payload of any variant, for comparison. One switch, exhaustive. */
-function stanceOf(contribution: DocumentContribution): DocumentStance<unknown> {
+export function stanceOf(contribution: DocumentContribution): DocumentStance<unknown> {
   switch (contribution.kind) {
     case 'metadata':
       return contribution.metadata;
@@ -247,65 +266,35 @@ function stanceOf(contribution: DocumentContribution): DocumentStance<unknown> {
   }
 }
 
-/** Distributes over the union, so narrowing on `kind` still works afterwards. */
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
-
-/**
- * One statement about the document, with everyone who made it.
- *
- * `owner` and `reason` are replaced by the plural forms: an identical statement
- * from two adapters is cooperation rather than a clash, and "why is this in my
- * project?" has as many answers as there were claimants.
- */
-export type CanonicalDocumentEntry = DistributiveOmit<DocumentContribution, 'owner' | 'reason'> & {
-  readonly owners: readonly string[];
-  readonly reasons: readonly string[];
-};
-
 const kindRank = (kind: DocumentContributionKind): number =>
   DOCUMENT_CONTRIBUTION_KINDS.indexOf(kind);
 
 /**
- * Sorts, de-duplicates and arbitrates a set of statements.
+ * Every contribution that speaks to one identity, in canonical order.
  *
- * Deliberately *not* the composer. It takes a list it is handed, never collects
- * one; it knows no architecture, reads no contribution, resolves no role and
- * emits nothing. What it exists for is that the two properties this stage has
- * to prove - deterministic identity and a collision policy - cannot be
- * demonstrated without something that orders and compares.
+ * Grouping only. Stage 31 arbitrated here and threw when two owners said
+ * anything different about one statement, which was too coarse: two owners
+ * setting disjoint metadata fields were refused for disagreeing when they had
+ * not. Stage 32 moved arbitration to `resolveDocumentContributions`, so this is
+ * the step before it and has no opinion about whether a group agrees.
  *
- * ## The policy
- *
- * Inherited from `collectClaims`, which has arbitrated the same three features
- * since Stage 10, rather than invented here:
- *
- *   - identical statements de-duplicate, and every claimant is kept
- *   - differing statements on one identity are a conflict naming both owners
- *
- * A conflict rather than a winner because there is one document, and choosing
- * silently is how a site ends up describing itself in a way nobody chose. No
- * first-wins, last-wins, feature-order or framework precedence exists here.
- *
- * ## What is deferred
- *
- * Collisions are arbitrated per *statement*, not per field. Two owners both
- * stating the metadata of one page conflict even if one only wanted to set the
- * canonical and the other only the title. Merging at field granularity needs a
- * precedence rule per field, and inventing one here would be exactly the
- * unjustified winner policy this refuses. Stage 32 owns it; the boundary is
- * this function's identity, which is where a field-level resolver would slot
- * in.
+ * Order comes from the vocabulary, then the scope, then the owner - a
+ * declaration rather than arrival order. Nothing downstream may read that
+ * order as precedence; it exists so the same input always produces the same
+ * output and the same diagnostic.
  */
-export function canonicalDocumentContributions(
-  contributions: readonly DocumentContribution[],
-): readonly CanonicalDocumentEntry[] {
-  const byIdentity = new Map<
-    string,
-    { first: DocumentContribution; owners: Set<string>; reasons: Set<string> }
-  >();
+export interface DocumentContributionGroup {
+  readonly kind: DocumentContributionKind;
+  readonly scope: DocumentScope;
+  /** At least one, in canonical order. */
+  readonly contributions: readonly DocumentContribution[];
+}
 
-  // Sorted before grouping, so the representative of a group is decided by the
-  // vocabulary and the owner name rather than by arrival.
+export function groupDocumentContributions(
+  contributions: readonly DocumentContribution[],
+): readonly DocumentContributionGroup[] {
+  const byIdentity = new Map<string, DocumentContribution[]>();
+
   const ordered = [...contributions].sort(
     (a, b) =>
       kindRank(a.kind) - kindRank(b.kind) ||
@@ -320,52 +309,17 @@ export function canonicalDocumentContributions(
   for (const contribution of ordered) {
     const identity = documentContributionIdentity(contribution);
     const existing = byIdentity.get(identity);
-    if (existing === undefined) {
-      byIdentity.set(identity, {
-        first: contribution,
-        owners: new Set([contribution.owner]),
-        reasons: new Set([contribution.reason]),
-      });
-      continue;
-    }
-
-    const before = stanceOf(existing.first);
-    const now = stanceOf(contribution);
-    if (JSON.stringify(before) !== JSON.stringify(now)) {
-      throw new CliError(
-        `Two adapters describe the ${contribution.kind} of ${describeScope(contribution.scope)} differently.`,
-        {
-          hint:
-            `  ${existing.first.owner}\n    ${describeStance(before)}\n    reason: ${existing.first.reason}\n` +
-            `  ${contribution.owner}\n    ${describeStance(now)}\n    reason: ${contribution.reason}\n` +
-            'One document can only say one of these. Exactly one description can be correct.',
-        },
-      );
-    }
-    existing.owners.add(contribution.owner);
-    existing.reasons.add(contribution.reason);
+    if (existing === undefined) byIdentity.set(identity, [contribution]);
+    else existing.push(contribution);
   }
 
-  return [...byIdentity.values()].map(({ first, owners, reasons }) => {
-    const { owner: _owner, reason: _reason, ...rest } = first;
-    return {
-      ...rest,
-      // Already in order: `ordered` sorted by owner before grouping, so the
-      // sets were filled in that order. Re-sorting here would be a second rule
-      // that has to agree with the first one forever.
-      owners: [...owners],
-      reasons: [...reasons],
-    } as CanonicalDocumentEntry;
+  return [...byIdentity.values()].map((group) => {
+    const [first] = group;
+    if (first === undefined) throw new Error('unreachable: empty group');
+    return { kind: first.kind, scope: first.scope, contributions: group };
   });
 }
-
 /** `every page` or `the page.notFound page`, for a diagnostic. */
 export function describeScope(scope: DocumentScope): string {
   return scope.kind === 'every-page' ? 'every page' : `the "${scope.role}" page`;
-}
-
-function describeStance(stance: DocumentStance<unknown>): string {
-  return stance.state === 'suppressed'
-    ? `suppressed (${stance.because})`
-    : `stated: ${JSON.stringify(stance.value)}`;
 }

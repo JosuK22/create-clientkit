@@ -62,28 +62,42 @@ export type {
 } from './capability-contract.js';
 
 export {
-  canonicalDocumentContributions,
   describeScope,
   DOCUMENT_CONTRIBUTION_KINDS,
   documentContributionIdentity,
   EVERY_PAGE,
+  groupDocumentContributions,
   GUARANTEE_SURFACES,
   guaranteesOnSurface,
   onPage,
   scopeKey,
+  stanceOf,
   stated,
   suppressed,
 } from './document-contribution.js';
 export type {
-  CanonicalDocumentEntry,
   DocumentContribution,
+  DocumentContributionGroup,
   DocumentContributionKind,
   DocumentGuaranteesContribution,
   DocumentScope,
   DocumentStance,
   MetadataContribution,
+  MetadataStatement,
   StructuredDataContribution,
 } from './document-contribution.js';
+
+export { METADATA_FIELDS, resolveDocumentContributions } from './document-resolution.js';
+export type {
+  MetadataField,
+  Provenance,
+  ResolvedDocumentContribution,
+  ResolvedGuaranteesContribution,
+  ResolvedMetadata,
+  ResolvedMetadataContribution,
+  ResolvedStance,
+  ResolvedStructuredDataContribution,
+} from './document-resolution.js';
 
 export { definesRole, FILE_ROLES, resolveRole } from './roles.js';
 export type { ArchitectureDefinition, FileRole } from './roles.js';

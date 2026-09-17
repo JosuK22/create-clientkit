@@ -14,8 +14,8 @@ import type {
   MetadataContribution,
   StructuredDataContribution,
 } from '../src/domain/document-contribution.js';
+import { resolveDocumentContributions } from '../src/domain/document-resolution.js';
 import {
-  canonicalDocumentContributions,
   DOCUMENT_CONTRIBUTION_KINDS,
   documentContributionIdentity,
   EVERY_PAGE,
@@ -151,7 +151,7 @@ describe('the model is generic', () => {
   });
 
   it('keeps statements of different kinds about one page apart', () => {
-    const entries = canonicalDocumentContributions([
+    const entries = resolveDocumentContributions([
       metadataFrom(A, someMetadata('One')),
       jsonLdFrom(B, resolveOrganization(SITE)),
       guaranteesFrom(C, resolveAccessibilityContract(SITE)),
@@ -168,7 +168,7 @@ describe('the model is generic', () => {
     // The `collectClaims` rule, inherited rather than reinvented: agreement is
     // cooperation, and "why is this here?" has as many answers as claimants.
     const contract = someMetadata('One');
-    const entries = canonicalDocumentContributions([
+    const entries = resolveDocumentContributions([
       metadataFrom(A, contract),
       metadataFrom(C, contract),
       metadataFrom(B, contract),
@@ -179,7 +179,7 @@ describe('the model is generic', () => {
 
   it('refuses two owners describing one statement differently', () => {
     const message = refusal(() =>
-      canonicalDocumentContributions([
+      resolveDocumentContributions([
         metadataFrom(A, someMetadata('One')),
         metadataFrom(B, someMetadata('Two')),
       ]),
@@ -197,7 +197,7 @@ describe('the model is generic', () => {
      * disagreement and must surface as one, not resolve to whichever ran first.
      */
     const message = refusal(() =>
-      canonicalDocumentContributions([
+      resolveDocumentContributions([
         jsonLdFrom(A, resolveOrganization(SITE)),
         {
           kind: 'structured-data',
@@ -213,7 +213,7 @@ describe('the model is generic', () => {
   });
 
   it('lets the same kind differ between scopes without conflicting', () => {
-    const entries = canonicalDocumentContributions([
+    const entries = resolveDocumentContributions([
       jsonLdFrom(A, resolveOrganization(SITE)),
       {
         kind: 'structured-data',
@@ -234,10 +234,10 @@ describe('the model is generic', () => {
 
 describe('stated, suppressed and absent stay distinguishable', () => {
   it('distinguishes a refusal from a silence', () => {
-    const absent = canonicalDocumentContributions([]);
+    const absent = resolveDocumentContributions([]);
     expect(absent).toHaveLength(0);
 
-    const [entry] = canonicalDocumentContributions([
+    const [entry] = resolveDocumentContributions([
       {
         kind: 'structured-data',
         owner: A,
@@ -251,7 +251,7 @@ describe('stated, suppressed and absent stay distinguishable', () => {
     expect(entry.jsonLd.state).toBe('suppressed');
     // A suppression is a decision, so it carries the reason for the decision.
     if (entry.jsonLd.state !== 'suppressed') throw new Error('narrowing failed');
-    expect(entry.jsonLd.because).toBe('nothing to claim');
+    expect(entry.jsonLd.becauses).toEqual(['nothing to claim']);
   });
 
   it('never represents a suppression as an absent value', () => {
@@ -288,27 +288,27 @@ describe('canonical form is deterministic', () => {
       [all[0]!, all[2]!, all[1]!],
     ];
     const rendered = permutations.map((order) =>
-      JSON.stringify(canonicalDocumentContributions(order)),
+      JSON.stringify(resolveDocumentContributions(order)),
     );
     expect(new Set(rendered).size).toBe(1);
   });
 
   it('orders by the vocabulary, not by arrival', () => {
     // Reversing the input must not reverse the output.
-    const forward = canonicalDocumentContributions(all).map((entry) => entry.kind);
-    const backward = canonicalDocumentContributions([...all].reverse()).map((entry) => entry.kind);
+    const forward = resolveDocumentContributions(all).map((entry) => entry.kind);
+    const backward = resolveDocumentContributions([...all].reverse()).map((entry) => entry.kind);
     expect(forward).toEqual(backward);
     expect(forward).toEqual([...DOCUMENT_CONTRIBUTION_KINDS]);
   });
 
   it('orders claimants and reasons independently of arrival', () => {
     const contract = someMetadata('One');
-    const one = canonicalDocumentContributions([
+    const one = resolveDocumentContributions([
       metadataFrom(C, contract),
       metadataFrom(A, contract),
       metadataFrom(B, contract),
     ]);
-    const two = canonicalDocumentContributions([
+    const two = resolveDocumentContributions([
       metadataFrom(B, contract),
       metadataFrom(C, contract),
       metadataFrom(A, contract),
@@ -318,12 +318,12 @@ describe('canonical form is deterministic', () => {
   });
 
   it('is byte-identical across repeated runs', () => {
-    const runs = [1, 2, 3].map(() => JSON.stringify(canonicalDocumentContributions(all)));
+    const runs = [1, 2, 3].map(() => JSON.stringify(resolveDocumentContributions(all)));
     expect(new Set(runs).size).toBe(1);
   });
 
   it('sorts scopes deterministically within one kind', () => {
-    const entries = canonicalDocumentContributions([
+    const entries = resolveDocumentContributions([
       metadataFrom(A, someMetadata('Not found'), onPage('page.notFound')),
       metadataFrom(A, someMetadata('Home'), onPage('page.home')),
       metadataFrom(A, someMetadata('Site')),
@@ -343,36 +343,34 @@ describe('canonical form is deterministic', () => {
 describe('SEO is representable without semantic loss', () => {
   it('carries the whole contract, field for field', () => {
     const contract = resolveSeoContract(SITE);
-    const [entry] = canonicalDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
     if (entry?.kind !== 'metadata') throw new Error('narrowing failed');
     if (entry.metadata.state !== 'stated') throw new Error('narrowing failed');
 
     // Round-trip, not a spot check: nothing may be dropped on the way in.
-    expect(entry.metadata.value).toEqual(contract);
-    expect(JSON.stringify(entry.metadata.value)).toBe(JSON.stringify(contract));
+    expect(entry.metadata.value.value).toEqual(contract);
+    expect(JSON.stringify(entry.metadata.value.value)).toBe(JSON.stringify(contract));
     for (const field of ['title', 'description', 'robots', 'canonical', 'openGraph', 'twitter']) {
-      expect(entry.metadata.value, field).toHaveProperty(field);
+      expect(entry.metadata.value.value, field).toHaveProperty(field);
     }
   });
 
   it('keeps Open Graph and Twitter as structures, not flattened strings', () => {
     const contract = resolveSeoContract(SITE);
-    const [entry] = canonicalDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(typeof entry.metadata.value.openGraph).toBe('object');
-    expect(entry.metadata.value.openGraph.locale).toBe('en_GB');
-    expect(typeof entry.metadata.value.twitter).toBe('object');
+    expect(typeof entry.metadata.value.value.openGraph).toBe('object');
+    expect(entry.metadata.value.value.openGraph?.locale).toBe('en_GB');
+    expect(typeof entry.metadata.value.value.twitter).toBe('object');
   });
 });
 
 describe('structured data stays structured', () => {
   it('carries the Organization object, not markup', () => {
     const contract = resolveOrganization(SITE);
-    const [entry] = canonicalDocumentContributions([
-      jsonLdFrom('feature:structured-data', contract),
-    ]);
+    const [entry] = resolveDocumentContributions([jsonLdFrom('feature:structured-data', contract)]);
     if (entry?.kind !== 'structured-data' || entry.jsonLd.state !== 'stated') {
       throw new Error('narrowing failed');
     }
@@ -385,7 +383,7 @@ describe('structured data stays structured', () => {
   it('is never a script element or an HTML string anywhere in the model', () => {
     const contract = resolveOrganization(SITE);
     const serialised = JSON.stringify(
-      canonicalDocumentContributions([jsonLdFrom('feature:structured-data', contract)]),
+      resolveDocumentContributions([jsonLdFrom('feature:structured-data', contract)]),
     );
     expect(serialised).not.toContain('<script');
     expect(serialised).not.toContain('application/ld+json');
@@ -397,19 +395,19 @@ describe('structured data stays structured', () => {
     // The flattening this stage exists to prevent: there is no path from a
     // metadata statement to an Organization.
     const contract = resolveSeoContract(SITE);
-    const [entry] = canonicalDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(JSON.stringify(entry.metadata.value)).not.toContain('schema.org');
-    expect(JSON.stringify(entry.metadata.value)).not.toContain('@type');
+    expect(JSON.stringify(entry.metadata.value.value)).not.toContain('schema.org');
+    expect(JSON.stringify(entry.metadata.value.value)).not.toContain('@type');
   });
 });
 
 describe('accessibility stays a document guarantee', () => {
   it('carries the whole contract, including the out-of-scope half', () => {
     const contract = resolveAccessibilityContract(SITE);
-    const [entry] = canonicalDocumentContributions([
+    const [entry] = resolveDocumentContributions([
       guaranteesFrom('feature:accessibility', contract),
     ]);
     if (entry?.kind !== 'document-guarantees' || entry.guarantees.state !== 'stated') {
@@ -455,7 +453,7 @@ describe('accessibility stays a document guarantee', () => {
 
   it('is not reachable as a metadata field', () => {
     const contract = resolveAccessibilityContract(SITE);
-    const [entry] = canonicalDocumentContributions([
+    const [entry] = resolveDocumentContributions([
       guaranteesFrom('feature:accessibility', contract),
     ]);
     if (entry?.kind !== 'document-guarantees') throw new Error('narrowing failed');
@@ -503,26 +501,26 @@ describe('the not-found page keeps both of its opt-outs', () => {
   ];
 
   it('says the page must not be indexed', () => {
-    const [entry] = canonicalDocumentContributions(contributions);
+    const [entry] = resolveDocumentContributions(contributions);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(entry.metadata.value.robots).toBe('noindex, nofollow');
+    expect(entry.metadata.value.value.robots).toBe('noindex, nofollow');
     // And a blocked page claims no canonical address, which is the other half
     // of the same decision.
-    expect(entry.metadata.value.canonical).toBe('');
-    expect(entry.metadata.value.openGraph.url).toBe('');
-    expect(entry.metadata.value.title).toBe('Page not found - Acme Ltd');
+    expect(entry.metadata.value.value.canonical).toBe('');
+    expect(entry.metadata.value.value.openGraph?.url).toBe('');
+    expect(entry.metadata.value.value.title).toBe('Page not found - Acme Ltd');
   });
 
   it('says the page must make no organisation claim', () => {
-    const entry = canonicalDocumentContributions(contributions).find(
+    const entry = resolveDocumentContributions(contributions).find(
       (candidate) => candidate.kind === 'structured-data',
     );
     if (entry?.kind !== 'structured-data') throw new Error('narrowing failed');
     expect(entry.jsonLd.state).toBe('suppressed');
     if (entry.jsonLd.state !== 'suppressed') throw new Error('narrowing failed');
-    expect(entry.jsonLd.because).toContain('not the organisation home');
+    expect(entry.jsonLd.becauses.join(' ')).toContain('not the organisation home');
   });
 
   it('keeps those statements separate from every other page', () => {
@@ -532,7 +530,7 @@ describe('the not-found page keeps both of its opt-outs', () => {
      * kind would have to choose between the 404 being correct and the site
      * having structured data at all.
      */
-    const entries = canonicalDocumentContributions([
+    const entries = resolveDocumentContributions([
       ...contributions,
       jsonLdFrom('feature:structured-data', resolveOrganization(SITE)),
       metadataFrom('feature:seo', resolveSeoContract(SITE)),
@@ -551,7 +549,7 @@ describe('the not-found page keeps both of its opt-outs', () => {
     if (indexable?.kind !== 'metadata' || indexable.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(indexable.metadata.value.robots).toBe('index, follow');
+    expect(indexable.metadata.value.value.robots).toBe('index, follow');
   });
 
   it('is expressed with no framework-specific field', () => {
@@ -580,22 +578,20 @@ describe('the model invents nothing', () => {
 
   it('carries absence through unchanged', () => {
     const contract = resolveSeoContract(bare);
-    const [entry] = canonicalDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(entry.metadata.value.canonical).toBe('');
-    expect(entry.metadata.value.description).toBe('');
-    expect(entry.metadata.value.openGraph.url).toBe('');
+    expect(entry.metadata.value.value.canonical).toBe('');
+    expect(entry.metadata.value.value.description).toBe('');
+    expect(entry.metadata.value.value.openGraph?.url).toBe('');
     // A bare primary subtag is not a valid og:locale, and stays omitted.
-    expect(entry.metadata.value.openGraph.locale).toBe('');
+    expect(entry.metadata.value.value.openGraph?.locale).toBe('');
   });
 
   it('omits an absent organisation field rather than filling it', () => {
     const contract = resolveOrganization(bare);
-    const [entry] = canonicalDocumentContributions([
-      jsonLdFrom('feature:structured-data', contract),
-    ]);
+    const [entry] = resolveDocumentContributions([jsonLdFrom('feature:structured-data', contract)]);
     if (entry?.kind !== 'structured-data' || entry.jsonLd.state !== 'stated') {
       throw new Error('narrowing failed');
     }
@@ -609,11 +605,11 @@ describe('the model invents nothing', () => {
     // The model is a wrapper, and a wrapper that added a field would be
     // inventing one. Compared key-for-key against what the contract produced.
     const contract = resolveSeoContract(bare);
-    const [entry] = canonicalDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(Object.keys(entry.metadata.value).sort()).toEqual(Object.keys(contract).sort());
+    expect(Object.keys(entry.metadata.value.value).sort()).toEqual(Object.keys(contract).sort());
   });
 });
 
@@ -696,7 +692,7 @@ describe('the model is not yet connected to anything', () => {
     }
     const bridge = source('src/adapters/bridge.ts');
     expect(bridge).not.toContain('document-contribution');
-    expect(bridge).not.toContain('canonicalDocumentContributions');
+    expect(bridge).not.toContain('resolveDocumentContributions');
   });
 
   it('builds no composer', () => {
