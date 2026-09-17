@@ -3339,3 +3339,152 @@ goldens are byte-identical
 supported stack still resolves, every refusal still refuses, no CLI flag,
 manifest dimension or preset was added, the CLI still has zero runtime
 dependencies, and the version stays 1.0.2.
+
+### Stage 29 — what `composed-metadata` actually means (investigation, landed)
+
+**Outcome C — architectural gap; implementation deferred.** Next does not gain
+the capability, and no metadata composition mechanism was built. What this stage
+produced is a corrected definition, a set of pinned measurements, and a clear
+statement of what a real mechanism would have to be.
+
+#### The question, and why the premise was wrong
+
+The stage asked whether Next can truthfully provide `composed-metadata`, or
+whether ClientKit needs a new metadata composition abstraction first. The
+investigation found a third answer: **there is no metadata composition anywhere,
+including on Astro**, so the comparison the question assumed does not exist.
+
+The measurement. Generating an Astro project with
+`--features seo --features structured-data --features accessibility` produces a
+tree **byte-identical** to one generated without them, apart from the feature
+list recorded in `.client-site.json`:
+
+```text
+diff -r a-none a-all
+  .client-site.json   "features": [] -> ["accessibility","seo","structured-data"]
+  package.json        "name"
+  (no other difference)
+```
+
+The trace explains it. Each of the three features contributes exactly one
+`ConfigContribution` at role `app.layout` — `seo` at slot `metadata`,
+`structured-data` at `structured-data`, `accessibility` at `accessibility` — and
+no files, dependencies, scripts or template layers. `planManifest` collects
+those claims through `collectClaims`, refuses two that disagree, and hands them
+back on `AdapterPlanResult` as `metadata`, `structuredData` and `accessibility`.
+**`src/commands/create.ts` reads none of them.** No code path turns a claim into
+file content: `applyMerges` handles JSON file contributions only, and the
+`append` intent is in the `FILE_INTENTS` vocabulary with no implementation
+behind it.
+
+Astro's head is emitted by `Seo.astro`, `StructuredData.astro` and
+`BaseLayout.astro`, shipped unconditionally by its template and driven by
+`site.config.ts`. The features do not feed it and never did.
+
+#### The definition that was wrong
+
+The capability's own comment read:
+
+> "The document head is composed from contributions rather than declared by the
+> framework's own template. … Astro's layout is built from contributed metadata,
+> so it provides this."
+
+The second sentence is false, and had been since the feature was written. Stage
+22 reasoned from "`--features seo` on Next produced a byte-identical project" to
+"Next lacks `composed-metadata`" — without noticing that **the same sentence is
+true of Astro**. The conclusion was right; the reason given for it was not.
+
+This is the same class of defect Stage 24R found and Stage 28 was built to
+prevent: a declaration whose stated justification stopped describing the code.
+Stage 28 could not catch it, because Stage 28 checks _structure_ — and Next
+satisfies `composed-metadata`'s structural contract today. That limit was stated
+when it was written ("a necessary condition on declaring a capability, never a
+sufficient one"), and this is the case that makes it concrete.
+
+#### What the capability truthfully distinguishes
+
+Not composition — **coverage that has been checked**:
+
+|                                           | Astro                                                 | Next                      |
+| ----------------------------------------- | ----------------------------------------------------- | ------------------------- |
+| `app.layout` mapped                       | yes                                                   | yes                       |
+| shell states title, description, language | yes                                                   | yes                       |
+| robots, canonical, Open Graph, Twitter    | yes                                                   | no                        |
+| JSON-LD                                   | yes                                                   | no                        |
+| contract verified against real built HTML | yes — `test/seo-feature.test.ts`, `scripts/smoke.mjs` | nothing verifies anything |
+
+Next's head is real and server-rendered — that is `document-metadata`, which
+Next genuinely provides. What is absent is the rest of what the features
+describe, and any check that the two agree.
+
+#### The experiment
+
+Next was temporarily granted `composed-metadata` — in the working tree only,
+never committed — and three projects generated:
+
+```text
+next                                          14 files
+next + seo                                    14 files
+next + seo + structured-data + accessibility  14 files
+```
+
+Resolution succeeded, planning succeeded, and the three projects are
+**byte-identical** apart from the feature list in `.client-site.json`. No build
+or browser validation was performed, because there was nothing to validate: the
+generated source does not differ. Accepted and ignored is exactly the failure
+the requirement exists to prevent, so the declaration would have been false and
+was reverted.
+
+A second experiment used a test-only contributor with a deliberately generic
+purpose (`document-facts`, stating a title and a language, naming no framework).
+Its claim was collected at `app.layout` and reached no file, and the only file
+contribution anywhere in a Next stack targets `styles.global`. A `merge` file
+contribution cannot reach a `.tsx` layout — `applyMerges` refuses anything but
+JSON — and `append` has no implementation. There is no generic path from a
+contribution to the document head on any framework.
+
+#### What a real mechanism would require
+
+Deferred deliberately, and recorded so the next stage starts from evidence:
+
+1. **A composed document shell.** `app.layout` would have to become a composed
+   surface the way `app.root` and `app.shell` became composed in Stages 26–27 —
+   emitted from claims rather than shipped by a template. That changes Astro,
+   React and Next together, and it would move Astro's head out of
+   `BaseLayout.astro`, so every Astro golden moves.
+2. **A head-markup contribution type, or a much richer claim.** JSON-LD is a
+   `<script type="application/ld+json">` element, not a metadata field; Next's
+   `metadata` export cannot carry it, and forcing it into a generic metadata
+   object would lose its semantics. Accessibility contributes document-level
+   guarantees (language, landmarks) that are not head tags at all. One claim
+   shape does not obviously cover the three.
+3. **A per-framework emitter.** The same claims must become a Next `metadata`
+   export plus a JSON-LD element, and Astro component markup. That is the
+   `emitProviderShell` pattern applied to the head — generic composer, per-
+   architecture emitter — and it is a stage of its own.
+4. **A collision policy for fields rather than slots.** Today three features
+   never collide because each owns a slot. Once claims merge into one head, two
+   contributors can both want `title`, and `collectClaims`' "identical
+   de-duplicates, differing is a conflict" rule would need to apply per field.
+
+Until those exist, `Next + seo`, `Next + structured-data` and `Next +
+accessibility` stay refused, and the refusal stays honest: the capability is
+absent because the coverage is absent.
+
+#### What changed here
+
+Comments and tests only — **no behaviour, and zero goldens moved.** The
+capability's definition and the Stage 28 contract's `because` were corrected to
+describe what the code does. `test/metadata-composition.test.ts` (25 tests) pins
+the measurement: that all three features change no generated file on Astro, that
+nothing contributes a file at `app.layout`, that each feature owns its own slot,
+that the collection is deterministic across feature order, what Next's shell
+does and does not state, and that every Next metadata combination stays refused
+with zero writes. If a later stage builds real composition, the first of those
+tests is the one that should fail — and its failure will be a decision somebody
+made rather than a drift nobody noticed.
+
+**Unchanged.** Zero goldens moved. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`). Next
+declares no new capability, no feature, framework, preset or starter was added,
+the CLI still has zero runtime dependencies, and the version stays 1.0.2.

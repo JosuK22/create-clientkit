@@ -89,21 +89,52 @@ export const CAPABILITIES = [
   'composed-stylesheet',
 
   /**
-   * The document head is composed from contributions rather than declared by
-   * the framework's own template.
+   * The architecture's document shell already satisfies the metadata contracts
+   * this generator's features describe, and that agreement is verified against
+   * real built HTML.
    *
-   * The exact sibling of `composed-stylesheet`, and it exists for the same
-   * reason: a contribution aimed at a surface nobody composes does not fail, it
-   * disappears. Astro's layout is built from contributed metadata, so it
-   * provides this. Next's `app/layout.tsx` declares its own `metadata` export
-   * and reads no contributions, so it does not - and a feature that writes into
-   * the head is refused there instead of being accepted and ignored.
+   * ## Read this before trusting the name
+   *
+   * The name says "composed" and Stage 29 established that **nothing composes**.
+   * A metadata feature contributes a `ConfigContribution` at `app.layout`; the
+   * planner collects those claims, refuses two that disagree, and records them -
+   * and then no code anywhere turns a claim into file content. `AdapterPlanResult`
+   * exposes `metadata`, `structuredData` and `accessibility`, and the CLI reads
+   * none of them.
+   *
+   * The consequence is measurable: generating an Astro project with
+   * `--features seo --features structured-data --features accessibility`
+   * produces a tree byte-identical to one generated without them, apart from the
+   * feature list recorded in `.client-site.json`. Astro's template ships
+   * `Seo.astro`, `StructuredData.astro` and `BaseLayout.astro` unconditionally
+   * and drives them from `site.config.ts`.
+   *
+   * The previous wording here - "Astro's layout is built from contributed
+   * metadata" - was therefore false, and had been since the feature was written.
+   * Stage 22 reasoned from "`--features seo` on Next produced a byte-identical
+   * project" to "Next lacks this capability", without noticing that the same
+   * sentence is true of Astro. The conclusion happened to be right; the reason
+   * given for it was not.
+   *
+   * ## What it does distinguish, truthfully
+   *
+   * Astro's shipped head expresses the whole contract - title, description,
+   * robots, canonical, Open Graph, Twitter, JSON-LD, document language - and
+   * `test/seo-feature.test.ts` and `scripts/smoke.mjs` check the feature's
+   * computed contract against the HTML a real `astro build` emitted. Next's
+   * `app/layout.tsx` states a title, a description and a language, and nothing
+   * verifies anything. So the capability is a claim about **coverage that has
+   * been checked**, not about a composition mechanism.
+   *
+   * Withheld from Next because that coverage genuinely is not there, which an
+   * experiment confirmed rather than assumed: granting the capability makes all
+   * three features resolve, plan and generate - to a byte-identical project.
+   * Accepted and ignored is exactly the failure the requirement exists to
+   * prevent.
    *
    * Distinct from `document-metadata`, which is a claim about *when* the head
    * reaches the client. Next genuinely has a server-rendered head; what it does
-   * not have is one this generator composes. Stage 22 found the difference by
-   * generating a project with `--features seo` that was byte-identical to one
-   * without it.
+   * not have is one whose contents this generator has any say in.
    */
   'composed-metadata',
 

@@ -234,8 +234,17 @@ export const CAPABILITY_CONTRACTS: Readonly<Record<Capability, CapabilityContrac
   },
   'composed-metadata': {
     category: 'composition',
+    /*
+     * Stage 29 corrected this. It read "the document shell is assembled from
+     * contributed metadata", which is not what happens anywhere - claims are
+     * collected and conflict-checked and reach no file. What the capability
+     * asserts is that the shell the architecture ships already covers the
+     * contract, so the structural requirement is only that a shell exists to
+     * make the claim about. A `data` surface for that reason, and mapping is
+     * genuinely the whole of it.
+     */
     because:
-      'the document shell is assembled from contributed metadata. The shell may well ship with the template - what is contributed is values, not a file - so mapping it is the whole requirement',
+      'the document shell states what the metadata features describe. What a feature contributes is values rather than a file, and the shell may ship with the template, so mapping the role is the whole structural requirement',
     surfaces: [{ role: 'app.layout', via: 'data' }],
   },
 };
