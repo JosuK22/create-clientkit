@@ -76,7 +76,7 @@ function findBundledRoots() {
       // which prettier produces for long specifier lists.
       const source = readFileSync(full, 'utf8');
       const matches = [
-        ...source.matchAll(/^\s*(?:import|export)\b[^;]*?from\s+'([^']+)'/gm),
+        ...source.matchAll(/^[ \t]*(?:import|export)\b[^;\n]*?from\s+'([^']+)'/gm),
         ...source.matchAll(/^\}\s*from\s+'([^']+)'/gm),
       ];
       for (const match of matches) {

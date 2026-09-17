@@ -4,6 +4,8 @@ import {
   appRootEntries,
   appRootEntry,
   composesAppRoot,
+  composesProviderShell,
+  emitProviderShell,
   emitAppRoot,
   importSpecifier,
 } from '../domain/app-composition.js';
@@ -406,6 +408,85 @@ export function composedAppRoot(
 }
 
 /**
+ * Composes the provider shell, for an architecture whose entry it does not own.
+ *
+ * The sibling of `composedAppRoot`, and everything above the two emitters is
+ * shared: the same wrapper claims, read from the same slot, sorted by the same
+ * rule, resolved through the same role indirection. What differs is the one
+ * thing that genuinely differs - a root renders the page, a shell renders the
+ * children it is handed.
+ *
+ * An architecture mapping no `app.shell` composes nothing and takes no branch,
+ * which is how React is left alone: it composes at `app.root` instead.
+ */
+export function composedProviderShell(
+  project: ResolvedProject,
+  contributions: readonly Contribution[],
+  operations: readonly FileOperation[],
+): readonly FileOperation[] {
+  if (!composesProviderShell(project.architecture)) return [];
+
+  const shellPath = resolveRole(project.architecture, 'app.shell');
+  const config = contributions.flatMap((contribution) => contribution.config);
+
+  const wrappers = appRootEntries(config, 'providers').map((claim) => {
+    const role = claim.entry.role ?? 'app.providers';
+
+    if (!definesRole(project.architecture, role)) {
+      throw new CliError(
+        `${claim.owner} wraps the application, but "${project.architecture.id}" maps no "${role}" role for it.`,
+        { hint: 'The architecture decides where such a component lives; this one has nowhere.' },
+      );
+    }
+
+    const filePath = resolveRole(project.architecture, role);
+    if (!operations.some((entry) => entry.path === filePath)) {
+      throw new CliError(`${claim.owner} wraps the application but contributes no file for it.`, {
+        hint: `Nothing produces "${filePath}".`,
+      });
+    }
+
+    return {
+      owner: claim.owner,
+      importName: claim.entry.importName,
+      from: importSpecifier(shellPath, filePath),
+    };
+  });
+
+  const exportName = project.architecture.shellExportName ?? 'AppProviders';
+
+  /*
+   * A wrapper cannot share the shell's own binding.
+   *
+   * The shell imports each wrapper by name and exports itself by name, into one
+   * module scope. A collision emits a module that redeclares its own export -
+   * which is not a subtle failure, but it is one a generator should refuse
+   * rather than write. `appRootEntries` already refuses two wrappers sharing a
+   * name; this is the same rule, extended to the one name it could not see.
+   */
+  const clash = wrappers.find((wrapper) => wrapper.importName === exportName);
+  if (clash !== undefined) {
+    throw new CliError(
+      `${clash.owner} contributes a wrapper called "${exportName}", which is what the provider shell exports.`,
+      {
+        hint: `"${project.architecture.id}" names its shell "${exportName}"; two bindings cannot share it. One of them must be renamed.`,
+      },
+    );
+  }
+
+  const owners = wrappers.map((wrapper) => wrapper.owner);
+
+  return [
+    {
+      type: 'write',
+      path: shellPath,
+      content: emitProviderShell(exportName, wrappers),
+      origin: owners.length === 0 ? 'composed from nothing' : `composed from ${owners.join(' + ')}`,
+    },
+  ];
+}
+
+/**
  * Applies `merge` file contributions onto files the plan already produces.
  *
  * Bootstrap forced this. React's `_package.json` listed Tailwind's packages, so
@@ -747,7 +828,10 @@ export function planManifest(
   const operations = applyMerges(
     project,
     contributions,
-    mergeComposed(withContributions, composedAppRoot(project, contributions, withContributions)),
+    mergeComposed(
+      mergeComposed(withContributions, composedAppRoot(project, contributions, withContributions)),
+      composedProviderShell(project, contributions, withContributions),
+    ),
   );
 
   const packageResult = composePackageOperation(project, contributions, operations);

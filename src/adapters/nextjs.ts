@@ -160,6 +160,7 @@ const NEXTJS_ARCHITECTURE: ArchitectureDefinition = {
    * here has a file under it in at least one starter.
    */
   directories: ['app', 'components/providers', 'components/ui', 'lib', 'public', 'styles'],
+  shellExportName: 'Providers',
   roles: {
     'app.layout': 'app/layout.tsx',
     /*
@@ -173,7 +174,21 @@ const NEXTJS_ARCHITECTURE: ArchitectureDefinition = {
      * React maps it and fills it with nothing unless one is. What differs is
      * who supplies the file when nobody else does, which is decided below.
      */
-    'app.providers': 'components/providers/AppProviders.tsx',
+    /*
+     * Where a UI library's own provider component goes. One occupant, because a
+     * project has one UI library - the *chain* that wraps the application is
+     * `app.shell` below, composed from however many wrappers were contributed.
+     */
+    'app.providers': 'components/providers/UiProviders.tsx',
+    /*
+     * The composed chain the layout renders around its children.
+     *
+     * Framework-owned location, adapter-owned contents: every wrapper the
+     * selected adapters contribute, nested in declared order. Stage 26 had one
+     * hard-wired slot here, which worked for one contributor and had no answer
+     * for two.
+     */
+    'app.shell': 'components/providers/AppProviders.tsx',
     'page.home': 'app/page.tsx',
     'config.site': 'lib/site.config.ts',
     'config.framework': 'next.config.ts',
@@ -289,32 +304,6 @@ export function createNextjsAdapter(templateRoot: string): FrameworkAdapter {
                   owner: OWNER,
                   order: 0,
                   reason: 'the design system a project with no styling adapter still needs',
-                },
-              ]
-            : []),
-          /*
-           * The provider boundary, on exactly the same terms as the stylesheet
-           * above: contributed only when nothing else will.
-           *
-           * The layout wraps the application in this component unconditionally,
-           * so the role always has an occupant. A UI library supplies its own
-           * and this one stands down; with no UI library the project gets a
-           * pass-through that renders its children and adds no client bundle.
-           *
-           * The condition is "is there a UI library at all", never which one.
-           */
-          ...(project.manifest.uiLibrary === 'none'
-            ? [
-                {
-                  target: { kind: 'role', role: 'app.providers' } as const,
-                  intent: 'create' as const,
-                  payload: {
-                    kind: 'template' as const,
-                    source: path.join(templateRoot, 'ui', 'AppProviders.tsx'),
-                  },
-                  owner: OWNER,
-                  order: 0,
-                  reason: 'the empty provider boundary the layout always wraps the app in',
                 },
               ]
             : []),

@@ -3079,3 +3079,94 @@ was added, no combination adapter exists, and the version stays 1.0.2. Thirteen
 V2 goldens moved, from exactly two causes: the MUI provider gained its directive
 (five React goldens) and the Next layout gained its provider boundary (eight
 Next goldens).
+
+### Stage 27 — the provider composition contract (landed)
+
+Stage 26 gave Next one provider slot, hard-wired into the layout. That works for
+one contributor and has no answer for two: a second would collide on the file,
+and nothing anywhere said which should be outermost. The Stage 26 report named
+the risk — _"two wrappers would have no declared nesting order"_ — and this
+stage closes it before a second contributor exists.
+
+**1. The semantic role.** `app.providers` was already right and is reused: it is
+where _a_ wrapper's own component lives. What was missing is a name for the
+_chain_, so `app.shell` was added — the component a framework's own entry
+renders around the application content, composed from every contributed wrapper.
+
+**2. Contribution ownership.** Unchanged. A wrapper is a `ConfigContribution`
+targeting `app.root` at slot `providers`, carrying an `importName`, the `role`
+holding its own file, and an `order`. The owner is the contributing adapter's
+ref, and it appears in the composed file's `origin`.
+
+**3. The ordering model** — explicit numeric order, which React has used since
+Stage 7:
+
+```
+lower order is further out; ties break on the owner's adapter ref
+```
+
+Chosen over semantic phases (a vocabulary to agree on before anyone needs it),
+`before`/`after` constraints (expressible contradictions, needing detection and
+resolution), and architecture-defined ordering (a per-architecture table, which
+is a matrix). It is the smallest model that answers the question, and it was
+already load-bearing: MUI at 10 and React Router at 100 is what puts the theme
+_outside_ the router, which Stage 13 established by finding the alternative
+broken.
+
+**Cycles are not detected because they cannot be expressed.** Integers are
+totally ordered and the tiebreak is total, so there is no graph. A `before`/
+`after` model would need cycle detection to earn behaviour this already has.
+
+**4. Duplicate policy.** A byte-identical claim contributed twice collapses to
+one — nesting a component inside itself is meaningless, and refusing would make
+a legitimate double-reach an error. Anything else sharing a binding name is a
+conflict, including the same owner contributing the same name with a different
+order.
+
+**5. Conflict policy.** Two owners wanting one binding fails by name. So does a
+wrapper whose file nothing produces, and a wrapper whose role the architecture
+cannot place. New here: a wrapper may not share the _shell's_ own export name —
+the one collision the claim list cannot see, because that name belongs to the
+architecture. Found while building this stage, when MUI's `AppProviders` and
+Next's shell were both called `AppProviders` and the emitted module redeclared
+its own export.
+
+**6. Next.** `app/layout.tsx` stays framework-owned and server-rendered, and
+renders the composed shell:
+
+```
+app/layout.tsx                    server, framework-owned
+  └─ Providers                    app.shell   — composed from wrappers
+       └─ AppProviders            app.providers — MUI's, 'use client'
+            └─ {children}
+```
+
+**7. React.** Unchanged, and byte-identical: it composes `app.root`, which
+renders _the page_ rather than children.
+
+```
+src/App.tsx                       app.root — composed
+  └─ AppProviders                 app.providers — MUI, order 10
+       └─ AppRouter               app.router — React Router, order 100
+            └─ <HomePage />
+```
+
+**8. Why `app.root` stays separate.** A root _is_ the application: it renders
+the page, so composing it decides what the application shows. A shell wraps
+content it is handed. The two genuinely differ, and each architecture maps
+exactly one — Next maps no `app.root`, and inventing one would emit a component
+nothing renders. Everything above the two emitters is shared: the same claims,
+the same sort, the same role indirection.
+
+**9. Why adapter registration order is not authoritative.** Because it is not a
+decision anyone made. Registration order is a fact about a `Map` literal;
+nesting order is a design choice with consequences a user can see. A test
+composes three wrappers in all six permutations and asserts one identical
+result.
+
+**Unchanged.** React's generated output is byte-identical — zero React goldens
+moved. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no adapter
+or preset was added, and the version stays 1.0.2. Eleven Next goldens moved,
+from one cause: the shell is now composed rather than contributed, so the
+provider file is emitted and its occupant moved to `UiProviders.tsx`.

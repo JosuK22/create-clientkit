@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { AppProviders } from '../components/providers/AppProviders';
+import { Providers } from '../components/providers/AppProviders';
 import { SITE } from '../lib/site.config';
 import '../styles/globals.css';
 
@@ -14,7 +14,7 @@ import '../styles/globals.css';
  *
  * ## The provider boundary
  *
- * `AppProviders` is always here, whether or not anything fills it. A project
+ * `Providers` is always here, whether or not anything fills it. A project
  * with no UI library gets a pass-through that renders its children and nothing
  * else; a project with one gets that library's providers instead, at the same
  * place, without this file changing. Where the client boundary goes - if one is
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang={SITE.locale || 'en'}>
       <body>
-        <AppProviders>{children}</AppProviders>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

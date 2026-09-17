@@ -124,7 +124,10 @@ const bodyAt = (manifest: ProjectManifest, file: string): string =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '');
 
-const PROVIDERS = 'components/providers/AppProviders.tsx';
+/** Where a UI library's own provider component goes. */
+const PROVIDERS = 'components/providers/UiProviders.tsx';
+/** The composed chain the layout renders, which Stage 27 separated from it. */
+const SHELL = 'components/providers/AppProviders.tsx';
 
 // ---------------------------------------------------------------------------
 // The capability, and the architecture that now earns it
@@ -140,17 +143,19 @@ describe('Next provides a client application root, and the architecture says so'
     expect(resolveRole(NEXTJS_ARCHITECTURE, 'app.providers')).toBe(PROVIDERS);
   });
 
-  it('the layout wraps the application in whatever fills the role', () => {
+  it('the layout wraps the application in the composed shell', () => {
     /*
      * The structural fact that makes the capability true, checked in the
-     * generated file rather than in the adapter. The layout imports the
-     * provider and wraps `children` in it - unconditionally, so the role always
-     * has an occupant and adding a UI library changes one file rather than the
-     * layout's shape.
+     * generated file rather than in the adapter. The layout renders the shell
+     * unconditionally, so there is always something to fill and adding a UI
+     * library changes one composed file rather than the layout's shape.
+     *
+     * Stage 27 separated the shell from its occupant: the layout renders
+     * `Providers`, which is composed from every contributed wrapper.
      */
     const layout = fileAt(nextManifest({ uiLibrary: 'none' }), 'app/layout.tsx');
     expect(layout).toContain("from '../components/providers/AppProviders'");
-    expect(layout).toMatch(/<AppProviders>\s*\{children\}\s*<\/AppProviders>/);
+    expect(layout).toMatch(/<Providers>\s*\{children\}\s*<\/Providers>/);
   });
 
   it('the layout itself stays a server component', () => {
@@ -166,10 +171,12 @@ describe('Next provides a client application root, and the architecture says so'
   });
 
   it('the client boundary is exactly one component deep', () => {
-    // With MUI the provider carries the directive; with nothing it does not,
-    // because a pass-through has no reason to reach the browser.
+    // MUI's provider carries the directive; neither the layout nor the composed
+    // shell does, so the client bundle grows by one component rather than by
+    // the whole tree.
     expect(bodyAt(nextManifest(), PROVIDERS)).toContain("'use client'");
-    expect(bodyAt(nextManifest({ uiLibrary: 'none' }), PROVIDERS)).not.toContain('use client');
+    expect(bodyAt(nextManifest(), SHELL)).not.toContain('use client');
+    expect(bodyAt(nextManifest({ uiLibrary: 'none' }), SHELL)).not.toContain('use client');
   });
 
   it('the declaration and the architecture cannot drift apart', () => {
@@ -255,23 +262,33 @@ describe('Next + MUI composes through the generic pipeline', () => {
     expect(claims.get('role:app.providers')).toBe('ui-library:mui');
   });
 
-  it('Next owns the provider when no UI library does', () => {
+  it('nobody contributes a provider when no UI library does', () => {
+    /*
+     * Stage 26 had Next contribute a pass-through file here. Stage 27 made the
+     * shell composed, so the empty case is emitted rather than shipped - one
+     * mechanism instead of a file plus a fallback.
+     */
     const { contributions } = resolveWithAdapters(
       nextManifest({ uiLibrary: 'none' }),
       TEMPLATES_ROOT,
     );
     const provider = contributions
-      .flatMap((contribution) =>
-        contribution.files.map((file) => [contribution.owner, file] as const),
-      )
-      .find(([, file]) => file.target.kind === 'role' && file.target.role === 'app.providers');
-    expect(provider?.[0]).toBe('framework:nextjs');
+      .flatMap((contribution) => contribution.files)
+      .find((file) => file.target.kind === 'role' && file.target.role === 'app.providers');
+    expect(provider).toBeUndefined();
+    expect(fileAt(nextManifest({ uiLibrary: 'none' }), SHELL)).toContain('return <>{children}</>;');
   });
 
-  it('exactly one provider file is written either way', () => {
+  it('the shell is always written; its occupant only when there is one', () => {
     for (const uiLibrary of ['none', 'mui'] as const) {
-      expect(pathsOf(nextManifest({ uiLibrary })).filter((f) => f === PROVIDERS)).toHaveLength(1);
+      expect(pathsOf(nextManifest({ uiLibrary })).filter((f) => f === SHELL)).toHaveLength(1);
     }
+    expect(pathsOf(nextManifest({ uiLibrary: 'mui' })).filter((f) => f === PROVIDERS)).toHaveLength(
+      1,
+    );
+    expect(
+      pathsOf(nextManifest({ uiLibrary: 'none' })).filter((f) => f === PROVIDERS),
+    ).toHaveLength(0);
   });
 
   it('the MUI provider mounts the theme above the application', () => {
@@ -279,6 +296,10 @@ describe('Next + MUI composes through the generic pipeline', () => {
     expect(provider).toContain('ThemeProvider');
     expect(provider).toContain('CssBaseline');
     expect(provider).toContain('{children}');
+    // And the shell nests it around the content the framework hands down.
+    expect(fileAt(nextManifest(), SHELL)).toContain(
+      "import { AppProviders } from './UiProviders';",
+    );
   });
 
   it('installs the server-render integration, and only where there is one', () => {

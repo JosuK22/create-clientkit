@@ -265,3 +265,92 @@ export function emitAppRoot(
 export function composesAppRoot(architecture: ArchitectureDefinition): boolean {
   return definesRole(architecture, 'app.root') && definesRole(architecture, 'page.home');
 }
+
+/**
+ * Emits the provider shell: every contributed wrapper, nested around children.
+ *
+ * ## Why a second emitter rather than a general one
+ *
+ * `emitAppRoot` composes a module that renders *the page*. That is what a
+ * React-style application root is, and it is the wrong shape for a framework
+ * that routes its own files - there, the application content arrives as
+ * `children` and the framework decides what it is. The two differ in exactly
+ * one respect, and pretending otherwise would mean an emitter with a flag.
+ *
+ * What generalises is everything around them: the semantic roles, the wrapper
+ * claims, and the ordering rule. Both emitters consume the identical list from
+ * `appRootEntries`, sorted the identical way, and neither knows which adapter
+ * produced it.
+ *
+ * ## The ordering rule, stated once
+ *
+ * Each wrapper declares an integer `order`; lower is further out. Ties break on
+ * the owner's adapter ref, which is a stable string, so nesting never depends
+ * on which adapter happened to be selected first, which order flags were passed
+ * in, or how a registry iterated.
+ *
+ * That is the whole model, and deliberately so. It cannot express a cycle -
+ * integers are totally ordered and the tiebreak is total - so there is no graph
+ * to detect one in. A `before`/`after` model could express contradictions, and
+ * would need detection, resolution and an error vocabulary to earn behaviour
+ * this already has.
+ *
+ * With no wrappers the shell is a pass-through: the same component, rendering
+ * its children and nothing else, so the framework's own entry imports one name
+ * whether or not anything fills it.
+ */
+export function emitProviderShell(
+  exportName: string,
+  wrappers: readonly AppRootWrapper[] = [],
+): string {
+  const imports = [
+    "import type { ReactNode } from 'react';",
+    ...wrappers.map((entry) => `import { ${entry.importName} } from '${entry.from}';`),
+  ].sort();
+
+  const body: string[] = [];
+  if (wrappers.length === 0) {
+    body.push('  return <>{children}</>;');
+  } else {
+    body.push('  return (');
+    wrappers.forEach((entry, depth) => {
+      body.push(`${'  '.repeat(depth + 2)}<${entry.importName}>`);
+    });
+    body.push(`${'  '.repeat(wrappers.length + 2)}{children}`);
+    [...wrappers].reverse().forEach((entry, index) => {
+      body.push(`${'  '.repeat(wrappers.length - index + 1)}</${entry.importName}>`);
+    });
+    body.push('  );');
+  }
+
+  const note =
+    wrappers.length === 0
+      ? [
+          ' * Nothing wraps the application yet. Selecting a UI library fills this',
+          ' * in; until then it renders its children and adds no client bundle.',
+        ]
+      : [
+          ' * Composed from what the selected adapters contribute, outermost first.',
+          ' * Each wrapper declares where it belongs, so the nesting is the same',
+          ' * however the stack was configured.',
+        ];
+
+  return [
+    ...imports,
+    '',
+    '/**',
+    ' * Everything that wraps the whole application.',
+    ' *',
+    ...note,
+    ' */',
+    `export function ${exportName}({ children }: { children: ReactNode }) {`,
+    ...body,
+    '}',
+    '',
+  ].join('\n');
+}
+
+/** Whether this architecture composes a provider shell around its content. */
+export function composesProviderShell(architecture: ArchitectureDefinition): boolean {
+  return definesRole(architecture, 'app.shell');
+}

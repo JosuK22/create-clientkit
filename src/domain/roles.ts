@@ -56,6 +56,23 @@ export const FILE_ROLES = [
    * composer wires it in when some adapter fills it.
    */
   'app.router',
+  /**
+   * The component a framework's own entry renders around the application
+   * content, composed from every contributed wrapper.
+   *
+   * Distinct from `app.root`, and the distinction is what a framework whose
+   * shell it does not own needs. `app.root` *is* the application - it renders
+   * the page, so composing it means deciding what the application shows. A
+   * shell wraps content it is handed and renders `children`; the framework
+   * still owns routing and still decides what goes inside.
+   *
+   * React maps `app.root` and not this: its root is a real component that
+   * renders the home page. Next maps this and not `app.root`: `app/layout.tsx`
+   * is framework-owned and hands down `children`, so the composed thing sits
+   * between the two. An architecture mapping neither composes nothing, with no
+   * branch anywhere - the same arrangement `config.build` has always used.
+   */
+  'app.shell',
   /** The shared page shell: `<head>`, header, footer. */
   'app.layout',
   /** Home page. */
@@ -126,6 +143,14 @@ export interface ArchitectureDefinition {
    * shape, which is exactly what an architecture is for.
    */
   readonly rootExportName?: string;
+  /**
+   * What the composed provider shell exports.
+   *
+   * The sibling of `rootExportName`, for the same reason: the framework's own
+   * entry imports that binding by name, so the architecture that decided where
+   * the shell lives is what says what to call it. Defaults to `AppProviders`.
+   */
+  readonly shellExportName?: string;
 }
 
 /**

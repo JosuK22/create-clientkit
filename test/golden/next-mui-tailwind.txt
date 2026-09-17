@@ -3,7 +3,7 @@ templateId       nextjs
 templateVersion  0.1.0
 mode             coming-soon
 targetDir        <TARGET_DIR>
-operationCount   15
+operationCount   16
 
 == ORDER ==
 write  .client-site.json
@@ -12,6 +12,7 @@ write  .gitignore
 write  app/layout.tsx
 write  app/page.tsx
 write  components/providers/AppProviders.tsx
+write  components/providers/UiProviders.tsx
 write  components/ui/Mark.tsx
 write  lib/site.config.ts
 write  next.config.ts
@@ -83,7 +84,7 @@ origin  base
 ----
 import type { Metadata } from 'next';
 
-import { AppProviders } from '../components/providers/AppProviders';
+import { Providers } from '../components/providers/AppProviders';
 import { SITE } from '../lib/site.config';
 import '../styles/globals.css';
 
@@ -97,7 +98,7 @@ import '../styles/globals.css';
  *
  * ## The provider boundary
  *
- * `AppProviders` is always here, whether or not anything fills it. A project
+ * `Providers` is always here, whether or not anything fills it. A project
  * with no UI library gets a pass-through that renders its children and nothing
  * else; a project with one gets that library's providers instead, at the same
  * place, without this file changing. Where the client boundary goes - if one is
@@ -118,7 +119,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang={SITE.locale || 'en'}>
       <body>
-        <AppProviders>{children}</AppProviders>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
@@ -174,6 +175,29 @@ export default function HomePage() {
 
 
 ---- components/providers/AppProviders.tsx ----
+type    write
+origin  composed from ui-library:mui
+----
+import type { ReactNode } from 'react';
+import { AppProviders } from './UiProviders';
+
+/**
+ * Everything that wraps the whole application.
+ *
+ * Composed from what the selected adapters contribute, outermost first.
+ * Each wrapper declares where it belongs, so the nesting is the same
+ * however the stack was configured.
+ */
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <AppProviders>
+      {children}
+    </AppProviders>
+  );
+}
+
+
+---- components/providers/UiProviders.tsx ----
 type    write
 origin  ui-library:mui
 ----
