@@ -12,6 +12,7 @@ import type {
   DocumentContribution,
   DocumentScope,
   MetadataContribution,
+  MetadataStatement,
   StructuredDataContribution,
 } from '../src/domain/document-contribution.js';
 import { resolveDocumentContributions } from '../src/domain/document-resolution.js';
@@ -25,13 +26,30 @@ import {
   scopeKey,
   stated,
   suppressed,
+  metadataFromContract,
 } from '../src/domain/document-contribution.js';
-import type { SeoContract } from '../src/domain/seo.js';
+import type {
+  DocumentValue,
+  DocumentValueType,
+  LiteralTypes,
+} from '../src/domain/document-value.js';
 import { resolveSeoContract } from '../src/domain/seo.js';
 import type { OrganizationContract } from '../src/domain/structured-data.js';
 import { resolveOrganization, serialiseOrganization } from '../src/domain/structured-data.js';
 import type { CliError } from '../src/errors.js';
 import type { SiteContext } from '../src/types.js';
+
+/** Constructing a statement: the field types the vocabulary gives each field. */
+
+/**
+ * Reading one back. Throws rather than returning undefined, so an assertion
+ * that expected a literal and met a binding fails where it is written.
+ */
+function lit<K extends DocumentValueType>(value: DocumentValue<K> | undefined): LiteralTypes[K] {
+  if (value === undefined) throw new Error('expected a value, found none');
+  if (value.kind !== 'literal') throw new Error(`expected a literal, found a ${value.kind}`);
+  return value.value;
+}
 
 /**
  * The document contribution payload model.
@@ -78,11 +96,12 @@ const A = 'contributor:a';
 const B = 'contributor:b';
 const C = 'contributor:c';
 
-const someMetadata = (title: string): SeoContract => resolveSeoContract(SITE, { pageTitle: title });
+const someMetadata = (title: string): MetadataStatement =>
+  metadataFromContract(resolveSeoContract(SITE, { pageTitle: title }));
 
 const metadataFrom = (
   owner: string,
-  contract: SeoContract,
+  contract: MetadataStatement,
   scope: DocumentScope = EVERY_PAGE,
 ): MetadataContribution => ({
   kind: 'metadata',
@@ -343,13 +362,17 @@ describe('canonical form is deterministic', () => {
 describe('SEO is representable without semantic loss', () => {
   it('carries the whole contract, field for field', () => {
     const contract = resolveSeoContract(SITE);
-    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([
+      metadataFrom('feature:seo', metadataFromContract(contract)),
+    ]);
     if (entry?.kind !== 'metadata') throw new Error('narrowing failed');
     if (entry.metadata.state !== 'stated') throw new Error('narrowing failed');
 
     // Round-trip, not a spot check: nothing may be dropped on the way in.
-    expect(entry.metadata.value.value).toEqual(contract);
-    expect(JSON.stringify(entry.metadata.value.value)).toBe(JSON.stringify(contract));
+    expect(entry.metadata.value.value).toEqual(metadataFromContract(contract));
+    expect(JSON.stringify(entry.metadata.value.value)).toBe(
+      JSON.stringify(metadataFromContract(contract)),
+    );
     for (const field of ['title', 'description', 'robots', 'canonical', 'openGraph', 'twitter']) {
       expect(entry.metadata.value.value, field).toHaveProperty(field);
     }
@@ -357,12 +380,14 @@ describe('SEO is representable without semantic loss', () => {
 
   it('keeps Open Graph and Twitter as structures, not flattened strings', () => {
     const contract = resolveSeoContract(SITE);
-    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([
+      metadataFrom('feature:seo', metadataFromContract(contract)),
+    ]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
     expect(typeof entry.metadata.value.value.openGraph).toBe('object');
-    expect(entry.metadata.value.value.openGraph?.locale).toBe('en_GB');
+    expect(lit(entry.metadata.value.value.openGraph).locale).toBe('en_GB');
     expect(typeof entry.metadata.value.value.twitter).toBe('object');
   });
 });
@@ -395,7 +420,9 @@ describe('structured data stays structured', () => {
     // The flattening this stage exists to prevent: there is no path from a
     // metadata statement to an Organization.
     const contract = resolveSeoContract(SITE);
-    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([
+      metadataFrom('feature:seo', metadataFromContract(contract)),
+    ]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
@@ -485,10 +512,9 @@ describe('the not-found page keeps both of its opt-outs', () => {
       reason: 'what an unmatched address should tell a crawler',
       scope: notFound,
       metadata: stated(
-        resolveSeoContract(SITE, {
-          pageTitle: 'Page not found',
-          noindex: true,
-        }),
+        metadataFromContract(
+          resolveSeoContract(SITE, { pageTitle: 'Page not found', noindex: true }),
+        ),
       ),
     },
     {
@@ -505,12 +531,12 @@ describe('the not-found page keeps both of its opt-outs', () => {
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(entry.metadata.value.value.robots).toBe('noindex, nofollow');
+    expect(lit(entry.metadata.value.value.robots)).toBe('noindex, nofollow');
     // And a blocked page claims no canonical address, which is the other half
     // of the same decision.
-    expect(entry.metadata.value.value.canonical).toBe('');
-    expect(entry.metadata.value.value.openGraph?.url).toBe('');
-    expect(entry.metadata.value.value.title).toBe('Page not found - Acme Ltd');
+    expect(lit(entry.metadata.value.value.canonical)).toBe('');
+    expect(lit(entry.metadata.value.value.openGraph).url).toBe('');
+    expect(lit(entry.metadata.value.value.title)).toBe('Page not found - Acme Ltd');
   });
 
   it('says the page must make no organisation claim', () => {
@@ -533,7 +559,7 @@ describe('the not-found page keeps both of its opt-outs', () => {
     const entries = resolveDocumentContributions([
       ...contributions,
       jsonLdFrom('feature:structured-data', resolveOrganization(SITE)),
-      metadataFrom('feature:seo', resolveSeoContract(SITE)),
+      metadataFrom('feature:seo', metadataFromContract(resolveSeoContract(SITE))),
     ]);
     expect(entries).toHaveLength(4);
 
@@ -549,7 +575,7 @@ describe('the not-found page keeps both of its opt-outs', () => {
     if (indexable?.kind !== 'metadata' || indexable.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(indexable.metadata.value.value.robots).toBe('index, follow');
+    expect(lit(indexable.metadata.value.value.robots)).toBe('index, follow');
   });
 
   it('is expressed with no framework-specific field', () => {
@@ -578,15 +604,17 @@ describe('the model invents nothing', () => {
 
   it('carries absence through unchanged', () => {
     const contract = resolveSeoContract(bare);
-    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([
+      metadataFrom('feature:seo', metadataFromContract(contract)),
+    ]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }
-    expect(entry.metadata.value.value.canonical).toBe('');
-    expect(entry.metadata.value.value.description).toBe('');
-    expect(entry.metadata.value.value.openGraph?.url).toBe('');
+    expect(lit(entry.metadata.value.value.canonical)).toBe('');
+    expect(lit(entry.metadata.value.value.description)).toBe('');
+    expect(lit(entry.metadata.value.value.openGraph).url).toBe('');
     // A bare primary subtag is not a valid og:locale, and stays omitted.
-    expect(entry.metadata.value.value.openGraph?.locale).toBe('');
+    expect(lit(entry.metadata.value.value.openGraph).locale).toBe('');
   });
 
   it('omits an absent organisation field rather than filling it', () => {
@@ -605,7 +633,9 @@ describe('the model invents nothing', () => {
     // The model is a wrapper, and a wrapper that added a field would be
     // inventing one. Compared key-for-key against what the contract produced.
     const contract = resolveSeoContract(bare);
-    const [entry] = resolveDocumentContributions([metadataFrom('feature:seo', contract)]);
+    const [entry] = resolveDocumentContributions([
+      metadataFrom('feature:seo', metadataFromContract(contract)),
+    ]);
     if (entry?.kind !== 'metadata' || entry.metadata.state !== 'stated') {
       throw new Error('narrowing failed');
     }

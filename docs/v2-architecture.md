@@ -4156,3 +4156,143 @@ architecture was touched. The four V1 goldens are byte-identical
 seo`, `+ structured-data` and `+ accessibility` remain refused,
 `composed-metadata` remains ungranted on Next, React is untouched, the CLI still
 has zero runtime dependencies, and the version stays 1.0.2.
+
+### Stage 36 — bindings through the document pipeline (landed)
+
+**Where Stage 34 stopped, and what Stage 35 built.** Stage 34 could not emit a
+document because every resolved field was a generation-time fact, while Astro's
+head is a set of expressions evaluated at the _generated project's_ build.
+Stage 35 gave a value three forms — `literal`, `binding`, `derived` — and an
+owner: `generation`, `project`, or `build-context`. This stage threads that
+model through the existing pipeline.
+
+#### Where bindings enter
+
+At the **statement type**, not at the contract and not at the resolver:
+
+```ts
+interface MetadataStatement {
+  readonly title?: DocumentValue<'text'>;
+  readonly description?: DocumentValue<'text'>;
+  readonly robots?: DocumentValue<'text'>;
+  readonly canonical?: DocumentValue<'url'>;
+  readonly openGraph?: DocumentValue<'open-graph'>;
+  readonly twitter?: DocumentValue<'twitter'>;
+}
+```
+
+`SeoContract` did not change. `metadataFromContract` lifts it into statements,
+every one a literal, because a value the feature resolved from the manifest _is_
+a generation-time fact — claiming otherwise would be the opposite lie from
+Stage 34's. A contributor that knows better builds its statement directly and
+states a binding.
+
+**The resolver needed no logic change at all.** Stage 32 compares values
+structurally, so it already handled whatever a field contains. That the
+integration required zero resolver edits is the evidence the boundary is in the
+right place.
+
+#### Two new value types, and what they prove
+
+`open-graph` and `twitter` joined the vocabulary so each social block is **one
+value** rather than six fields. No binding and no derivation declares either
+type, so `BindingOfType<'open-graph'>` is `never` — today a social block can
+only be a literal, and **the compiler says so** instead of a comment. The Stage
+32 coupling rule is now carried by the type system.
+
+#### Kind is representation, not rank
+
+The rule most at risk in this stage:
+
+```text
+three value kinds  ≠  three levels of authority
+```
+
+A binding does not beat a literal; a derivation does not beat either. At one
+scope, any disagreement is a conflict — `literal` vs `binding`, `literal` vs
+`derived`, `binding` vs `derived`, and differing values of the same kind all
+raise, naming the field and both owners. Four mutations install kind precedence
+and all four are caught.
+
+Across scopes, **specificity** decides, exactly as Stage 33 established, and the
+resolver never inspects a value's kind to choose:
+
+| every-page                   | page.notFound               | result                    |
+| ---------------------------- | --------------------------- | ------------------------- |
+| `binding(site.name)`         | `literal('Page not found')` | the literal               |
+| `derived(absolute-page-url)` | `literal('')`               | the empty literal         |
+| `binding(site.description)`  | absent                      | the binding, inherited    |
+| `derived(absolute-page-url)` | absent                      | the derivation, inherited |
+
+#### Nothing is evaluated
+
+The resolver never turns a binding or a derivation into a value. A test
+serialises a fully resolved document and asserts it contains neither `Acme Ltd`
+nor `https://acme.example` while containing `site.name` and
+`absolute-page-url`. That is the Stage 34 failure guarded at the semantic layer.
+
+#### Pages ClientKit has never heard of
+
+`FileRole` is closed — `page.home` and `page.notFound` are the only pages the
+generator can name — so a developer's `/contact` page can never be _scoped_.
+That is not a gap, and this is the stage's sharpest point: the statement that
+covers such a page is scoped to **every page** and carries a **derivation**, so
+its address is computed per page at the project's build, for pages nobody
+enumerated. A literal canonical could not do this, which is exactly why Stage
+34's snapshot emitter would have left user-added pages with no canonical at all.
+
+A test resolves the same every-page derivation at three targets and asserts it
+comes back identical and unevaluated at each, and that no URL is fabricated for
+any of them.
+
+#### Canonical
+
+All four states stay distinct: absent (no value), `literal('url','')` (this page
+claims no canonical), `literal('url', …)` (this exact address), and
+`derived('url','absolute-page-url')` (whichever page is rendering). The empty
+literal still overrides an inherited derivation, and it does so through scope
+specificity rather than by comparing representations.
+
+#### Robots
+
+Unchanged, and still a literal. The template also consults the project-owned
+`SEO.noindex`, and `document.indexingBlocked` exists in the vocabulary for it —
+but converting a flag into a directive string needs a _conditional_ derivation,
+which Stage 35 deliberately did not model. Inventing one here to make robots
+bindable would have been exactly the speculative expansion this line of stages
+keeps refusing.
+
+#### Title
+
+`SeoContract.title` is a string, so the lift produces a literal. Astro composes
+its title as `title ? \`${title} - ${SITE.name}\` : SITE.name`, which a faithful
+emitter will eventually need as a *parameterised* derivation — one taking a page
+title alongside `site.name`. Stage 35's derivations take bindings only, so that
+form does not exist and was not invented. The pipeline is nonetheless proven to
+carry `title: binding(site.name)` when a contributor states one.
+
+#### Structured data and accessibility
+
+Both unchanged. `OrganizationContract` stays a typed object with no binding
+awareness; several of its template-emitted fields are project-owned and a
+binding-aware variant remains deferred. Accessibility keeps its Stage 33
+constraint — a page-scoped guarantee is still refused — and `DocumentValue` was
+not used to route around it.
+
+#### Provenance
+
+Survives intact. Each composed field still reports its owners, its reasons and
+the scope it came from, and an inherited binding reports `from: every-page`
+while an overriding literal reports the page.
+
+#### What is still deferred
+
+The emitter. `ResolvedPageDocument` can now carry everything an emitter needs —
+values that know who owns them, unevaluated — but nothing turns one into
+generated source. Next remains refused, React is untouched, and no template
+changed.
+
+**Unchanged.** Zero goldens moved and no template or adapter behaviour was
+touched. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), the CLI
+still has zero runtime dependencies, and the version stays 1.0.2.

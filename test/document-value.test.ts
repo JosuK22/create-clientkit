@@ -68,6 +68,37 @@ const refusal = (run: () => unknown): string => {
 // Literals
 // ---------------------------------------------------------------------------
 
+describe('the value vocabulary', () => {
+  it('declares exactly these document types', () => {
+    /*
+     * Recorded, not described. Removing `open-graph` or `twitter` makes
+     * `literal('open-graph', …)` a type error and nothing else - vitest does
+     * not typecheck, so without this the two social types could vanish and
+     * every runtime test would still pass while the Stage 32 coupling lost the
+     * type that carries it.
+     */
+    expect([...DOCUMENT_VALUE_TYPES]).toEqual([
+      'text',
+      'url',
+      'path',
+      'language-tag',
+      'asset-path',
+      'twitter-card',
+      'flag',
+      'open-graph',
+      'twitter',
+    ]);
+  });
+
+  it('gives the social blocks a type no binding can satisfy', () => {
+    // `BindingOfType<'open-graph'>` is `never`, so a social block can only ever
+    // be a literal today. Asserted through the table the type is derived from.
+    for (const binding of DOCUMENT_BINDING_IDS) {
+      expect(['open-graph', 'twitter'], binding).not.toContain(bindingType(binding));
+    }
+  });
+});
+
 describe('a literal states a fact', () => {
   it('carries a string, a boolean and a constrained union', () => {
     expect(literal('text', 'Acme Ltd')).toEqual({
@@ -505,7 +536,13 @@ describe('the model is framework-independent', () => {
     ]) {
       expect(() => source(file), file).toThrow();
     }
-    const text = source(FILE);
+    /*
+     * Comments stripped. The module explains why Open Graph resolves as a unit
+     * by pointing out that a split merge makes `<title>` and `og:title`
+     * disagree - the doc being precise about a markup concern it does not
+     * implement. What must not exist is markup in the code.
+     */
+    const text = codeOnly(FILE);
     for (const name of ['emitDocument', 'renderHead', 'serialiseHead', '<meta', '<title']) {
       expect(text, `${name} belongs to a later stage`).not.toContain(name);
     }

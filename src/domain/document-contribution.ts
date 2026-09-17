@@ -1,6 +1,8 @@
 import type { AccessibilityContract, AccessibilityGuarantee } from './accessibility.js';
 import { ACCESSIBILITY_GUARANTEES } from './accessibility.js';
 import type { FileRole } from './roles.js';
+import type { DocumentValue } from './document-value.js';
+import { literal } from './document-value.js';
 import type { SeoContract } from './seo.js';
 import type { OrganizationContract } from './structured-data.js';
 
@@ -165,7 +167,40 @@ interface DocumentContributionBase {
  * eventually renders a head decides what to do with an absent field; inventing
  * one here would be fabrication.
  */
-export type MetadataStatement = Partial<SeoContract>;
+export interface MetadataStatement {
+  readonly title?: DocumentValue<'text'>;
+  readonly description?: DocumentValue<'text'>;
+  readonly robots?: DocumentValue<'text'>;
+  readonly canonical?: DocumentValue<'url'>;
+  /** One value, never six - see `'open-graph'` in the value vocabulary. */
+  readonly openGraph?: DocumentValue<'open-graph'>;
+  readonly twitter?: DocumentValue<'twitter'>;
+}
+
+/**
+ * Lifts a generation-time contract into binding-aware statements.
+ *
+ * The integration boundary, and the reason `SeoContract` did not have to
+ * change. A feature computes the contract it has always computed; this turns it
+ * into statements, every one a literal, because a value the feature resolved
+ * from the manifest *is* a generation-time fact and saying otherwise would be
+ * the opposite lie from Stage 34's.
+ *
+ * A contributor that knows better - that a title should follow the project's
+ * configured site name rather than the snapshot of it - builds its statement
+ * directly and states a binding. Nothing here forces literals on anyone; it is
+ * the faithful translation of a contract that has no bindings in it.
+ */
+export function metadataFromContract(contract: SeoContract): MetadataStatement {
+  return {
+    title: literal('text', contract.title),
+    description: literal('text', contract.description),
+    robots: literal('text', contract.robots),
+    canonical: literal('url', contract.canonical),
+    openGraph: literal('open-graph', contract.openGraph),
+    twitter: literal('twitter', contract.twitter),
+  };
+}
 
 /** What a page should tell a crawler about itself. */
 export interface MetadataContribution extends DocumentContributionBase {

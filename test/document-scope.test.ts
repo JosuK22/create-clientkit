@@ -9,7 +9,13 @@ import type {
   DocumentScope,
   MetadataStatement,
 } from '../src/domain/document-contribution.js';
-import { EVERY_PAGE, onPage, stated, suppressed } from '../src/domain/document-contribution.js';
+import {
+  EVERY_PAGE,
+  metadataFromContract,
+  onPage,
+  stated,
+  suppressed,
+} from '../src/domain/document-contribution.js';
 import type { DocumentTarget, ResolvedPageDocument } from '../src/domain/document-scope.js';
 import {
   appliesTo,
@@ -18,10 +24,30 @@ import {
   SCOPE_SPECIFICITY,
   SITE_TARGET,
 } from '../src/domain/document-scope.js';
+import type {
+  DocumentValue,
+  DocumentValueType,
+  LiteralTypes,
+} from '../src/domain/document-value.js';
+import { literal } from '../src/domain/document-value.js';
 import { resolveSeoContract } from '../src/domain/seo.js';
 import { resolveOrganization } from '../src/domain/structured-data.js';
 import type { CliError } from '../src/errors.js';
 import type { SiteContext } from '../src/types.js';
+
+/** Constructing a statement: the field types the vocabulary gives each field. */
+const text = (value: string) => literal('text', value);
+const urlValue = (value: string) => literal('url', value);
+
+/**
+ * Reading one back. Throws rather than returning undefined, so an assertion
+ * that expected a literal and met a binding fails where it is written.
+ */
+function lit<K extends DocumentValueType>(value: DocumentValue<K> | undefined): LiteralTypes[K] {
+  if (value === undefined) throw new Error('expected a value, found none');
+  if (value.kind !== 'literal') throw new Error(`expected a literal, found a ${value.kind}`);
+  return value.value;
+}
 
 /**
  * Document scope composition.
@@ -148,20 +174,22 @@ describe('specificity is declared, not sorted', () => {
 });
 
 describe('every-page applies everywhere', () => {
-  const contributions = [says(A, { title: 'Acme Ltd', description: 'Bespoke widgets.' })];
+  const contributions = [
+    says(A, { title: text('Acme Ltd'), description: text('Bespoke widgets.') }),
+  ];
 
   it('reaches every page and the site', () => {
     for (const target of [SITE_TARGET, forPage('page.home'), forPage('page.notFound')]) {
-      expect(metaOn(contributions, target).value.title).toBe('Acme Ltd');
+      expect(lit(metaOn(contributions, target).value.title)).toBe('Acme Ltd');
     }
   });
 });
 
 describe('a page statement reaches only its own page', () => {
-  const contributions = [says(A, { title: 'Home' }, onPage('page.home'))];
+  const contributions = [says(A, { title: text('Home') }, onPage('page.home'))];
 
   it('applies to its page', () => {
-    expect(metaOn(contributions, forPage('page.home')).value.title).toBe('Home');
+    expect(lit(metaOn(contributions, forPage('page.home')).value.title)).toBe('Home');
   });
 
   it('does not reach another page', () => {
@@ -177,12 +205,12 @@ describe('a page statement reaches only its own page', () => {
 
 describe('a page overlays the document field by field', () => {
   const contributions = [
-    says(A, { title: 'Acme Ltd', description: 'Bespoke widgets.' }),
-    says(B, { title: 'Page not found' }, onPage('page.notFound')),
+    says(A, { title: text('Acme Ltd'), description: text('Bespoke widgets.') }),
+    says(B, { title: text('Page not found') }, onPage('page.notFound')),
   ];
 
   it('takes the page value for the field it states', () => {
-    expect(metaOn(contributions, forPage('page.notFound')).value.title).toBe('Page not found');
+    expect(lit(metaOn(contributions, forPage('page.notFound')).value.title)).toBe('Page not found');
   });
 
   it('inherits every field the page does not state', () => {
@@ -191,17 +219,17 @@ describe('a page overlays the document field by field', () => {
      * description here, which is exactly the return to whole-statement
      * semantics Stage 32 was written to prevent.
      */
-    expect(metaOn(contributions, forPage('page.notFound')).value.description).toBe(
+    expect(lit(metaOn(contributions, forPage('page.notFound')).value.description)).toBe(
       'Bespoke widgets.',
     );
   });
 
   it('leaves the document itself untouched', () => {
-    expect(metaOn(contributions, SITE_TARGET).value.title).toBe('Acme Ltd');
+    expect(lit(metaOn(contributions, SITE_TARGET).value.title)).toBe('Acme Ltd');
   });
 
   it('leaves an unrelated page untouched', () => {
-    expect(metaOn(contributions, forPage('page.home')).value.title).toBe('Acme Ltd');
+    expect(lit(metaOn(contributions, forPage('page.home')).value.title)).toBe('Acme Ltd');
   });
 });
 
@@ -214,8 +242,11 @@ describe('stance combinations across scopes', () => {
   const at = onPage('page.notFound');
 
   it('stated + stated overlays', () => {
-    const value = metaOn([says(A, { title: 'Site' }), says(B, { title: 'Page' }, at)], page).value;
-    expect(value.title).toBe('Page');
+    const value = metaOn(
+      [says(A, { title: text('Site') }), says(B, { title: text('Page') }, at)],
+      page,
+    ).value;
+    expect(lit(value.title)).toBe('Page');
   });
 
   it('stated + suppressed suppresses', () => {
@@ -225,7 +256,7 @@ describe('stance combinations across scopes', () => {
      * to make impossible.
      */
     const document = resolveDocumentForPage(
-      [says(A, { title: 'Site' }), refuses(B, 'this page states nothing', at)],
+      [says(A, { title: text('Site') }), refuses(B, 'this page states nothing', at)],
       page,
     );
     expect(document.metadata?.state).toBe('suppressed');
@@ -233,12 +264,12 @@ describe('stance combinations across scopes', () => {
 
   it('suppressed + stated states', () => {
     const document = resolveDocumentForPage(
-      [refuses(A, 'the document states nothing'), says(B, { title: 'Page' }, at)],
+      [refuses(A, 'the document states nothing'), says(B, { title: text('Page') }, at)],
       page,
     );
     expect(document.metadata?.state).toBe('stated');
     if (document.metadata?.state !== 'stated') throw new Error('narrowing failed');
-    expect(document.metadata.value.value.title).toBe('Page');
+    expect(lit(document.metadata.value.value.title)).toBe('Page');
     // And nothing from the suppressed document layer leaked in.
     expect(document.metadata.value.value.description).toBeUndefined();
   });
@@ -249,7 +280,7 @@ describe('stance combinations across scopes', () => {
   });
 
   it('absent + stated states', () => {
-    expect(metaOn([says(B, { title: 'Page' }, at)], page).value.title).toBe('Page');
+    expect(lit(metaOn([says(B, { title: text('Page') }, at)], page).value.title)).toBe('Page');
   });
 
   it('absent + suppressed suppresses', () => {
@@ -258,7 +289,7 @@ describe('stance combinations across scopes', () => {
   });
 
   it('stated + absent inherits', () => {
-    expect(metaOn([says(A, { title: 'Site' })], page).value.title).toBe('Site');
+    expect(lit(metaOn([says(A, { title: text('Site') })], page).value.title)).toBe('Site');
   });
 
   it('suppressed + absent stays suppressed', () => {
@@ -279,21 +310,23 @@ describe('stance combinations across scopes', () => {
 
 describe('pages cannot reach each other', () => {
   const contributions = [
-    says(A, { title: 'Acme Ltd', description: 'Bespoke widgets.' }),
-    says(B, { title: 'Home' }, onPage('page.home')),
+    says(A, { title: text('Acme Ltd'), description: text('Bespoke widgets.') }),
+    says(B, { title: text('Home') }, onPage('page.home')),
     refuses(C, 'an unmatched address states nothing', onPage('page.notFound')),
   ];
 
   it('resolves three targets independently', () => {
-    expect(metaOn(contributions, SITE_TARGET).value.title).toBe('Acme Ltd');
-    expect(metaOn(contributions, forPage('page.home')).value.title).toBe('Home');
+    expect(lit(metaOn(contributions, SITE_TARGET).value.title)).toBe('Acme Ltd');
+    expect(lit(metaOn(contributions, forPage('page.home')).value.title)).toBe('Home');
     expect(resolveDocumentForPage(contributions, forPage('page.notFound')).metadata?.state).toBe(
       'suppressed',
     );
   });
 
   it('does not let one page suppression reach another page', () => {
-    expect(metaOn(contributions, forPage('page.home')).value.description).toBe('Bespoke widgets.');
+    expect(lit(metaOn(contributions, forPage('page.home')).value.description)).toBe(
+      'Bespoke widgets.',
+    );
   });
 
   it('does not let one page override reach another page', () => {
@@ -317,7 +350,7 @@ describe('specificity never arbitrates between owners', () => {
   it('still refuses two owners disagreeing at the same scope', () => {
     const message = refusal(() =>
       resolveDocumentForPage(
-        [says(A, { title: 'One' }), says(B, { title: 'Two' })],
+        [says(A, { title: text('One') }), says(B, { title: text('Two') })],
         forPage('page.home'),
       ),
     );
@@ -330,7 +363,7 @@ describe('specificity never arbitrates between owners', () => {
     const at = onPage('page.home');
     const message = refusal(() =>
       resolveDocumentForPage(
-        [says(A, { title: 'One' }, at), says(B, { title: 'Two' }, at)],
+        [says(A, { title: text('One') }, at), says(B, { title: text('Two') }, at)],
         forPage('page.home'),
       ),
     );
@@ -340,7 +373,7 @@ describe('specificity never arbitrates between owners', () => {
   it('does not treat a cross-scope override as a conflict', () => {
     expect(() =>
       resolveDocumentForPage(
-        [says(A, { title: 'Site' }), says(B, { title: 'Page' }, onPage('page.home'))],
+        [says(A, { title: text('Site') }), says(B, { title: text('Page') }, onPage('page.home'))],
         forPage('page.home'),
       ),
     ).not.toThrow();
@@ -471,8 +504,8 @@ describe('document guarantees are document-wide', () => {
 
 describe('provenance survives inheritance', () => {
   const contributions = [
-    says(A, { title: 'Acme Ltd', description: 'Bespoke widgets.' }),
-    says(B, { title: 'Page not found' }, onPage('page.notFound')),
+    says(A, { title: text('Acme Ltd'), description: text('Bespoke widgets.') }),
+    says(B, { title: text('Page not found') }, onPage('page.notFound')),
   ];
 
   it('says an inherited field came from the document', () => {
@@ -489,7 +522,7 @@ describe('provenance survives inheritance', () => {
 
   it('keeps every claimant of a de-duplicated field', () => {
     const composed = metaOn(
-      [says(A, { title: 'Acme Ltd' }), says(B, { title: 'Acme Ltd' })],
+      [says(A, { title: text('Acme Ltd') }), says(B, { title: text('Acme Ltd') })],
       forPage('page.home'),
     );
     expect(composed.provenance.title?.owners).toEqual([A, B]);
@@ -505,10 +538,12 @@ describe('the not-found page, through the real contracts', () => {
   const at = onPage('page.notFound');
 
   const contributions: DocumentContribution[] = [
-    says('feature:seo', resolveSeoContract(SITE)),
+    says('feature:seo', metadataFromContract(resolveSeoContract(SITE))),
     says(
       'feature:seo',
-      resolveSeoContract(SITE, { pageTitle: 'Page not found', noindex: true }),
+      metadataFromContract(
+        resolveSeoContract(SITE, { pageTitle: 'Page not found', noindex: true }),
+      ),
       at,
     ),
     org('feature:structured-data'),
@@ -517,13 +552,13 @@ describe('the not-found page, through the real contracts', () => {
 
   it('is not indexed', () => {
     expect(
-      metaOn(contributions, at.kind === 'page' ? forPage(at.role) : SITE_TARGET).value.robots,
+      lit(metaOn(contributions, at.kind === 'page' ? forPage(at.role) : SITE_TARGET).value.robots),
     ).toBe('noindex, nofollow');
   });
 
   it('claims no canonical address', () => {
     /*
-     * `canonical: ''` is a statement, not a gap. The contract means "emit no
+     * `canonical: urlValue('')` is a statement, not a gap. The contract means "emit no
      * canonical tag" by it - the generated Seo component does
      * `canonical !== '' && <link rel="canonical">` - so the page's empty value
      * overrides the inherited address rather than falling through to it.
@@ -531,11 +566,11 @@ describe('the not-found page, through the real contracts', () => {
      * Absence is how a contributor says nothing, and `Partial<SeoContract>`
      * keeps the two apart. That is what made this rule definable at all.
      */
-    expect(metaOn(contributions, forPage('page.notFound')).value.canonical).toBe('');
+    expect(lit(metaOn(contributions, forPage('page.notFound')).value.canonical)).toBe('');
   });
 
   it('carries its own title', () => {
-    expect(metaOn(contributions, forPage('page.notFound')).value.title).toBe(
+    expect(lit(metaOn(contributions, forPage('page.notFound')).value.title)).toBe(
       'Page not found - Acme Ltd',
     );
   });
@@ -547,8 +582,8 @@ describe('the not-found page, through the real contracts', () => {
 
   it('leaves the site indexable, canonical and described', () => {
     const site = metaOn(contributions, SITE_TARGET);
-    expect(site.value.robots).toBe('index, follow');
-    expect(site.value.canonical).toBe('https://acme.example/');
+    expect(lit(site.value.robots)).toBe('index, follow');
+    expect(lit(site.value.canonical)).toBe('https://acme.example/');
     const document = resolveDocumentForPage(contributions, SITE_TARGET);
     if (document.structuredData?.state !== 'stated') throw new Error('narrowing failed');
     expect(document.structuredData.value.name).toBe('Acme Ltd');
@@ -557,7 +592,7 @@ describe('the not-found page, through the real contracts', () => {
   it('leaves the home page indexable and claiming the organisation', () => {
     const home = resolveDocumentForPage(contributions, forPage('page.home'));
     if (home.metadata?.state !== 'stated') throw new Error('narrowing failed');
-    expect(home.metadata.value.value.robots).toBe('index, follow');
+    expect(lit(home.metadata.value.value.robots)).toBe('index, follow');
     expect(home.structuredData?.state).toBe('stated');
   });
 
@@ -579,9 +614,9 @@ describe('the not-found page, through the real contracts', () => {
 
 describe('composition is permutation-independent', () => {
   const all: DocumentContribution[] = [
-    says(A, { title: 'Acme Ltd' }),
-    says(B, { description: 'Bespoke widgets.' }),
-    says(C, { canonical: '' }, onPage('page.notFound')),
+    says(A, { title: text('Acme Ltd') }),
+    says(B, { description: text('Bespoke widgets.') }),
+    says(C, { canonical: urlValue('') }, onPage('page.notFound')),
   ];
 
   const render = (order: readonly DocumentContribution[]): string =>
@@ -625,7 +660,7 @@ describe('composition is permutation-independent', () => {
 
 describe('composition invents nothing', () => {
   it('leaves a field nobody claimed absent at every target', () => {
-    const contributions = [says(A, { title: 'Acme Ltd' })];
+    const contributions = [says(A, { title: text('Acme Ltd') })];
     for (const target of [SITE_TARGET, forPage('page.home'), forPage('page.notFound')]) {
       const composed = metaOn(contributions, target);
       expect('canonical' in composed.value, JSON.stringify(target)).toBe(false);
@@ -643,19 +678,19 @@ describe('composition invents nothing', () => {
     };
     const composed = metaOn(
       [
-        says(A, resolveSeoContract(bare)),
-        says(B, { title: 'Page not found' }, onPage('page.notFound')),
+        says(A, metadataFromContract(resolveSeoContract(bare))),
+        says(B, { title: text('Page not found') }, onPage('page.notFound')),
       ],
       forPage('page.notFound'),
     );
-    expect(composed.value.canonical).toBe('');
+    expect(lit(composed.value.canonical)).toBe('');
     expect(JSON.stringify(composed)).not.toContain('example.com');
     expect(JSON.stringify(composed)).not.toContain('localhost');
   });
 
   it('adds no key of its own to a composed statement', () => {
     const contract = resolveSeoContract(SITE);
-    const composed = metaOn([says(A, contract)], forPage('page.home'));
+    const composed = metaOn([says(A, metadataFromContract(contract))], forPage('page.home'));
     expect(Object.keys(composed.value).sort()).toEqual(Object.keys(contract).sort());
   });
 });

@@ -1,3 +1,4 @@
+import type { OpenGraphContract, TwitterContract } from './seo.js';
 import { CliError } from '../errors.js';
 
 /**
@@ -66,6 +67,24 @@ export const DOCUMENT_VALUE_TYPES = [
   'asset-path',
   'twitter-card',
   'flag',
+  /*
+   * The two social blocks, each one value rather than a set of fields.
+   *
+   * Stage 32 established that Open Graph and Twitter resolve as units, because
+   * `resolveSeoContract` derives `openGraph.title` from `title` and
+   * `openGraph.url` from `canonical` - so taking half from one owner and half
+   * from another emits a document whose `<title>` and `og:title` disagree.
+   * Giving each block its own value type keeps that coupling in the type
+   * system rather than in a rule somebody has to remember.
+   *
+   * No binding and no derivation declares either type, so `BindingOfType` and
+   * `DerivationOfType` resolve to `never` for both. That is deliberate and
+   * load-bearing: today a social block can only be a literal, and the compiler
+   * says so rather than a comment. When a stage models `og:image` properly,
+   * adding a binding of this type is what will make bound blocks possible.
+   */
+  'open-graph',
+  'twitter',
 ] as const;
 
 export type DocumentValueType = (typeof DOCUMENT_VALUE_TYPES)[number];
@@ -79,6 +98,8 @@ export interface LiteralTypes {
   'asset-path': string;
   'twitter-card': 'summary' | 'summary_large_image';
   flag: boolean;
+  'open-graph': OpenGraphContract;
+  twitter: TwitterContract;
 }
 
 // ---------------------------------------------------------------------------

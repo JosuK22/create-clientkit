@@ -9,15 +9,41 @@ import type {
   DocumentScope,
   MetadataStatement,
 } from '../src/domain/document-contribution.js';
-import { EVERY_PAGE, onPage, stated, suppressed } from '../src/domain/document-contribution.js';
+import {
+  EVERY_PAGE,
+  metadataFromContract,
+  onPage,
+  stated,
+  suppressed,
+} from '../src/domain/document-contribution.js';
 import {
   METADATA_FIELDS,
   resolveDocumentContributions,
 } from '../src/domain/document-resolution.js';
+import type {
+  DocumentValue,
+  DocumentValueType,
+  LiteralTypes,
+} from '../src/domain/document-value.js';
+import { literal } from '../src/domain/document-value.js';
 import { resolveSeoContract } from '../src/domain/seo.js';
 import { resolveOrganization } from '../src/domain/structured-data.js';
 import type { CliError } from '../src/errors.js';
 import type { SiteContext } from '../src/types.js';
+
+/** Constructing a statement: the field types the vocabulary gives each field. */
+const text = (value: string) => literal('text', value);
+const urlValue = (value: string) => literal('url', value);
+
+/**
+ * Reading one back. Throws rather than returning undefined, so an assertion
+ * that expected a literal and met a binding fails where it is written.
+ */
+function lit<K extends DocumentValueType>(value: DocumentValue<K> | undefined): LiteralTypes[K] {
+  if (value === undefined) throw new Error('expected a value, found none');
+  if (value.kind !== 'literal') throw new Error(`expected a literal, found a ${value.kind}`);
+  return value.value;
+}
 
 /**
  * Field-level document resolution.
@@ -102,19 +128,19 @@ describe('compatible claims merge', () => {
      * prevents composition it has no reason to prevent.
      */
     const resolved = metadataOf([
-      says(A, { title: 'Acme Ltd', description: 'Bespoke widgets.' }),
-      says(B, { canonical: 'https://acme.example/' }),
+      says(A, { title: text('Acme Ltd'), description: text('Bespoke widgets.') }),
+      says(B, { canonical: urlValue('https://acme.example/') }),
     ]);
 
-    expect(resolved.value.title).toBe('Acme Ltd');
-    expect(resolved.value.description).toBe('Bespoke widgets.');
-    expect(resolved.value.canonical).toBe('https://acme.example/');
+    expect(lit(resolved.value.title)).toBe('Acme Ltd');
+    expect(lit(resolved.value.description)).toBe('Bespoke widgets.');
+    expect(lit(resolved.value.canonical)).toBe('https://acme.example/');
   });
 
   it('traces every merged field to the owner that claimed it', () => {
     const resolved = metadataOf([
-      says(A, { title: 'Acme Ltd' }),
-      says(B, { canonical: 'https://acme.example/' }),
+      says(A, { title: text('Acme Ltd') }),
+      says(B, { canonical: urlValue('https://acme.example/') }),
     ]);
     expect(resolved.provenance.title?.owners).toEqual([A]);
     expect(resolved.provenance.canonical?.owners).toEqual([B]);
@@ -122,9 +148,9 @@ describe('compatible claims merge', () => {
 
   it('merges three owners across three fields', () => {
     const resolved = metadataOf([
-      says(C, { canonical: 'https://acme.example/' }),
-      says(A, { title: 'Acme Ltd' }),
-      says(B, { description: 'Bespoke widgets.' }),
+      says(C, { canonical: urlValue('https://acme.example/') }),
+      says(A, { title: text('Acme Ltd') }),
+      says(B, { description: text('Bespoke widgets.') }),
     ]);
     expect(Object.keys(resolved.value).sort()).toEqual(['canonical', 'description', 'title']);
   });
@@ -132,16 +158,22 @@ describe('compatible claims merge', () => {
 
 describe('identical claims deduplicate', () => {
   it('collapses one field claimed twice, keeping both claimants', () => {
-    const resolved = metadataOf([says(A, { title: 'Acme Ltd' }), says(B, { title: 'Acme Ltd' })]);
-    expect(resolved.value.title).toBe('Acme Ltd');
+    const resolved = metadataOf([
+      says(A, { title: text('Acme Ltd') }),
+      says(B, { title: text('Acme Ltd') }),
+    ]);
+    expect(lit(resolved.value.title)).toBe('Acme Ltd');
     expect(resolved.provenance.title?.owners).toEqual([A, B]);
     expect(resolved.provenance.title?.reasons).toHaveLength(2);
   });
 
   it('collapses two identical whole contracts', () => {
     const contract = resolveSeoContract(SITE);
-    const resolved = metadataOf([says(A, contract), says(B, contract)]);
-    expect(resolved.value).toEqual(contract);
+    const resolved = metadataOf([
+      says(A, metadataFromContract(contract)),
+      says(B, metadataFromContract(contract)),
+    ]);
+    expect(resolved.value).toEqual(metadataFromContract(contract));
     for (const field of METADATA_FIELDS) {
       expect(resolved.provenance[field]?.owners, field).toEqual([A, B]);
     }
@@ -150,10 +182,10 @@ describe('identical claims deduplicate', () => {
   it('collapses an identical nested social block', () => {
     const contract = resolveSeoContract(SITE);
     const resolved = metadataOf([
-      says(A, { openGraph: contract.openGraph }),
-      says(B, { openGraph: contract.openGraph }),
+      says(A, { openGraph: literal('open-graph', contract.openGraph) }),
+      says(B, { openGraph: literal('open-graph', contract.openGraph) }),
     ]);
-    expect(resolved.value.openGraph).toEqual(contract.openGraph);
+    expect(lit(resolved.value.openGraph)).toEqual(contract.openGraph);
     expect(resolved.provenance.openGraph?.owners).toEqual([A, B]);
   });
 });
@@ -162,8 +194,8 @@ describe('incompatible claims conflict', () => {
   it('refuses two different titles, naming the field and both owners', () => {
     const message = refusal(() =>
       resolveDocumentContributions([
-        says(A, { title: 'Acme Ltd' }),
-        says(B, { title: 'Other Company' }),
+        says(A, { title: text('Acme Ltd') }),
+        says(B, { title: text('Other Company') }),
       ]),
     );
     expect(message).toContain('metadata.title');
@@ -179,8 +211,8 @@ describe('incompatible claims conflict', () => {
     // diagnostic has to say canonical, or it is the Stage 31 message again.
     const message = refusal(() =>
       resolveDocumentContributions([
-        says(A, { title: 'Acme Ltd', canonical: 'https://acme.example/' }),
-        says(B, { title: 'Acme Ltd', canonical: 'https://other.example/' }),
+        says(A, { title: text('Acme Ltd'), canonical: urlValue('https://acme.example/') }),
+        says(B, { title: text('Acme Ltd'), canonical: urlValue('https://other.example/') }),
       ]),
     );
     expect(message).toContain('metadata.canonical');
@@ -195,8 +227,8 @@ describe('incompatible claims conflict', () => {
      */
     const message = refusal(() =>
       resolveDocumentContributions([
-        says(A, { robots: 'index, follow' }),
-        says(B, { robots: 'noindex, nofollow' }),
+        says(A, { robots: text('index, follow') }),
+        says(B, { robots: text('noindex, nofollow') }),
       ]),
     );
     expect(message).toContain('metadata.robots');
@@ -207,8 +239,10 @@ describe('incompatible claims conflict', () => {
     const contract = resolveSeoContract(SITE);
     const message = refusal(() =>
       resolveDocumentContributions([
-        says(A, { openGraph: contract.openGraph }),
-        says(B, { openGraph: { ...contract.openGraph, title: 'Something else' } }),
+        says(A, { openGraph: literal('open-graph', contract.openGraph) }),
+        says(B, {
+          openGraph: literal('open-graph', { ...contract.openGraph, title: 'Something else' }),
+        }),
       ]),
     );
     expect(message).toContain('metadata.openGraph');
@@ -217,10 +251,16 @@ describe('incompatible claims conflict', () => {
   it('never resolves a conflict by picking the first or last owner', () => {
     // Both orders raise; neither silently produces a value.
     const forward = refusal(() =>
-      resolveDocumentContributions([says(A, { title: 'One' }), says(B, { title: 'Two' })]),
+      resolveDocumentContributions([
+        says(A, { title: text('One') }),
+        says(B, { title: text('Two') }),
+      ]),
     );
     const backward = refusal(() =>
-      resolveDocumentContributions([says(B, { title: 'Two' }), says(A, { title: 'One' })]),
+      resolveDocumentContributions([
+        says(B, { title: text('Two') }),
+        says(A, { title: text('One') }),
+      ]),
     );
     expect(forward).not.toBe('');
     expect(backward).not.toBe('');
@@ -246,11 +286,11 @@ describe('Open Graph and Twitter resolve as units', () => {
      */
     const contract = resolveSeoContract(SITE);
     const resolved = metadataOf([
-      says(A, { title: contract.title }),
-      says(B, { openGraph: contract.openGraph }),
+      says(A, { title: text(contract.title) }),
+      says(B, { openGraph: literal('open-graph', contract.openGraph) }),
     ]);
-    expect(resolved.value.openGraph).toEqual(contract.openGraph);
-    expect(resolved.value.openGraph?.title).toBe(contract.title);
+    expect(lit(resolved.value.openGraph)).toEqual(contract.openGraph);
+    expect(lit(resolved.value.openGraph).title).toBe(contract.title);
     // One owner owns the whole block.
     expect(resolved.provenance.openGraph?.owners).toEqual([B]);
   });
@@ -274,18 +314,20 @@ describe('Open Graph and Twitter resolve as units', () => {
 describe('scope is part of identity', () => {
   it('keeps a page title separate from the site title', () => {
     const contributions = [
-      says(A, { title: 'Acme Ltd' }),
-      says(A, { title: 'Page not found' }, onPage('page.notFound')),
+      says(A, { title: text('Acme Ltd') }),
+      says(A, { title: text('Page not found') }, onPage('page.notFound')),
     ];
-    expect(metadataOf(contributions).value.title).toBe('Acme Ltd');
-    expect(metadataOf(contributions, onPage('page.notFound')).value.title).toBe('Page not found');
+    expect(lit(metadataOf(contributions).value.title)).toBe('Acme Ltd');
+    expect(lit(metadataOf(contributions, onPage('page.notFound')).value.title)).toBe(
+      'Page not found',
+    );
   });
 
   it('does not let a site-wide claim conflict with a page claim', () => {
     expect(() =>
       resolveDocumentContributions([
-        says(A, { robots: 'index, follow' }),
-        says(B, { robots: 'noindex, nofollow' }, onPage('page.notFound')),
+        says(A, { robots: text('index, follow') }),
+        says(B, { robots: text('noindex, nofollow') }, onPage('page.notFound')),
       ]),
     ).not.toThrow();
   });
@@ -298,8 +340,8 @@ describe('scope is part of identity', () => {
      * composer decides.
      */
     const entries = resolveDocumentContributions([
-      says(A, { title: 'Acme Ltd', description: 'Bespoke widgets.' }),
-      says(A, { title: 'Page not found' }, onPage('page.notFound')),
+      says(A, { title: text('Acme Ltd'), description: text('Bespoke widgets.') }),
+      says(A, { title: text('Page not found') }, onPage('page.notFound')),
     ]);
     const page = entries.find((entry) => entry.scope.kind === 'page');
     if (page?.kind !== 'metadata' || page.metadata.state !== 'stated') {
@@ -376,7 +418,7 @@ describe('stance resolution', () => {
   it('absent contributes nothing at all', () => {
     expect(resolveDocumentContributions([])).toEqual([]);
     // And an absent field stays absent rather than becoming a value.
-    const resolved = metadataOf([says(A, { title: 'Acme Ltd' })]);
+    const resolved = metadataOf([says(A, { title: text('Acme Ltd') })]);
     expect('description' in resolved.value).toBe(false);
     expect(resolved.provenance.description).toBeUndefined();
   });
@@ -497,10 +539,12 @@ describe('the not-found page survives resolution', () => {
   const notFound = onPage('page.notFound');
 
   const contributions: DocumentContribution[] = [
-    says('feature:seo', resolveSeoContract(SITE)),
+    says('feature:seo', metadataFromContract(resolveSeoContract(SITE))),
     says(
       'feature:seo',
-      resolveSeoContract(SITE, { pageTitle: 'Page not found', noindex: true }),
+      metadataFromContract(
+        resolveSeoContract(SITE, { pageTitle: 'Page not found', noindex: true }),
+      ),
       notFound,
     ),
     {
@@ -520,13 +564,13 @@ describe('the not-found page survives resolution', () => {
   ];
 
   it('keeps noindex on the page and index on the site', () => {
-    expect(metadataOf(contributions, notFound).value.robots).toBe('noindex, nofollow');
-    expect(metadataOf(contributions).value.robots).toBe('index, follow');
+    expect(lit(metadataOf(contributions, notFound).value.robots)).toBe('noindex, nofollow');
+    expect(lit(metadataOf(contributions).value.robots)).toBe('index, follow');
   });
 
   it('keeps the page free of a canonical address', () => {
-    expect(metadataOf(contributions, notFound).value.canonical).toBe('');
-    expect(metadataOf(contributions).value.canonical).toBe('https://acme.example/');
+    expect(lit(metadataOf(contributions, notFound).value.canonical)).toBe('');
+    expect(lit(metadataOf(contributions).value.canonical)).toBe('https://acme.example/');
   });
 
   it('keeps the structured-data suppression on the page only', () => {
@@ -568,9 +612,9 @@ describe('the not-found page survives resolution', () => {
 
 describe('resolution is permutation-independent', () => {
   const all: DocumentContribution[] = [
-    says(A, { title: 'Acme Ltd' }),
-    says(B, { description: 'Bespoke widgets.' }),
-    says(C, { canonical: 'https://acme.example/' }),
+    says(A, { title: text('Acme Ltd') }),
+    says(B, { description: text('Bespoke widgets.') }),
+    says(C, { canonical: urlValue('https://acme.example/') }),
   ];
 
   it('is identical under all six permutations', () => {
@@ -603,10 +647,16 @@ describe('resolution is permutation-independent', () => {
 
   it('produces the same conflict message however the input is ordered', () => {
     const one = refusal(() =>
-      resolveDocumentContributions([says(A, { title: 'One' }), says(C, { title: 'Two' })]),
+      resolveDocumentContributions([
+        says(A, { title: text('One') }),
+        says(C, { title: text('Two') }),
+      ]),
     );
     const two = refusal(() =>
-      resolveDocumentContributions([says(C, { title: 'Two' }), says(A, { title: 'One' })]),
+      resolveDocumentContributions([
+        says(C, { title: text('Two') }),
+        says(A, { title: text('One') }),
+      ]),
     );
     expect(one).toBe(two);
   });
@@ -626,7 +676,7 @@ describe('the resolver invents nothing', () => {
   };
 
   it('leaves an unclaimed field absent', () => {
-    const resolved = metadataOf([says(A, { title: 'Acme Ltd' })]);
+    const resolved = metadataOf([says(A, { title: text('Acme Ltd') })]);
     for (const field of METADATA_FIELDS) {
       if (field === 'title') continue;
       expect(field in resolved.value, field).toBe(false);
@@ -634,8 +684,8 @@ describe('the resolver invents nothing', () => {
   });
 
   it('never manufactures a domain', () => {
-    const resolved = metadataOf([says(A, resolveSeoContract(bare))]);
-    expect(resolved.value.canonical).toBe('');
+    const resolved = metadataOf([says(A, metadataFromContract(resolveSeoContract(bare)))]);
+    expect(lit(resolved.value.canonical)).toBe('');
     expect(JSON.stringify(resolved)).not.toContain('example.com');
     expect(JSON.stringify(resolved)).not.toContain('localhost');
   });
@@ -659,7 +709,7 @@ describe('the resolver invents nothing', () => {
 
   it('adds no key of its own to a resolved statement', () => {
     const contract = resolveSeoContract(SITE);
-    const resolved = metadataOf([says(A, contract)]);
+    const resolved = metadataOf([says(A, metadataFromContract(contract))]);
     expect(Object.keys(resolved.value).sort()).toEqual(Object.keys(contract).sort());
   });
 });
