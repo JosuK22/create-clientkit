@@ -117,7 +117,7 @@ import { Mark } from '../components/ui/Mark';
 import { CONTACT, SITE } from '../lib/site.config';
 
 /**
- * One page, centred, and nothing that needs JavaScript.
+ * The launch page.
  *
  * A server component with no interactivity at all: no countdown, no form, no
  * client bundle. A countdown in particular is a promise with a date attached,
@@ -126,24 +126,33 @@ import { CONTACT, SITE } from '../lib/site.config';
  *
  * Every optional piece is omitted rather than filled with a placeholder - an
  * empty `CONTACT.email` renders nothing, not `hello@example.com`.
+ *
+ * The class names are the shared style contract, so this markup is identical
+ * whether the project was generated with plain CSS or with Tailwind.
  */
 export default function HomePage() {
   return (
-    <main className="centered">
-      <Mark />
+    <div className="app-shell">
+      <main className="app-main">
+        <div className="container-page hero">
+          <div className="hero-inner">
+            <Mark />
 
-      <p className="eyebrow">Coming soon</p>
+            <p className="eyebrow">Coming soon</p>
 
-      <h1>{SITE.name}</h1>
+            <h1 className="page-title">{SITE.name}</h1>
 
-      {SITE.description ? <p className="lede">{SITE.description}</p> : null}
+            {SITE.description ? <p className="lead">{SITE.description}</p> : null}
 
-      {CONTACT.email ? (
-        <p className="contact">
-          <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
-        </p>
-      ) : null}
-    </main>
+            {CONTACT.email ? (
+              <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                Get in touch
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -155,14 +164,18 @@ origin  base
 import { SITE } from '../../lib/site.config';
 
 /**
- * A placeholder brand mark: the client's initials in a bordered square.
+ * A placeholder brand mark: the client's initials in a rounded square.
  *
  * Deliberately not an image. A generated project has no logo file, and shipping
  * a stand-in graphic would be something to find and delete later; initials read
- * as intentional until a real mark replaces them. Decorative, so it is hidden
- * from assistive technology - the name is already text on the page.
+ * as intentional until a real mark replaces them.
+ *
+ * The class names are the project's shared style contract - `brand`,
+ * `brand-lg`, `brand-mark`, `brand-name` - which every styling system
+ * implements. That is what lets this component render under plain CSS or
+ * Tailwind without knowing which was selected.
  */
-export function Mark() {
+export function Mark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
   const initials = SITE.name
     .split(/\s+/)
     .filter(Boolean)
@@ -172,9 +185,12 @@ export function Mark() {
     .toUpperCase();
 
   return (
-    <div className="mark" aria-hidden="true">
-      {initials || '—'}
-    </div>
+    <span className={`brand brand-${size}`}>
+      <span className="brand-mark" aria-hidden="true">
+        {initials || '—'}
+      </span>
+      <span className="brand-name">{SITE.name}</span>
+    </span>
   );
 }
 
@@ -361,40 +377,36 @@ a scaffold that makes them for you is one you have to undo first.
 
 ---- styles/globals.css ----
 type    write
-origin  base
+origin  framework:nextjs
 ----
 /*
- * Plain CSS, and not much of it.
+ * Plain CSS, implementing the project's shared style contract.
+ *
+ * The markup names what a thing *is* - `hero`, `page-title`, `button-primary` -
+ * and a stylesheet decides how it looks. This file is the plain-CSS
+ * implementation of that contract; `templates/styling/tailwind/` is the
+ * Tailwind one, and `templates/styling/bootstrap/` the Bootstrap one. Every one
+ * of them answers the same class names, which is what lets a component tree be
+ * rendered under a different styling system without the framework template
+ * knowing which was selected.
+ *
+ * Only one of them is ever shipped. Selecting a styling system hands that
+ * system ownership of the `styles.global` role, and this file is not composed
+ * at all.
  *
  * No framework, no preprocessor, no build step beyond the one Next already
- * runs. Custom properties are the whole system: change them here and the
+ * runs. Custom properties are the whole system: change a value here and the
  * palette, rhythm and type scale follow everywhere.
  */
 
 :root {
-  --ink: #16181d;
-  --ink-soft: #565b66;
-  --paper: #ffffff;
-  --paper-soft: #f6f7f9;
-  --line: #e3e6ea;
-  --accent: #1f6feb;
-
-  --measure: 42rem;
-  --gutter: clamp(1.25rem, 5vw, 3rem);
-  --step: clamp(3rem, 8vh, 5.5rem);
-
-  --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #f2f4f7;
-    --ink-soft: #a2a9b6;
-    --paper: #101216;
-    --paper-soft: #171a20;
-    --line: #262a32;
-    --accent: #6ea8ff;
-  }
+  --color-ink: oklch(0.22 0.01 260);
+  --color-ink-muted: oklch(0.52 0.01 260);
+  --color-surface: oklch(1 0 0);
+  --color-line: oklch(0.92 0.005 260);
+  --measure-page: 64rem;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 *,
@@ -409,30 +421,10 @@ html {
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font);
-  font-size: 1rem;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-
-h1,
-h2,
-h3 {
-  line-height: 1.2;
-  letter-spacing: -0.015em;
-  margin: 0;
-  text-wrap: balance;
-}
-
-p {
-  margin: 0;
-  text-wrap: pretty;
-}
-
-a {
-  color: inherit;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+  text-rendering: optimizeLegibility;
 }
 
 img,
@@ -442,105 +434,194 @@ svg {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-ink);
   outline-offset: 3px;
 }
 
-/* Layout primitives ------------------------------------------------------- */
+/* The shared style contract ------------------------------------------------ */
 
-.container {
-  width: 100%;
-  max-width: 64rem;
-  margin-inline: auto;
-  padding-inline: var(--gutter);
-}
-
-.section {
-  padding-block: var(--step);
-}
-
-.section + .section {
-  border-top: 1px solid var(--line);
-}
-
-.stack > * + * {
-  margin-top: 1rem;
-}
-
-.lede {
-  color: var(--ink-soft);
-  font-size: 1.125rem;
-  max-width: var(--measure);
-}
-
-.eyebrow {
-  color: var(--ink-soft);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Components -------------------------------------------------------------- */
-
-.mark {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  background: var(--paper-soft);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.centered {
+.app-shell {
   display: flex;
+  min-height: 100dvh;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-  min-height: 100svh;
-  padding: var(--gutter);
-  text-align: center;
 }
 
-.centered .lede {
+.app-main {
+  flex: 1;
+}
+
+.container-page {
   margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
 }
 
-.grid {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+.site-header {
+  border-bottom: 1px solid var(--color-line);
 }
 
-.card {
-  border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  background: var(--paper-soft);
-  padding: 1.5rem;
-}
-
-.card h3 {
-  font-size: 1.0625rem;
-}
-
-.card p {
-  color: var(--ink-soft);
-  margin-top: 0.5rem;
-}
-
-.contact {
-  font-weight: 500;
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
 }
 
 .site-footer {
-  border-top: 1px solid var(--line);
-  color: var(--ink-soft);
+  margin-top: auto;
+  border-top: 1px solid var(--color-line);
+}
+
+.copyright {
+  margin: 0;
+  color: var(--color-ink-muted);
   font-size: 0.875rem;
-  padding-block: 2rem;
+}
+
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.contact-link:hover {
+  color: var(--color-ink);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  color: var(--color-surface);
+  font-weight: 600;
+}
+
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
+
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
+
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hero,
+.intro {
+  padding-block: 5rem;
+}
+
+.hero-inner,
+.intro-inner {
+  max-width: 42rem;
+}
+
+.eyebrow {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 2rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  padding-inline: 1.25rem;
+  color: var(--color-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 160ms ease;
+}
+
+.button-primary:hover {
+  opacity: 0.85;
+}
+
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
+  .sections {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+/* Respect the reader's preference; never animate for someone who asked not to. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 

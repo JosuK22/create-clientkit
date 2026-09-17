@@ -432,20 +432,22 @@ fully specified file needs no terminal and `--yes` never discards it.
 Three frameworks ship. Each is chosen with `--framework`; `--template` names
 the V1 Astro stack and is kept for compatibility.
 
-| Framework | Stack                                                        | Modes                 |
-| --------- | ------------------------------------------------------------ | --------------------- |
-| `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                      | `coming-soon`, `full` |
-| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap      | `coming-soon`, `full` |
-| `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, plain CSS | `coming-soon`, `full` |
+| Framework | Stack                                                                    | Modes                 |
+| --------- | ------------------------------------------------------------------------ | --------------------- |
+| `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                                  | `coming-soon`, `full` |
+| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap                  | `coming-soon`, `full` |
+| `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, Tailwind or plain CSS | `coming-soon`, `full` |
 
 - **`coming-soon`** — a single polished launch page you can put live today.
 - **`full`** — a small multi-section home page, on the same design system.
 
 The Astro stack includes the custom 404, the design system and the full SEO
 layer. What each framework supports differs, and the differences are enforced
-rather than documented: Next.js ships its own stylesheet and composes its own
-document head, so a CSS framework, a component library, a client-side router
-and the SEO, structured-data and accessibility features are refused there, each
+rather than documented. Tailwind composes with all three - through Vite on
+Astro and React, through PostCSS on Next.js, from one styling adapter that
+names no framework. Next.js composes its own document head and ships no
+component library or client-side router, so Bootstrap, MUI, React Router and
+the SEO, structured-data and accessibility features are refused there, each
 naming the capability that is missing.
 
 ### URL-less

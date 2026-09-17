@@ -65,7 +65,22 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
    * Not `static-output`: `next build` produces a server application by default,
    * and this stage generates no static export.
    */
-  provides: ['react-runtime', 'jsx', 'typescript', 'file-based-routing', 'document-metadata'],
+  provides: [
+    'react-runtime',
+    'jsx',
+    'typescript',
+    'file-based-routing',
+    'document-metadata',
+    /*
+     * Next reads `postcss.config.mjs` natively and runs the pipeline as part
+     * of its own build. Declared in Stage 23 because it is a fact about Next
+     * that predates any styling system - not because Tailwind needed a way in.
+     * The test that matters is the negative one: Bootstrap requires
+     * `composed-stylesheet`, which this still does not provide, so adding this
+     * made Tailwind work and left Bootstrap exactly as refused as it was.
+     */
+    'postcss',
+  ],
   requires: [],
   /** Next 16's own floor. */
   minNode: '>=20.9.0',
@@ -103,6 +118,13 @@ const NEXTJS_ARCHITECTURE: ArchitectureDefinition = {
     'page.home': 'app/page.tsx',
     'config.site': 'lib/site.config.ts',
     'config.framework': 'next.config.ts',
+    /*
+     * Where a styling system's own configuration file goes, if it needs one.
+     * Mapping the role is not a claim that one exists - nothing writes here
+     * unless a styling adapter contributes it, exactly like `app.providers` on
+     * React.
+     */
+    'config.styling': 'postcss.config.mjs',
     'config.language': 'tsconfig.json',
     'styles.global': 'styles/globals.css',
     package: 'package.json',
@@ -141,12 +163,10 @@ export function createNextjsAdapter(templateRoot: string): FrameworkAdapter {
     defaultStyling: 'none',
     defaultUiLibrary: 'none',
     /**
-     * Next's template ships all four. `styles.global` is the load-bearing one:
-     * it is why Next does not provide `composed-stylesheet`, and therefore why
-     * a styling system that has no arrangement here is refused rather than
-     * silently ignored.
+     * The unconditional three. `styles.global` is deliberately absent here and
+     * decided in `resolve` instead - see below.
      */
-    templateOwnedRoles: ['styles.global', 'config.framework', 'package', 'config.site'],
+    templateOwnedRoles: ['config.framework', 'package', 'config.site'],
 
     resolve(manifest: ProjectManifest): AdapterResolution {
       return {
@@ -180,6 +200,39 @@ export function createNextjsAdapter(templateRoot: string): FrameworkAdapter {
           },
           baseReason: 'the Next.js application every starter shares',
         }),
+
+        /*
+         * The plain-CSS stylesheet, contributed only when nothing else will.
+         *
+         * It is a contribution rather than a file in the base layer, and the
+         * difference is the whole design. A layer file is written
+         * unconditionally, so shipping it there and selecting Tailwind put two
+         * owners on `styles/globals.css` - which the composer correctly
+         * refused. As a contribution it competes on equal terms: exactly one
+         * stylesheet is ever claimed, and which one is a resolution rather
+         * than a precedence rule.
+         *
+         * The condition is "is there a styling adapter at all", never which
+         * one. The class names in this file and in every styling adapter's are
+         * the same shared contract, which is what makes that sufficient - and
+         * what keeps a framework-specific styling branch out of the codebase.
+         */
+        files:
+          project.manifest.styling === 'none'
+            ? [
+                {
+                  target: { kind: 'role', role: 'styles.global' },
+                  intent: 'create',
+                  payload: {
+                    kind: 'template',
+                    source: path.join(templateRoot, 'styling', 'globals.css'),
+                  },
+                  owner: OWNER,
+                  order: 0,
+                  reason: 'the design system a project with no styling adapter still needs',
+                },
+              ]
+            : [],
 
         // Exactly the versions in templates/nextjs/base/_package.json, asserted
         // equal by a test so the two cannot drift.

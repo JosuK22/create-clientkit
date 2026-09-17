@@ -1,7 +1,7 @@
 == PLAN ==
 templateId       nextjs
 templateVersion  0.1.0
-mode             full
+mode             coming-soon
 targetDir        <TARGET_DIR>
 operationCount   14
 
@@ -12,10 +12,10 @@ write  .gitignore
 write  app/layout.tsx
 write  app/page.tsx
 write  components/ui/Mark.tsx
-write  components/ui/Section.tsx
 write  lib/site.config.ts
 write  next.config.ts
 write  package.json
+write  postcss.config.mjs
 write  public/favicon.svg
 write  README.md
 write  styles/globals.css
@@ -36,12 +36,12 @@ origin  cli
     "framework": "nextjs",
     "frameworkVersion": "16.3.5"
   },
-  "mode": "full",
+  "mode": "coming-soon",
   "generatedAt": "2026-01-01T00:00:00.000Z",
   "config": {
     "projectName": "acme-site",
     "siteName": "Acme Ltd",
-    "siteUrl": "https://acme.example",
+    "siteUrl": null,
     "locale": "en",
     "packageManager": "npm",
     "features": []
@@ -112,58 +112,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ---- app/page.tsx ----
 type    write
-origin  modes/full
+origin  modes/coming-soon
 ----
 import { Mark } from '../components/ui/Mark';
-import { Section } from '../components/ui/Section';
 import { CONTACT, SITE } from '../lib/site.config';
 
 /**
- * Hero, sections, CTA and footer - all server-rendered.
+ * The launch page.
  *
- * No `'use client'` anywhere. Nothing on this page has state, effects or event
- * handlers, so nothing on it needs to become a client bundle. Adding an
- * interactive piece later is one directive on one component, which is exactly
- * why the boundary is worth not crossing by default.
+ * A server component with no interactivity at all: no countdown, no form, no
+ * client bundle. A countdown in particular is a promise with a date attached,
+ * and a launch page that silently passes its own deadline is worse than one
+ * that never made the claim.
  *
- * The copy is honest scaffolding: it says what the section is for rather than
- * pretending to describe a business nobody has told us about. The class names
- * are the shared style contract, so the same markup renders under plain CSS or
- * Tailwind.
+ * Every optional piece is omitted rather than filled with a placeholder - an
+ * empty `CONTACT.email` renders nothing, not `hello@example.com`.
+ *
+ * The class names are the shared style contract, so this markup is identical
+ * whether the project was generated with plain CSS or with Tailwind.
  */
-
-const SECTIONS = [
-  {
-    id: 'about',
-    title: 'About',
-    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
-  },
-  {
-    id: 'work',
-    title: 'Work',
-    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
-  },
-  {
-    id: 'contact',
-    title: 'Contact',
-    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
-  },
-];
-
 export default function HomePage() {
   return (
     <div className="app-shell">
-      <header className="site-header">
-        <div className="container-page site-header-inner">
-          <Mark size="sm" />
-        </div>
-      </header>
-
       <main className="app-main">
-        <div className="container-page intro">
-          <div className="intro-inner">
+        <div className="container-page hero">
+          <div className="hero-inner">
+            <Mark />
+
+            <p className="eyebrow">Coming soon</p>
+
             <h1 className="page-title">{SITE.name}</h1>
+
             {SITE.description ? <p className="lead">{SITE.description}</p> : null}
+
             {CONTACT.email ? (
               <a href={`mailto:${CONTACT.email}`} className="button-primary">
                 Get in touch
@@ -171,29 +152,7 @@ export default function HomePage() {
             ) : null}
           </div>
         </div>
-
-        <div className="container-page sections">
-          {SECTIONS.map((entry) => (
-            <Section key={entry.id} id={entry.id} title={entry.title} body={entry.body} />
-          ))}
-        </div>
       </main>
-
-      <footer className="site-footer">
-        <div className="container-page site-footer-inner">
-          <p className="copyright">
-            © {new Date().getFullYear()} {SITE.name}
-            {SITE.author ? ` · ${SITE.author}` : ''}
-          </p>
-          {CONTACT.email ? (
-            <div className="contact-links">
-              <a href={`mailto:${CONTACT.email}`} className="contact-link">
-                {CONTACT.email}
-              </a>
-            </div>
-          ) : null}
-        </div>
-      </footer>
     </div>
   );
 }
@@ -237,29 +196,6 @@ export function Mark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
 }
 
 
----- components/ui/Section.tsx ----
-type    write
-origin  modes/full
-----
-/**
- * One titled section of the home page.
- *
- * The heading is linked to its section with `aria-labelledby` rather than left
- * to proximity, so the landmark has an accessible name a screen reader can
- * announce. A server component, like everything else here.
- */
-export function Section({ id, title, body }: { id: string; title: string; body: string }) {
-  return (
-    <section id={id} aria-labelledby={`${id}-heading`}>
-      <h2 id={`${id}-heading`} className="section-title">
-        {title}
-      </h2>
-      <p className="section-body">{body}</p>
-    </section>
-  );
-}
-
-
 ---- lib/site.config.ts ----
 type    write
 origin  base
@@ -298,7 +234,7 @@ export interface ContactDetails {
 export const SITE: SiteIdentity = {
   name: 'Acme Ltd',
   description: 'Bespoke widgets.',
-  url: 'https://acme.example',
+  url: '',
   locale: 'en',
   author: '',
 };
@@ -334,7 +270,7 @@ export default nextConfig;
 
 ---- package.json ----
 type    write
-origin  base + modes/full
+origin  base + modes/coming-soon
 ----
 {
   "name": "acme-site",
@@ -347,7 +283,7 @@ origin  base + modes/full
   "keywords": [
     "nextjs",
     "client-site",
-    "website"
+    "landing-page"
   ],
   "scripts": {
     "dev": "next dev",
@@ -361,11 +297,35 @@ origin  base + modes/full
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.3",
     "@types/react": "19.3.0",
+    "tailwindcss": "4.3.3",
     "typescript": "5.9.3"
   }
 }
+
+
+---- postcss.config.mjs ----
+type    write
+origin  styling:tailwind
+----
+/**
+ * Tailwind v4 through PostCSS.
+ *
+ * The other half of the same plugin: a Vite project registers
+ * `@tailwindcss/vite` in its build config instead, and neither project carries
+ * the package it does not use.
+ *
+ * Nothing else belongs here. Autoprefixer is not needed - Tailwind v4 handles
+ * vendor prefixing itself - and adding plugins speculatively is how a build
+ * pipeline becomes something nobody can safely change.
+ */
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {},
+  },
+};
 
 
 ---- public/favicon.svg ----
@@ -442,239 +402,245 @@ a scaffold that makes them for you is one you have to undo first.
 
 ---- styles/globals.css ----
 type    write
-origin  framework:nextjs
+origin  styling:tailwind
 ----
-/*
- * Plain CSS, implementing the project's shared style contract.
- *
- * The markup names what a thing *is* - `hero`, `page-title`, `button-primary` -
- * and a stylesheet decides how it looks. This file is the plain-CSS
- * implementation of that contract; `templates/styling/tailwind/` is the
- * Tailwind one, and `templates/styling/bootstrap/` the Bootstrap one. Every one
- * of them answers the same class names, which is what lets a component tree be
- * rendered under a different styling system without the framework template
- * knowing which was selected.
- *
- * Only one of them is ever shipped. Selecting a styling system hands that
- * system ownership of the `styles.global` role, and this file is not composed
- * at all.
- *
- * No framework, no preprocessor, no build step beyond the one Next already
- * runs. Custom properties are the whole system: change a value here and the
- * palette, rhythm and type scale follow everywhere.
- */
+@import 'tailwindcss';
 
-:root {
+/*
+ * Design tokens.
+ *
+ * Tailwind v4 is configured in CSS: there is no tailwind.config.js. Change a
+ * value here and it applies everywhere the token is used.
+ */
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --color-ink: oklch(0.22 0.01 260);
   --color-ink-muted: oklch(0.52 0.01 260);
   --color-surface: oklch(1 0 0);
   --color-line: oklch(0.92 0.005 260);
   --measure-page: 64rem;
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
 
-html {
-  -webkit-text-size-adjust: 100%;
-}
-
-body {
-  margin: 0;
-  font-family: var(--font-sans);
-  color: var(--color-ink);
-  background-color: var(--color-surface);
-  text-rendering: optimizeLegibility;
-}
-
-img,
-svg {
-  display: block;
-  max-width: 100%;
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-ink);
-  outline-offset: 3px;
-}
-
-/* The shared style contract ------------------------------------------------ */
-
-.app-shell {
-  display: flex;
-  min-height: 100dvh;
-  flex-direction: column;
-}
-
-.app-main {
-  flex: 1;
-}
-
-.container-page {
-  margin-inline: auto;
-  width: 100%;
-  max-width: var(--measure-page);
-  padding-inline: 1.5rem;
-}
-
-.site-header {
-  border-bottom: 1px solid var(--color-line);
-}
-
-.site-header-inner,
-.site-footer-inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 2rem;
-  padding-block: 1rem;
-}
-
-.site-footer {
-  margin-top: auto;
-  border-top: 1px solid var(--color-line);
-}
-
-.copyright {
-  margin: 0;
-  color: var(--color-ink-muted);
-  font-size: 0.875rem;
-}
-
-.contact-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
-}
-
-.contact-link {
-  display: inline-flex;
-  min-height: 2.75rem;
-  align-items: center;
-  color: var(--color-ink-muted);
-  font-size: 0.875rem;
-  text-decoration: none;
-  transition: color 160ms ease;
-}
-
-.contact-link:hover {
-  color: var(--color-ink);
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  background-color: var(--color-ink);
-  color: var(--color-surface);
-  font-weight: 600;
-}
-
-.brand-sm .brand-mark {
-  height: 2rem;
-  width: 2rem;
-  font-size: 0.875rem;
-}
-
-.brand-lg .brand-mark {
-  height: 3rem;
-  width: 3rem;
-  font-size: 1.125rem;
-}
-
-.brand-lg .brand-name {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.hero,
-.intro {
-  padding-block: 5rem;
-}
-
-.hero-inner,
-.intro-inner {
-  max-width: 42rem;
-}
-
-.eyebrow {
-  margin: 2.5rem 0 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-ink-muted);
-}
-
-.page-title {
-  margin: 0.75rem 0 0;
-  font-size: clamp(2.25rem, 5vw, 3rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.lead {
-  margin: 1.25rem 0 0;
-  font-size: 1.125rem;
-  line-height: 1.7;
-  color: var(--color-ink-muted);
-}
-
-.button-primary {
-  display: inline-flex;
-  min-height: 2.75rem;
-  align-items: center;
-  margin-top: 2rem;
-  border-radius: 0.5rem;
-  background-color: var(--color-ink);
-  padding-inline: 1.25rem;
-  color: var(--color-surface);
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: opacity 160ms ease;
-}
-
-.button-primary:hover {
-  opacity: 0.85;
-}
-
-.sections {
-  display: grid;
-  gap: 2.5rem;
-  border-top: 1px solid var(--color-line);
-  padding-block: 4rem;
-}
-
-@media (min-width: 640px) {
-  .sections {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background-color: var(--color-surface);
+    text-rendering: optimizeLegibility;
   }
 }
 
-.section-title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-}
+/*
+ * The semantic classes the markup asks for.
+ *
+ * The components name what a thing is; this file decides how it looks. That
+ * separation is what lets the same component tree render under a different
+ * styling system without the framework template knowing which was selected.
+ */
+@layer components {
+  .app-shell {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
 
-.section-body {
-  margin: 0.75rem 0 0;
-  line-height: 1.7;
-  color: var(--color-ink-muted);
+  .app-main {
+    flex: 1;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+  }
+
+  .skip-link:focus-visible {
+    left: 1rem;
+    top: 1rem;
+    z-index: 50;
+    border-radius: 0.375rem;
+    background-color: var(--color-ink);
+    padding: 0.5rem 1rem;
+    color: var(--color-surface);
+  }
+
+  .container-page {
+    margin-inline: auto;
+    width: 100%;
+    max-width: var(--measure-page);
+    padding-inline: 1.5rem;
+  }
+
+  .site-header {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .site-header-inner,
+  .site-footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 2rem;
+    padding-block: 1rem;
+  }
+
+  .site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .site-nav-link,
+  .contact-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    color: var(--color-ink-muted);
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .site-nav-link:hover,
+  .contact-link:hover {
+    color: var(--color-ink);
+  }
+
+  .site-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .copyright {
+    margin: 0;
+    color: var(--color-ink-muted);
+    font-size: 0.875rem;
+  }
+
+  .contact-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    background-color: var(--color-ink);
+    color: var(--color-surface);
+    font-weight: 600;
+  }
+
+  .brand-sm .brand-mark {
+    height: 2rem;
+    width: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .brand-lg .brand-mark {
+    height: 3rem;
+    width: 3rem;
+    font-size: 1.125rem;
+  }
+
+  .brand-lg .brand-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .hero,
+  .intro {
+    padding-block: 5rem;
+  }
+
+  .hero-inner,
+  .intro-inner {
+    max-width: 42rem;
+  }
+
+  .eyebrow {
+    margin: 2.5rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
+
+  .page-title {
+    margin: 0.75rem 0 0;
+    font-size: clamp(2.25rem, 5vw, 3rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .lead {
+    margin: 1.25rem 0 0;
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--color-ink-muted);
+  }
+
+  .button-primary {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    margin-top: 2rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-ink);
+    padding-inline: 1.25rem;
+    color: var(--color-surface);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: opacity 160ms ease;
+  }
+
+  .button-primary:hover {
+    opacity: 0.85;
+  }
+
+  .sections {
+    display: grid;
+    gap: 2.5rem;
+    border-top: 1px solid var(--color-line);
+    padding-block: 4rem;
+  }
+
+  @media (min-width: 640px) {
+    .sections {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .section-title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .section-body {
+    margin: 0.75rem 0 0;
+    line-height: 1.7;
+    color: var(--color-ink-muted);
+  }
 }
 
 /* Respect the reader's preference; never animate for someone who asked not to. */

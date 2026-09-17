@@ -1,25 +1,17 @@
 /**
- * A titled band of content.
+ * One titled section of the home page.
  *
- * The only shared component the full starter needs: it owns the container and
- * the optional heading so the page above reads as structure rather than as
- * markup. A server component, like everything else here.
+ * The heading is linked to its section with `aria-labelledby` rather than left
+ * to proximity, so the landmark has an accessible name a screen reader can
+ * announce. A server component, like everything else here.
  */
-export function Section({
-  heading,
-  className,
-  children,
-}: {
-  heading?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
+export function Section({ id, title, body }: { id: string; title: string; body: string }) {
   return (
-    <section className={className}>
-      <div className="container stack">
-        {heading ? <h2>{heading}</h2> : null}
-        {children}
-      </div>
+    <section id={id} aria-labelledby={`${id}-heading`}>
+      <h2 id={`${id}-heading`} className="section-title">
+        {title}
+      </h2>
+      <p className="section-body">{body}</p>
     </section>
   );
 }

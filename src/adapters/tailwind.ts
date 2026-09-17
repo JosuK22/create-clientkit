@@ -43,13 +43,23 @@ const TAILWIND_DECLARATION: AdapterDeclaration = {
   provides: ['css-framework'],
   requires: [
     {
-      kind: 'requires',
-      capability: 'vite-plugins',
-      // Tailwind v4 dropped the PostCSS-config path in favour of a build
-      // plugin, so this is a genuine technical requirement rather than a
-      // stand-in for "works with Astro". Stated as a capability, it holds for
-      // any Vite-based stack without naming one.
-      because: 'Tailwind v4 integrates through the @tailwindcss/vite build plugin',
+      /*
+       * A build integration, either flavour.
+       *
+       * This said `requires: 'vite-plugins'` until Stage 23, which was
+       * over-specified in the same way `react-runtime` was before Stage 22:
+       * true of every stack that existed, and not actually what Tailwind
+       * depends on. Tailwind v4 dropped the PostCSS-*config* path in favour of
+       * a build plugin, and it ships two - `@tailwindcss/vite` and
+       * `@tailwindcss/postcss`. What it needs is one of them to have somewhere
+       * to run, which is what this now says.
+       *
+       * Stated as capabilities, so a framework with a PostCSS pipeline works
+       * the day it declares one and nothing here is edited.
+       */
+      kind: 'requiresOneOf',
+      capabilities: ['vite-plugins', 'postcss'],
+      because: 'Tailwind v4 compiles through a build plugin, either Vite’s or PostCSS’s',
     },
   ],
 };
@@ -64,7 +74,22 @@ export function createTailwindAdapter(templatesRoot: string): Adapter {
       return {};
     },
 
-    contribute(_project: ResolvedProject): Contribution {
+    contribute(project: ResolvedProject): Contribution {
+      /*
+       * Which of Tailwind's two build plugins this project can run.
+       *
+       * A capability, never a framework. `vite-plugins` means there is a Vite
+       * plugin array to register in; otherwise the project reached this point
+       * by providing `postcss`, and Tailwind ships a PostCSS plugin for
+       * exactly that case. The compatibility engine has already guaranteed one
+       * of the two is present - that is what `requiresOneOf` above is for - so
+       * there is no third branch and no fallback to guess at.
+       *
+       * The alternative was `manifest.framework === 'nextjs'`, which would be
+       * shorter, wrong, and the first crack in the styling dimension.
+       */
+      const vite = project.capabilities.has('vite-plugins');
+
       return {
         ...emptyContribution(OWNER),
 
@@ -92,6 +117,31 @@ export function createTailwindAdapter(templatesRoot: string): Adapter {
             order: 0,
             reason: 'imports Tailwind and implements the shared style contract',
           },
+          /*
+           * The PostCSS configuration, for a project whose pipeline is PostCSS
+           * rather than Vite.
+           *
+           * Addressed by role, like everything else here: Tailwind knows it
+           * needs a PostCSS config, and the architecture knows that file is
+           * called `postcss.config.mjs` and lives at the root. An architecture
+           * that maps no `config.styling` composes nothing, which is the same
+           * arrangement that keeps the Vite entry below out of Astro.
+           */
+          ...(vite
+            ? []
+            : [
+                {
+                  target: { kind: 'role', role: 'config.styling' } as const,
+                  intent: 'create' as const,
+                  payload: {
+                    kind: 'template' as const,
+                    source: path.join(templatesRoot, 'styling', 'tailwind', 'postcss.config.mjs'),
+                  },
+                  owner: OWNER,
+                  order: 0,
+                  reason: 'registers Tailwind with the PostCSS pipeline',
+                },
+              ]),
         ],
 
         /**
@@ -108,19 +158,21 @@ export function createTailwindAdapter(templatesRoot: string): Adapter {
          * This is the whole of what Tailwind gained from React existing. There
          * is no branch on the framework here and there should never be one.
          */
-        config: [
-          {
-            target: 'config.build',
-            at: 'plugins',
-            value: {
-              importName: 'tailwindcss',
-              importFrom: '@tailwindcss/vite',
-              call: 'tailwindcss()',
-            },
-            owner: OWNER,
-            reason: 'Tailwind v4 compiles through a build plugin',
-          },
-        ],
+        config: vite
+          ? [
+              {
+                target: 'config.build',
+                at: 'plugins',
+                value: {
+                  importName: 'tailwindcss',
+                  importFrom: '@tailwindcss/vite',
+                  call: 'tailwindcss()',
+                },
+                owner: OWNER,
+                reason: 'Tailwind v4 compiles through a build plugin',
+              },
+            ]
+          : [],
 
         // Exactly the versions in templates/astro-tailwind/base/_package.json.
         dependencies: [
@@ -131,13 +183,28 @@ export function createTailwindAdapter(templatesRoot: string): Adapter {
             owner: OWNER,
             reason: 'the styling system',
           },
-          {
-            name: '@tailwindcss/vite',
-            version: '4.3.3',
-            kind: 'dev',
-            owner: OWNER,
-            reason: 'the v4 build plugin; configured in astro.config.mjs',
-          },
+          /*
+           * One plugin package, chosen by the pipeline that exists.
+           *
+           * Both are Tailwind's own, both are held at the same version as
+           * `tailwindcss` itself, and exactly one is ever installed - a project
+           * with both would carry a package nothing loads.
+           */
+          vite
+            ? {
+                name: '@tailwindcss/vite',
+                version: '4.3.3',
+                kind: 'dev' as const,
+                owner: OWNER,
+                reason: 'the v4 build plugin, registered in the build configuration',
+              }
+            : {
+                name: '@tailwindcss/postcss',
+                version: '4.3.3',
+                kind: 'dev' as const,
+                owner: OWNER,
+                reason: 'the v4 build plugin, registered in the PostCSS configuration',
+              },
         ],
       };
     },

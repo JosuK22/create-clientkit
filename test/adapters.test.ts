@@ -79,19 +79,31 @@ describe('Tailwind is declared as its own dimension', () => {
 
   it('requires a capability rather than naming Astro', () => {
     const requirement = TAILWIND_DECLARATION.requires[0]!;
-    expect(requirement.kind).toBe('requires');
-    expect(requirement.kind === 'requires' && requirement.capability).toBe('vite-plugins');
-    // The declaration must not mention a framework; that is what will let the
-    // same adapter serve React + Vite unchanged.
-    expect(JSON.stringify(TAILWIND_DECLARATION)).not.toContain('astro');
+    // Widened in Stage 23 from `requires vite-plugins` to either build
+    // pipeline Tailwind v4 actually ships a plugin for. The point the original
+    // assertion made is unchanged and still checked below: a capability, never
+    // a framework.
+    expect(requirement.kind).toBe('requiresOneOf');
+    expect(requirement.kind === 'requiresOneOf' && [...requirement.capabilities].sort()).toEqual([
+      'postcss',
+      'vite-plugins',
+    ]);
+    // The declaration must not mention a framework; that is what lets the same
+    // adapter serve React + Vite and Next unchanged.
+    for (const framework of ['astro', 'react', 'next']) {
+      expect(JSON.stringify(TAILWIND_DECLARATION).toLowerCase()).not.toContain(framework);
+    }
   });
 
   it('its requirement is satisfied by the Astro stack', () => {
     const { project } = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
     const requirement = TAILWIND_DECLARATION.requires[0]!;
     expect(
-      requirement.kind === 'requires' && project.capabilities.has(requirement.capability),
+      requirement.kind === 'requiresOneOf' &&
+        requirement.capabilities.some((capability) => project.capabilities.has(capability)),
     ).toBe(true);
+    // Specifically by Vite's, which is what keeps Astro's output unchanged.
+    expect(project.capabilities.has('vite-plugins')).toBe(true);
   });
 });
 

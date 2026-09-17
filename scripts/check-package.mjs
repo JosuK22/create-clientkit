@@ -38,6 +38,16 @@ const ALLOWED = [
   // the two patterns above - one level deep, CSS only - because nothing else
   // has any business living there.
   /^templates\/styling\/[^/]+\/[^/]+\.css$/,
+  // A styling system may also contribute its build configuration - Tailwind
+  // ships `postcss.config.mjs` for a project whose pipeline is PostCSS rather
+  // than Vite. Same shape and same one-level depth; `.mjs` because the config
+  // is a module and Next reads it as one.
+  /^templates\/styling\/[^/]+\/[^/]+\.mjs$/,
+  // A framework may contribute a stylesheet of its own, for the case where no
+  // styling adapter was selected. Kept outside `base/` deliberately: a file in
+  // a template layer is written unconditionally, and would collide with a
+  // styling system's stylesheet instead of yielding to it.
+  /^templates\/[^/]+\/styling\/[^/]+\.css$/,
   // The UI-library tree, same shape and same reasoning as the styling tree
   // above: one directory per library, holding the source that library
   // contributes. One level deep, TSX only.
@@ -94,6 +104,15 @@ const REQUIRED = [
   // read the repository rather than the tarball.
   'templates/styling/tailwind/styles.global.css',
   'templates/styling/bootstrap/styles.global.css',
+  // Tailwind's other build plugin, for a project whose pipeline is PostCSS
+  // rather than Vite. Contributed by path like the stylesheets above, and with
+  // the same consequence if it stops shipping: the styling system installs and
+  // then compiles nothing.
+  'templates/styling/tailwind/postcss.config.mjs',
+  // The plain-CSS stylesheet Next contributes when no styling adapter was
+  // selected. Outside `base/` on purpose - a file in a template layer is
+  // written unconditionally, which would collide with a styling system's own.
+  'templates/nextjs/styling/globals.css',
   // A UI library contributes this by role. If it stops shipping, every project
   // built with that library imports a file that is not there.
   'templates/ui-library/mui/AppProviders.tsx',

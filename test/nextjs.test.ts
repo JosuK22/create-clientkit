@@ -225,8 +225,13 @@ describe('the supported combinations resolve', () => {
 });
 
 describe('every refusal comes from the engine, not from a branch', () => {
-  it('refuses Tailwind, because Next has no Vite plugin pipeline', () => {
-    expect(refusalText({ styling: 'tailwind' })).toContain('vite-plugins');
+  it('accepts Tailwind, through the PostCSS pipeline rather than Vite', () => {
+    // Refused until Stage 23, and for a reason that turned out to be
+    // over-specified rather than wrong: Tailwind asked for `vite-plugins` when
+    // what it needs is one of its two build plugins to have somewhere to run.
+    expect(checkCompatibility(nextManifest({ styling: 'tailwind' }), adapters).compatible).toBe(
+      true,
+    );
   });
 
   it('refuses Bootstrap, because Next ships its own stylesheet', () => {
@@ -277,7 +282,6 @@ describe('every refusal comes from the engine, not from a branch', () => {
     // The whole point: a reader is told which capability is missing, never
     // "Next.js does not support X".
     for (const over of [
-      { styling: 'tailwind' as StylingId },
       { styling: 'bootstrap' as StylingId },
       { uiLibrary: 'mui' } as const,
       { router: 'react-router' } as const,
@@ -427,11 +431,14 @@ describe('what a Next project contains', () => {
     expect(page).toContain('Coming soon');
   });
 
-  it('the full page has the five sections and nothing interactive', () => {
+  it('the full page has hero, sections, CTA and footer, and nothing interactive', () => {
     const page = bodyAt('app/page.tsx', { starter: 'full' });
-    for (const section of ['About', 'Services', 'Get in touch']) {
+    // The same three sections React's full starter uses. Stage 23 aligned the
+    // two so both render through one shared style contract.
+    for (const section of ['About', 'Work', 'Contact', 'Get in touch']) {
       expect(page, section).toContain(section);
     }
+    expect(page).toContain('<header');
     expect(page).toContain('<footer');
     expect(page).not.toContain('useState');
   });
@@ -694,7 +701,8 @@ describe('selection treats Next like any other framework', () => {
 
   it('an explicit styling flag still reaches the engine rather than being overridden', async () => {
     // The important half of the default: it settles the unstated case only.
-    expect(refusalText({ styling: 'tailwind' })).toContain('vite-plugins');
+    // Bootstrap is the one that still proves it, now that Tailwind resolves.
+    expect(refusalText({ styling: 'bootstrap' })).toContain('composed-stylesheet');
   });
 });
 
@@ -719,18 +727,20 @@ describe('choosing Next.js asks nothing that has one answer', () => {
     return { asked: prompter.asked, manifest: resolution.manifest };
   };
 
-  it('skips styling, component library and routing', async () => {
+  it('skips every question with one viable answer', async () => {
     const { asked } = await menus({ dimensions: { framework: 'nextjs' } });
-    for (const dimension of [
-      'styling',
-      'uiLibrary',
-      'router',
-      'buildTool',
-      'language',
-      'architecture',
-    ]) {
+    for (const dimension of ['uiLibrary', 'router', 'buildTool', 'language', 'architecture']) {
       expect(asked, `asked for ${dimension}`).not.toContain(dimension);
     }
+  });
+
+  it('does ask for styling, because Tailwind and plain CSS both resolve', async () => {
+    // This was skipped through Stage 22, when `none` was the only viable
+    // answer. It is a real choice now, and the menu is filtered by the engine
+    // rather than by a list: Bootstrap is absent because Next provides no
+    // `composed-stylesheet`, not because anything here says so.
+    const { asked } = await menus({ dimensions: { framework: 'nextjs' } });
+    expect(asked).toContain('styling');
   });
 
   it('and still derives every one of them correctly', async () => {

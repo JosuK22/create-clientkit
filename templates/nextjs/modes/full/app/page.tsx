@@ -3,7 +3,7 @@ import { Section } from '../components/ui/Section';
 import { CONTACT, SITE } from '../lib/site.config';
 
 /**
- * Hero, About, Services, CTA, Footer - all server-rendered.
+ * Hero, sections, CTA and footer - all server-rendered.
  *
  * No `'use client'` anywhere. Nothing on this page has state, effects or event
  * handlers, so nothing on it needs to become a client bundle. Adding an
@@ -11,74 +11,73 @@ import { CONTACT, SITE } from '../lib/site.config';
  * why the boundary is worth not crossing by default.
  *
  * The copy is honest scaffolding: it says what the section is for rather than
- * pretending to describe a business nobody has told us about.
+ * pretending to describe a business nobody has told us about. The class names
+ * are the shared style contract, so the same markup renders under plain CSS or
+ * Tailwind.
  */
 
-const SERVICES = [
+const SECTIONS = [
   {
-    title: 'What you do',
-    body: 'Replace this with the first thing a client actually hires you for.',
+    id: 'about',
+    title: 'About',
+    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
   },
   {
-    title: 'How you do it',
-    body: 'The part of your process that makes the result different.',
+    id: 'work',
+    title: 'Work',
+    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
   },
   {
-    title: 'What they get',
-    body: 'The outcome, in the words a client would use to describe it.',
+    id: 'contact',
+    title: 'Contact',
+    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
   },
 ];
 
 export default function HomePage() {
   return (
-    <>
-      <main>
-        <Section className="section">
-          <Mark />
-          <p className="eyebrow">{SITE.name}</p>
-          <h1>{SITE.description || 'A short line about what you do.'}</h1>
-          <p className="lede">
-            Replace this paragraph with the one sentence a prospective client needs to read before
-            they decide to keep reading.
-          </p>
-        </Section>
+    <div className="app-shell">
+      <header className="site-header">
+        <div className="container-page site-header-inner">
+          <Mark size="sm" />
+        </div>
+      </header>
 
-        <Section className="section" heading="About">
-          <p className="lede">
-            Who you are and why this work. Two or three sentences is usually enough - the rest
-            belongs on a page of its own.
-          </p>
-        </Section>
-
-        <Section className="section" heading="Services">
-          <div className="grid">
-            {SERVICES.map((service) => (
-              <article className="card" key={service.title}>
-                <h3>{service.title}</h3>
-                <p>{service.body}</p>
-              </article>
-            ))}
+      <main className="app-main">
+        <div className="container-page intro">
+          <div className="intro-inner">
+            <h1 className="page-title">{SITE.name}</h1>
+            {SITE.description ? <p className="lead">{SITE.description}</p> : null}
+            {CONTACT.email ? (
+              <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                Get in touch
+              </a>
+            ) : null}
           </div>
-        </Section>
+        </div>
 
-        <Section className="section" heading="Get in touch">
-          <p className="lede">Tell them exactly what happens next and how long it takes.</p>
-          {CONTACT.email ? (
-            <p className="contact">
-              <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
-            </p>
-          ) : null}
-        </Section>
+        <div className="container-page sections">
+          {SECTIONS.map((entry) => (
+            <Section key={entry.id} id={entry.id} title={entry.title} body={entry.body} />
+          ))}
+        </div>
       </main>
 
       <footer className="site-footer">
-        <div className="container">
-          <p>
+        <div className="container-page site-footer-inner">
+          <p className="copyright">
             © {new Date().getFullYear()} {SITE.name}
             {SITE.author ? ` · ${SITE.author}` : ''}
           </p>
+          {CONTACT.email ? (
+            <div className="contact-links">
+              <a href={`mailto:${CONTACT.email}`} className="contact-link">
+                {CONTACT.email}
+              </a>
+            </div>
+          ) : null}
         </div>
       </footer>
-    </>
+    </div>
   );
 }

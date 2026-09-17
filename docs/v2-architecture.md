@@ -2809,3 +2809,58 @@ existing golden moved, no new runtime dependency, and the version stays 1.0.2.
   rewrites the JSON with one array element per line.
 - **No SEO, structured data or accessibility.** Each is refused rather than
   ignored, and each would need Next's layout to compose contributed metadata.
+
+### Stage 23 — Tailwind on Next.js, without a Next-specific Tailwind (landed)
+
+Stage 22 refused `nextjs + tailwind`, and the refusal named `vite-plugins`.
+That was correct given what Tailwind declared, and the declaration turned out to
+be over-specified in exactly the way Stage 22's own capabilities had been.
+
+Tailwind v4 does not require Vite. It requires one of the two build plugins it
+ships to have somewhere to run:
+
+```
+before   requires        vite-plugins
+after    requiresOneOf   vite-plugins | postcss
+```
+
+Next reads `postcss.config.mjs` natively, so it declares `postcss` - a fact
+about Next that predates any styling system. The Tailwind adapter then chooses
+which of its two plugins to contribute by asking the _project_ what it can run:
+
+```ts
+const vite = project.capabilities.has('vite-plugins');
+```
+
+A capability, never a framework. `manifest.framework === 'nextjs'` would have
+been shorter, wrong, and the first crack in the styling dimension.
+
+|                     | Astro               | React + Vite        | Next.js                |
+| ------------------- | ------------------- | ------------------- | ---------------------- |
+| pipeline capability | `vite-plugins`      | `vite-plugins`      | `postcss`              |
+| plugin package      | `@tailwindcss/vite` | `@tailwindcss/vite` | `@tailwindcss/postcss` |
+| registered in       | its own template    | `config.build`      | `config.styling`       |
+| stylesheet owner    | its own template    | Tailwind            | Tailwind               |
+
+**The negative result is the important one.** Bootstrap requires
+`composed-stylesheet`, which Next still does not provide, so it is exactly as
+refused as it was before - and MUI and React Router are untouched. Adding a
+pipeline capability made Tailwind work and nothing else.
+
+**Two owners, one stylesheet.** Next's template shipped `styles/globals.css` as
+a file in its base layer, and a layer file is written unconditionally - so
+selecting Tailwind put two owners on one path, which the composer correctly
+refused. The fix was to make the plain stylesheet a _contribution_ rather than a
+layer file, so the two compete on equal terms and exactly one is ever claimed.
+The condition is "is there a styling adapter at all", never which one.
+
+**The shared style contract did the rest.** Next's starters name semantic
+classes - `hero`, `page-title`, `button-primary` - which every styling system
+already implements, the same contract React's starters have used since Stage 5.
+Composing Tailwind therefore changes the stylesheet, the plugin and one
+dependency, and not one byte of the component tree. A test asserts that
+equality directly.
+
+**Unchanged.** The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no Astro
+or React golden moved, no new runtime dependency, and the version stays 1.0.2.

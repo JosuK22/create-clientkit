@@ -1,0 +1,244 @@
+/*
+ * Plain CSS, implementing the project's shared style contract.
+ *
+ * The markup names what a thing *is* - `hero`, `page-title`, `button-primary` -
+ * and a stylesheet decides how it looks. This file is the plain-CSS
+ * implementation of that contract; `templates/styling/tailwind/` is the
+ * Tailwind one, and `templates/styling/bootstrap/` the Bootstrap one. Every one
+ * of them answers the same class names, which is what lets a component tree be
+ * rendered under a different styling system without the framework template
+ * knowing which was selected.
+ *
+ * Only one of them is ever shipped. Selecting a styling system hands that
+ * system ownership of the `styles.global` role, and this file is not composed
+ * at all.
+ *
+ * No framework, no preprocessor, no build step beyond the one Next already
+ * runs. Custom properties are the whole system: change a value here and the
+ * palette, rhythm and type scale follow everywhere.
+ */
+
+:root {
+  --color-ink: oklch(0.22 0.01 260);
+  --color-ink-muted: oklch(0.52 0.01 260);
+  --color-surface: oklch(1 0 0);
+  --color-line: oklch(0.92 0.005 260);
+  --measure-page: 64rem;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+  text-rendering: optimizeLegibility;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+/* The shared style contract ------------------------------------------------ */
+
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+}
+
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
+}
+
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--color-line);
+}
+
+.copyright {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+}
+
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.contact-link:hover {
+  color: var(--color-ink);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  color: var(--color-surface);
+  font-weight: 600;
+}
+
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
+
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
+
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hero,
+.intro {
+  padding-block: 5rem;
+}
+
+.hero-inner,
+.intro-inner {
+  max-width: 42rem;
+}
+
+.eyebrow {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 2rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  padding-inline: 1.25rem;
+  color: var(--color-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 160ms ease;
+}
+
+.button-primary:hover {
+  opacity: 0.85;
+}
+
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
+  .sections {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+/* Respect the reader's preference; never animate for someone who asked not to. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -2,7 +2,7 @@ import { Mark } from '../components/ui/Mark';
 import { CONTACT, SITE } from '../lib/site.config';
 
 /**
- * One page, centred, and nothing that needs JavaScript.
+ * The launch page.
  *
  * A server component with no interactivity at all: no countdown, no form, no
  * client bundle. A countdown in particular is a promise with a date attached,
@@ -11,23 +11,32 @@ import { CONTACT, SITE } from '../lib/site.config';
  *
  * Every optional piece is omitted rather than filled with a placeholder - an
  * empty `CONTACT.email` renders nothing, not `hello@example.com`.
+ *
+ * The class names are the shared style contract, so this markup is identical
+ * whether the project was generated with plain CSS or with Tailwind.
  */
 export default function HomePage() {
   return (
-    <main className="centered">
-      <Mark />
+    <div className="app-shell">
+      <main className="app-main">
+        <div className="container-page hero">
+          <div className="hero-inner">
+            <Mark />
 
-      <p className="eyebrow">Coming soon</p>
+            <p className="eyebrow">Coming soon</p>
 
-      <h1>{SITE.name}</h1>
+            <h1 className="page-title">{SITE.name}</h1>
 
-      {SITE.description ? <p className="lede">{SITE.description}</p> : null}
+            {SITE.description ? <p className="lead">{SITE.description}</p> : null}
 
-      {CONTACT.email ? (
-        <p className="contact">
-          <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
-        </p>
-      ) : null}
-    </main>
+            {CONTACT.email ? (
+              <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                Get in touch
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
