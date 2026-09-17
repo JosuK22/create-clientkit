@@ -2930,3 +2930,74 @@ selected.
 existing golden moved, Bootstrap is untouched, Astro still refuses Bootstrap for
 the reason that was always true, no preset was added, and the version stays
 1.0.2.
+
+### Stage 25 — `client-app-root`, verified rather than inherited (landed)
+
+Stage 24R's lesson was that a refusal staying true does not prove its reason
+still holds. So this stage re-opened the MUI refusal with no presumption in
+either direction, and the result is that the capability survives investigation —
+but the investigation, not the previous stage, is what establishes it.
+
+**The definition, unchanged:**
+
+> The application has a client-rendered root that React context can be mounted
+> above.
+
+**What MUI actually needs**, traced through the adapter rather than read off the
+declaration:
+
+```
+MUI contributes   a provider file         -> role app.providers
+MUI contributes   a wrapping request      -> role app.root, slot "providers"
+MUI's template    ThemeProvider + CssBaseline, and no "use client"
+```
+
+Three things, and the App Router satisfies none of them:
+
+|                           | React standard | Next App Router |
+| ------------------------- | -------------- | --------------- |
+| `app.root` mapped         | ●              |                 |
+| `app.providers` mapped    | ●              |                 |
+| `rootExportName`          | `App`          | —               |
+| `composesAppRoot(...)`    | `true`         | `false`         |
+| generated client boundary | the whole tree | none            |
+
+**The experiment.** `client-app-root` was added to Next's declaration and a
+project generated. It did not produce a working Next + MUI project; it failed
+with `Architecture "next-app" does not define a path for the file role
+"app.providers"`. The refusal is overdetermined — the capability is absent, and
+so is every structure the capability would have implied. The change was reverted
+and nothing shipped from it.
+
+**Outcome B.** Next continues not to provide `client-app-root`; Next + MUI
+remains refused, naming the capability and never the framework.
+
+**What changed is how it is defended.** The old suite asserted the refusal. The
+new one asserts each premise separately, against the code:
+
+```ts
+// the declaration and the architecture must not be able to drift apart
+expect(NEXTJS_DECLARATION.provides.includes('client-app-root')).toBe(
+  composesAppRoot(NEXTJS_ARCHITECTURE) && definesRole(NEXTJS_ARCHITECTURE, 'app.providers'),
+);
+```
+
+Four mutations exist purely for that shape — mapping a role while withholding
+the capability, or keeping the capability while removing the role, on both Next
+and React. Every one is caught. A suite that only asserted "Next + MUI is
+refused" would pass all four, which is exactly how Stage 24R's drift survived
+three stages.
+
+**`client-app-root` is stricter than MUI's theoretical minimum**, and that is
+worth stating rather than hiding. MUI needs a client boundary _somewhere_ above
+the content; the App Router can express one (a `'use client'` provider inside a
+server layout). Making that work would need two new role mappings, a modified
+layout template and, for correct SSR style flushing, an additional package.
+That is implementing Next + MUI, not discovering that it already works — which
+is the difference between this stage and Stage 24R, where the code had already
+changed and only the declaration lagged.
+
+**Unchanged.** MUI's declaration, the compatibility engine, every generated
+byte, the four V1 goldens
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), and the
+version at 1.0.2. No README change: no supported combination moved.
