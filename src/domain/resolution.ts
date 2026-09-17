@@ -26,6 +26,17 @@ export interface MergedResolution {
   readonly capabilities: ReadonlySet<Capability>;
   /** Union of every selected adapter's required roles. Order-independent. */
   readonly requiredRoles: ReadonlySet<FileRole>;
+  /**
+   * Who asked for each required role.
+   *
+   * The union above is what the plan is checked against; this is what a refusal
+   * is *explained* with. Stage 28 needed it because "the architecture cannot
+   * place page.notFound" is only half a sentence - the useful half names the
+   * feature that asked and lets a reader drop it.
+   *
+   * Owners are sorted, so a diagnostic does not depend on adapter order.
+   */
+  readonly requiredRoleOwners: ReadonlyMap<FileRole, readonly string[]>;
   readonly extensions: Partial<SourceExtensions>;
   readonly minNode: string | undefined;
 }
@@ -66,6 +77,7 @@ type MutableExtensions = { -readonly [K in keyof SourceExtensions]?: SourceExten
 export function mergeResolutions(inputs: readonly ResolutionInput[]): MergedResolution {
   const capabilities = new Set<Capability>();
   const requiredRoles = new Set<FileRole>();
+  const requiredRoleOwners = new Map<FileRole, string[]>();
   const extensions: MutableExtensions = {};
   /** Which adapter set each extension key, so a conflict can name it. */
   const extensionOwners = new Map<string, string>();
@@ -73,7 +85,13 @@ export function mergeResolutions(inputs: readonly ResolutionInput[]): MergedReso
 
   for (const { owner, resolution } of inputs) {
     for (const capability of resolution.capabilities ?? []) capabilities.add(capability);
-    for (const role of resolution.requiredRoles ?? []) requiredRoles.add(role);
+    for (const role of resolution.requiredRoles ?? []) {
+      requiredRoles.add(role);
+      const owners = requiredRoleOwners.get(role);
+      // An adapter listing the same role twice asked once.
+      if (owners === undefined) requiredRoleOwners.set(role, [owner]);
+      else if (!owners.includes(owner)) owners.push(owner);
+    }
     if (resolution.minNode !== undefined) floors.push(resolution.minNode);
 
     for (const key of EXTENSION_KEYS) {
@@ -94,5 +112,13 @@ export function mergeResolutions(inputs: readonly ResolutionInput[]): MergedReso
     }
   }
 
-  return { capabilities, requiredRoles, extensions, minNode: highestNodeFloor(floors) };
+  for (const owners of requiredRoleOwners.values()) owners.sort();
+
+  return {
+    capabilities,
+    requiredRoles,
+    requiredRoleOwners,
+    extensions,
+    minNode: highestNodeFloor(floors),
+  };
 }

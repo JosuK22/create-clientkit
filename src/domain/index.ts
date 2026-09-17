@@ -44,6 +44,23 @@ export type {
 export { CAPABILITIES, describeConstraint } from './capabilities.js';
 export type { Capability, Constraint } from './capabilities.js';
 
+export {
+  assertCapabilityContracts,
+  assertRolesArePlaceable,
+  capabilitiesInCategory,
+  capabilityBreaches,
+  CAPABILITY_CATEGORIES,
+  CAPABILITY_CONTRACTS,
+  surfacesOf,
+} from './capability-contract.js';
+export type {
+  CapabilityCategory,
+  CapabilityContract,
+  CapabilitySurface,
+  ContractBreach,
+  SurfaceKind,
+} from './capability-contract.js';
+
 export { definesRole, FILE_ROLES, resolveRole } from './roles.js';
 export type { ArchitectureDefinition, FileRole } from './roles.js';
 

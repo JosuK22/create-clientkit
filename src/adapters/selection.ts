@@ -1,9 +1,14 @@
 import type { Adapter, AdapterDeclaration } from '../domain/adapters.js';
 import type { CompatibilityReport } from '../domain/compatibility.js';
 import { evaluateCombination, formatReport } from '../domain/compatibility.js';
+import {
+  assertCapabilityContracts,
+  assertRolesArePlaceable,
+} from '../domain/capability-contract.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import { mergeResolutions, type ResolutionInput } from '../domain/resolution.js';
 import type { ResolvedProject } from '../domain/resolved.js';
+import type { FileRole } from '../domain/roles.js';
 import { adapterRef } from '../domain/adapters.js';
 import { CliError } from '../errors.js';
 import type { AdapterRegistry } from './registry.js';
@@ -186,6 +191,47 @@ export function resolveProject(
     ...selection.declarations.flatMap((declaration) => declaration.provides),
     ...merged.capabilities,
   ]);
+
+  /*
+   * The architecture contract, checked at the first moment both halves exist.
+   *
+   * Compatibility above judged declarations against each other and never saw an
+   * architecture - it cannot, because the architecture is resolved from the
+   * framework the declarations were being judged with. That leaves the gap
+   * Stage 28 closes: a capability can be declared truthfully as far as the
+   * engine can tell and still be unmaterializable by the architecture that was
+   * chosen alongside it.
+   *
+   * Two directions, deliberately separate functions:
+   *
+   *   - a declared capability whose surface the architecture cannot place
+   *   - a required role the architecture cannot place
+   *
+   * Both fail here rather than during planning, so no `FileOperation` exists
+   * when they do. The planner's own guards stay exactly where they were: this
+   * says the architecture *could* place a surface, and `assertRequiredRoles`
+   * still asks whether anything actually did.
+   */
+  assertCapabilityContracts(
+    capabilities,
+    architecture,
+    framework.templateOwnedRoles ?? [],
+    report.index.providers,
+  );
+  // The architecture's own requirements have no adapter behind them, so they
+  // are attributed to the architecture that stated them - merged into the
+  // adapters' map rather than spread over it, so a role both of them ask for
+  // names both askers instead of whichever spread came last.
+  const roleAskers = new Map<FileRole, string[]>(
+    [...merged.requiredRoleOwners].map(([role, owners]) => [role, [...owners]]),
+  );
+  for (const role of architecture.requiredRoles ?? []) {
+    const asker = `architecture:${architecture.id}`;
+    const existing = roleAskers.get(role);
+    if (existing === undefined) roleAskers.set(role, [asker]);
+    else if (!existing.includes(asker)) existing.unshift(asker);
+  }
+  assertRolesArePlaceable(architecture, roleAskers);
 
   // Destructured rather than checked in a loop so the narrowing is real and no
   // non-null assertion is needed to build the result.

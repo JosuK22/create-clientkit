@@ -3170,3 +3170,172 @@ moved. The four V1 goldens are byte-identical
 or preset was added, and the version stays 1.0.2. Eleven Next goldens moved,
 from one cause: the shell is now composed rather than contributed, so the
 provider file is emitted and its occupant moved to `UiProviders.tsx`.
+
+### Stage 28 — the capability ↔ architecture contract (landed)
+
+**The gap.** The compatibility engine reads declarations and nothing else. The
+architecture is resolved _afterwards_, from the framework whose declarations
+were just judged — so nothing anywhere compared the two. That left one shape of
+drift with no guard at all:
+
+```text
+capability declared
+      ↓
+consumer becomes compatible
+      ↓
+architecture cannot materialize the surface
+      ↓
+failure, halfway through planning, naming a role and no reason
+```
+
+Stage 25 walked that path with `client-app-root`. The refusal was correct, and
+it arrived as `Architecture "next-app" does not define a path for the file role
+"app.providers"` — a sentence naming neither the capability, nor who wanted it,
+nor why. Stage 26 mapped the role and the symptom disappeared; the gap did not.
+Stage 28 turns the lesson into an invariant:
+
+> A capability that promises a generated surface may only be declared by a stack
+> whose architecture can place that surface.
+
+Note what this is _not_. It is not a compatibility error — the consumer was
+right to ask. It is a **false declaration**, and the fix is to change the
+declaration or the architecture, never the selection.
+
+**Three concepts, still three.** The stage deliberately does not merge them:
+
+| Concept      | Says                                           |
+| ------------ | ---------------------------------------------- |
+| Capability   | this project can perform X                     |
+| Role mapping | this architecture knows where X is represented |
+| Contribution | this adapter wants to provide or use X         |
+
+Mapping a role does not grant a capability, and the codebase already relies on
+that in both directions: React maps `page.notFound` and has no file-based
+routing; Next maps `app.layout` and does not compose metadata into it. If
+mapping granted capabilities, an architecture could award itself anything by
+naming a path, and `provides` would stop meaning anything.
+
+#### The four categories
+
+Every capability is classified, and `CAPABILITY_CONTRACTS` is a total
+`Record<Capability, …>` — a capability added without a contract fails to
+compile, because the failure this stage exists to prevent is a capability nobody
+thought about.
+
+| Capability             | Category      | Surface required?               | Contract                                                                            |
+| ---------------------- | ------------- | ------------------------------- | ----------------------------------------------------------------------------------- |
+| `react-runtime`        | pure          | no                              | React is on the page; every file may import it and none represents it               |
+| `angular-runtime`      | pure          | no                              | the same, for Angular                                                               |
+| `jsx`                  | pure          | no                              | a property of the source, not a place                                               |
+| `typescript`           | pure          | no                              | every file carries it, no file owns it                                              |
+| `spa-routing`          | pure          | no                              | a shape of application; the route table belongs to `client-side-routing`            |
+| `ssr`                  | tooling       | no                              | happens in the framework's runtime                                                  |
+| `static-output`        | tooling       | no                              | a property of the build                                                             |
+| `file-based-routing`   | tooling       | no                              | which pages exist is the project's business                                         |
+| `document-metadata`    | tooling       | no                              | a claim about _when_ the head reaches the client                                    |
+| `server-inserted-head` | tooling       | no                              | a hook an adapter branches on                                                       |
+| `postcss`              | tooling       | no                              | a pipeline in the build                                                             |
+| `sass`                 | tooling       | no                              | a pipeline in the build                                                             |
+| `css-framework`        | tooling       | no                              | presence, so a second one can refuse to join it                                     |
+| `css-in-js`            | tooling       | no                              | styles generated at runtime                                                         |
+| `vite-plugins`         | tooling       | no                              | a plugin array in the build configuration                                           |
+| `client-app-root`      | architectural | **yes** — `app.providers`, file | there is somewhere above the application to mount context, and a provider is a file |
+| `client-side-routing`  | architectural | **yes** — `app.router`, file    | routes matched in the browser need a route table the project owns                   |
+| `composed-stylesheet`  | composition   | **yes** — `styles.global`, file | the stylesheet is contributed, so the role must be mapped _and_ left unowned        |
+| `composed-metadata`    | composition   | **yes** — `app.layout`, data    | the shell is assembled from contributed values, so mapping is the whole requirement |
+
+`pure` and `tooling` name no surface, and a test enforces that correspondence in
+both directions. That guard exists because the likeliest way to get this stage
+wrong is the opposite of the problem it solves: deciding every capability ought
+to map a role, inventing `language.typescript`, and making the vocabulary less
+true in the name of rigour. Adding a surface to a pure capability now requires
+reclassifying it — a deliberate act somebody has to defend.
+
+#### `via: 'file'` versus `via: 'data'`
+
+The two surface kinds are the difference between Astro's stylesheet and Astro's
+layout, and they are why the contract checks template ownership rather than
+mapping alone.
+
+A `file` surface means an adapter writes a file there, so the architecture must
+map the role **and** leave it unowned by its own template layers — a
+template-owned role refuses contributions, which makes the capability a promise
+the project cannot keep. A `data` surface means contributions are folded into a
+file the framework already owns, so mapping is all that is required.
+
+Astro ships `global.css` from its template and declares `styles.global`
+template-owned, so it does _not_ provide `composed-stylesheet` — and Bootstrap,
+which contributes a stylesheet file, stays refused there. Astro also ships
+`BaseLayout.astro` from its template and _does_ provide `composed-metadata`,
+because a metadata feature contributes values rather than a file. One rule, both
+answers, and neither mentions Astro.
+
+#### The case studies
+
+**`client-app-root`.** The surface is `app.providers`, not `app.root` — and the
+distinction is exactly what Stage 27 established. React's root _is_ the
+application; Next's shell wraps content the framework hands down. Both can mount
+context above the tree, and requiring `app.root` would refuse Next for having a
+different shape rather than a missing one. React materializes the capability
+through `app.root` + `app.providers`, Next through `app.shell` + `app.providers`,
+and the contract names only the surface they share.
+
+**`composed-stylesheet`.** Next and React both declare it and both leave
+`styles.global` to a contributor. Astro maps the same role and owns it. The
+contract distinguishes them structurally, so a mutation that gives Astro the
+capability is caught by the contract itself rather than only by a Bootstrap
+test.
+
+**`composed-metadata`.** Next maps `app.layout` and does not own it from a
+template layer, so it satisfies the _structural_ half of the contract — and the
+capability is still false, because Next's layout declares its own `metadata`
+export and reads no contributions. `Next + seo`, `Next + structured-data` and
+`Next + accessibility` stay refused at compatibility. This is the honest limit
+of the mechanism: the contract is a **necessary condition on declaring a
+capability, never a sufficient one**. It catches an architecture that cannot
+keep a promise; it cannot catch a framework that lies about one it could keep.
+Behaviour tests remain the only guard against that, and they are.
+
+#### The other direction, and one real late failure
+
+Searching for combinations that pass compatibility and fail later turned up
+three classes, of which only one was a defect.
+
+1. **Probe artifacts** — Astro planned through the wrong entry point. Not real.
+2. **`react + styling:none`** — `styles.global` is mapped and nothing filled it.
+   Correctly deferred: whether a contribution _materialized_ is a fact about the
+   finished plan, and `assertRequiredRoles` still answers it.
+3. **`nextjs + not-found`** — compatible (Next really does route by file), then
+   dead halfway through planning with `Architecture "next-app" does not define a
+path for the file role "page.notFound"`, naming no feature, giving no reason,
+   and offering a hint about styling. **Evidence the contract was incomplete.**
+
+Whether an architecture _can place_ a role is knowable from the architecture
+alone, so `assertRolesArePlaceable` now answers it at resolution, naming the
+adapter that asked. The refusal boundary is unchanged; only its timing and its
+wording are. `MergedResolution` gained `requiredRoleOwners` to carry the
+provenance that makes the sentence worth reading.
+
+Both checks run in `resolveProject`, at the first moment a capability set and an
+architecture exist together — upstream of every contribution, so a refusal costs
+zero `FileOperation`s. **The planner's guards were not moved and not removed.**
+This layer says the architecture _could_ place a surface; the planner still asks
+whether anything did.
+
+#### Why this is not a matrix
+
+`CAPABILITY_CONTRACTS` has one row per capability and no framework axis at all.
+Nothing in it knows that Next, React or Astro exist, and adding a fourth
+framework adds no row — a framework is held to the contract by what it declares,
+never by its name. A structural test scans the validation layer with comments
+stripped and fails on any framework, UI-library or styling literal, and a
+mutation inserting `manifest.framework !== 'nextjs'` into the check is caught by
+it.
+
+**Unchanged.** **Zero goldens moved** — no adapter, template or architecture was
+edited, which is the result a hardening stage should produce. The four V1
+goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), every
+supported stack still resolves, every refusal still refuses, no CLI flag,
+manifest dimension or preset was added, the CLI still has zero runtime
+dependencies, and the version stays 1.0.2.
