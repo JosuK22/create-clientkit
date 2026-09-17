@@ -48,6 +48,11 @@ const ALLOWED = [
   // a template layer is written unconditionally, and would collide with a
   // styling system's stylesheet instead of yielding to it.
   /^templates\/[^/]+\/styling\/[^/]+\.css$/,
+  // And a provider boundary of its own, for the case where no UI library was
+  // selected. Same reasoning as the stylesheet above: kept outside `base/`
+  // because a file in a template layer is written unconditionally, and would
+  // collide with the one a UI library contributes instead of yielding to it.
+  /^templates\/[^/]+\/ui\/[^/]+\.tsx$/,
   // The UI-library tree, same shape and same reasoning as the styling tree
   // above: one directory per library, holding the source that library
   // contributes. One level deep, TSX only.
@@ -113,6 +118,11 @@ const REQUIRED = [
   // selected. Outside `base/` on purpose - a file in a template layer is
   // written unconditionally, which would collide with a styling system's own.
   'templates/nextjs/styling/globals.css',
+  // The empty provider boundary the Next layout always wraps the app in.
+  'templates/nextjs/ui/AppProviders.tsx',
+  // MUI's provider in both variants: the client-only one, and the one that
+  // flushes server-rendered styles into the head.
+  'templates/ui-library/mui/AppProviders.server-inserted.tsx',
   // A UI library contributes this by role. If it stops shipping, every project
   // built with that library imports a file that is not there.
   'templates/ui-library/mui/AppProviders.tsx',

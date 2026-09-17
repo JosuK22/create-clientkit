@@ -89,7 +89,21 @@ export function createMuiAdapter(templatesRoot: string): Adapter {
       return {};
     },
 
-    contribute(_project: ResolvedProject): Contribution {
+    contribute(project: ResolvedProject): Contribution {
+      /*
+       * Whether this project's framework can flush server-rendered markup into
+       * the document head.
+       *
+       * A capability, never a framework. Emotion generates styles while
+       * rendering; on a client-only framework they are inserted in the browser
+       * and there is nothing to collect, while on a server-rendering one they
+       * must be flushed into the head or hydration disagrees with itself.
+       *
+       * The same shape Tailwind uses to choose between its two build plugins:
+       * one adapter, two integrations, selected by what the project can do.
+       */
+      const serverInserted = project.capabilities.has('server-inserted-head');
+
       return {
         ...emptyContribution(OWNER),
 
@@ -108,7 +122,12 @@ export function createMuiAdapter(templatesRoot: string): Adapter {
             intent: 'create',
             payload: {
               kind: 'template',
-              source: path.join(templatesRoot, 'ui-library', 'mui', 'AppProviders.tsx'),
+              source: path.join(
+                templatesRoot,
+                'ui-library',
+                'mui',
+                serverInserted ? 'AppProviders.server-inserted.tsx' : 'AppProviders.tsx',
+              ),
             },
             owner: OWNER,
             order: 0,
@@ -161,6 +180,31 @@ export function createMuiAdapter(templatesRoot: string): Adapter {
             owner: OWNER,
             reason: "the styled() API MUI's components are built on",
           },
+          /*
+           * The server-render integration, installed only where there is a
+           * server render to integrate with.
+           *
+           * Owned by MUI rather than by the framework, and the direction
+           * matters: MUI is what needs its styles flushed, so MUI asks. A
+           * framework depending on a UI library would invert the composition
+           * and make every project carry it.
+           *
+           * The package is MUI's own and its vendor named it after the
+           * framework it targets. That name is a fact about the registry, not
+           * a branch - the decision above is made on a capability, and this
+           * adapter still contains no framework id it tests against.
+           */
+          ...(serverInserted
+            ? [
+                {
+                  name: '@mui/material-nextjs',
+                  version: '9.4.0',
+                  kind: 'prod' as const,
+                  owner: OWNER,
+                  reason: 'flushes styles generated during a server render into the document head',
+                },
+              ]
+            : []),
         ],
       };
     },

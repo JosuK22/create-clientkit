@@ -1,10 +1,23 @@
 'use client';
 
 import { Box, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import type { ReactNode } from 'react';
 
 /**
  * Material UI, mounted above the application.
+ *
+ * ## Why the cache provider
+ *
+ * On a framework that renders on the server, Emotion generates styles during
+ * that render and has nowhere to put them: they are emitted where the component
+ * sits, which is inside `<body>`. React then hoists `<style>` into `<head>`
+ * while hydrating, the two disagree, and every page load reports a recoverable
+ * hydration error - with the production build reporting success throughout.
+ *
+ * `AppRouterCacheProvider` collects them and flushes them into the head before
+ * the response is sent. It is only here because the framework can do that; the
+ * client-only variant of this file has no cache provider and needs none.
  *
  * ## Why the directive
  *
@@ -55,9 +68,11 @@ const theme = createTheme({
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box className="app-providers">{children}</Box>
-    </ThemeProvider>
+    <AppRouterCacheProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box className="app-providers">{children}</Box>
+      </ThemeProvider>
+    </AppRouterCacheProvider>
   );
 }

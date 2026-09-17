@@ -432,11 +432,11 @@ fully specified file needs no terminal and `--yes` never discards it.
 Three frameworks ship. Each is chosen with `--framework`; `--template` names
 the V1 Astro stack and is kept for compatibility.
 
-| Framework | Stack                                                                               | Modes                 |
-| --------- | ----------------------------------------------------------------------------------- | --------------------- |
-| `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                                             | `coming-soon`, `full` |
-| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap                             | `coming-soon`, `full` |
-| `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, Tailwind, Bootstrap or plain CSS | `coming-soon`, `full` |
+| Framework | Stack                                                                                                     | Modes                 |
+| --------- | --------------------------------------------------------------------------------------------------------- | --------------------- |
+| `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                                                                   | `coming-soon`, `full` |
+| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap                                                   | `coming-soon`, `full` |
+| `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, Tailwind, Bootstrap or plain CSS, optional Material UI | `coming-soon`, `full` |
 
 - **`coming-soon`** — a single polished launch page you can put live today.
 - **`full`** — a small multi-section home page, on the same design system.

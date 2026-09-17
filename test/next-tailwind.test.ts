@@ -384,11 +384,14 @@ describe('adding Tailwind made nothing else compatible', () => {
     expect(required).not.toContain('vite-plugins');
   });
 
-  it('MUI and React Router are still refused', () => {
-    expect(checkCompatibility(manifestFor({ uiLibrary: 'mui' }), adapters).compatible).toBe(false);
+  it('React Router is still refused; MUI resolves on its own terms', () => {
+    // MUI became compatible in Stage 26, through the provider role rather than
+    // through anything Tailwind did. React Router stays refused, by a conflict
+    // with the framework's own file-based routing.
     expect(checkCompatibility(manifestFor({ router: 'react-router' }), adapters).compatible).toBe(
       false,
     );
+    expect(checkCompatibility(manifestFor({ uiLibrary: 'mui' }), adapters).compatible).toBe(true);
   });
 
   it('the head features are still refused', () => {
@@ -402,7 +405,6 @@ describe('adding Tailwind made nothing else compatible', () => {
 
   it('Tailwind plus a refused selection is still refused', () => {
     for (const over of [
-      { styling: 'tailwind', uiLibrary: 'mui' },
       { styling: 'tailwind', router: 'react-router' },
       { styling: 'tailwind', features: ['seo'] },
       { styling: 'tailwind', features: ['client-route-fallback'] },

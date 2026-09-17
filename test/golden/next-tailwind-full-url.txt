@@ -3,7 +3,7 @@ templateId       nextjs
 templateVersion  0.1.0
 mode             full
 targetDir        <TARGET_DIR>
-operationCount   15
+operationCount   16
 
 == ORDER ==
 write  .client-site.json
@@ -11,6 +11,7 @@ copy   .gitattributes
 write  .gitignore
 write  app/layout.tsx
 write  app/page.tsx
+write  components/providers/AppProviders.tsx
 write  components/ui/Mark.tsx
 write  components/ui/Section.tsx
 write  lib/site.config.ts
@@ -83,14 +84,26 @@ origin  base
 ----
 import type { Metadata } from 'next';
 
+import { AppProviders } from '../components/providers/AppProviders';
 import { SITE } from '../lib/site.config';
 import '../styles/globals.css';
 
 /**
  * The root layout: the top of the tree, and the only place `<html>` exists.
  *
- * A server component, deliberately. Nothing here needs state, effects or
- * browser APIs, so nothing here needs to reach the browser as JavaScript.
+ * A server component, deliberately, and it stays one. Nothing here needs state,
+ * effects or browser APIs, so nothing here needs to reach the browser as
+ * JavaScript - and marking this file `'use client'` would pull every page under
+ * it into the client bundle to solve a problem it does not have.
+ *
+ * ## The provider boundary
+ *
+ * `AppProviders` is always here, whether or not anything fills it. A project
+ * with no UI library gets a pass-through that renders its children and nothing
+ * else; a project with one gets that library's providers instead, at the same
+ * place, without this file changing. Where the client boundary goes - if one is
+ * needed at all - is that component's decision, which is what keeps it out of
+ * this one.
  *
  * `metadata` is baseline only - a title and a description taken from the one
  * config file. There is no canonical URL, no Open Graph block and no social
@@ -105,7 +118,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={SITE.locale || 'en'}>
-      <body>{children}</body>
+      <body>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
@@ -197,6 +212,34 @@ export default function HomePage() {
       </footer>
     </div>
   );
+}
+
+
+---- components/providers/AppProviders.tsx ----
+type    write
+origin  framework:nextjs
+----
+import type { ReactNode } from 'react';
+
+/**
+ * The provider boundary, with nothing in it yet.
+ *
+ * The layout always wraps the application in this component, so that adding a
+ * UI library later is a change to one file rather than a change to the layout's
+ * shape. A project generated without one gets this pass-through: no context, no
+ * client bundle, no behaviour.
+ *
+ * Deliberately a server component. There is nothing here that needs the
+ * browser, and marking it `'use client'` would pull the whole subtree into the
+ * client bundle to provide exactly nothing. The UI library that replaces this
+ * file brings its own boundary when it needs one.
+ *
+ * This file is yours. Put application-wide context here - a session, a theme,
+ * a feature flag provider - and add `'use client'` at the top if what you add
+ * needs it.
+ */
+export function AppProviders({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }
 
 

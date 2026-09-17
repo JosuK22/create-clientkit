@@ -42,7 +42,7 @@ origin  cli
   "config": {
     "projectName": "acme-site",
     "siteName": "Acme Ltd",
-    "siteUrl": null,
+    "siteUrl": "https://acme.example",
     "locale": "en",
     "packageManager": "npm",
     "features": []
@@ -175,29 +175,85 @@ export default function HomePage() {
 
 ---- components/providers/AppProviders.tsx ----
 type    write
-origin  framework:nextjs
+origin  ui-library:mui
 ----
+'use client';
+
+import { Box, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import type { ReactNode } from 'react';
 
 /**
- * The provider boundary, with nothing in it yet.
+ * Material UI, mounted above the application.
  *
- * The layout always wraps the application in this component, so that adding a
- * UI library later is a change to one file rather than a change to the layout's
- * shape. A project generated without one gets this pass-through: no context, no
- * client bundle, no behaviour.
+ * ## Why the cache provider
  *
- * Deliberately a server component. There is nothing here that needs the
- * browser, and marking it `'use client'` would pull the whole subtree into the
- * client bundle to provide exactly nothing. The UI library that replaces this
- * file brings its own boundary when it needs one.
+ * On a framework that renders on the server, Emotion generates styles during
+ * that render and has nowhere to put them: they are emitted where the component
+ * sits, which is inside `<body>`. React then hoists `<style>` into `<head>`
+ * while hydrating, the two disagree, and every page load reports a recoverable
+ * hydration error - with the production build reporting success throughout.
  *
- * This file is yours. Put application-wide context here - a session, a theme,
- * a feature flag provider - and add `'use client'` at the top if what you add
- * needs it.
+ * `AppRouterCacheProvider` collects them and flushes them into the head before
+ * the response is sent. It is only here because the framework can do that; the
+ * client-only variant of this file has no cache provider and needs none.
+ *
+ * ## Why the directive
+ *
+ * `ThemeProvider` is React context and `createTheme` runs at module scope, so
+ * this file has to be part of the client bundle. In a framework that renders
+ * the whole tree in the browser the directive is a no-op - the bundler keeps
+ * the string and nothing else changes. In one that renders on the server by
+ * default it is the boundary that makes this component legal at all.
+ *
+ * One line, stated once, correct under both. The alternative was a second copy
+ * of this file per framework, which is the per-combination template the whole
+ * architecture exists to avoid.
+ *
+ * Three things have to be true for MUI components to behave anywhere in the
+ * tree, and all three live here:
+ *
+ *   - `ThemeProvider` supplies the theme every MUI component reads. Without it
+ *     components fall back to the default theme and any customisation below is
+ *     silently ignored.
+ *   - `CssBaseline` applies MUI's reset. It is scoped to MUI's own baseline and
+ *     deliberately does not fight the global stylesheet - see the note below.
+ *   - `Box` is an ordinary MUI component, rendered so the styling engine is
+ *     exercised on a real element rather than only configured.
+ *
+ * ## MUI and your styling system are separate choices
+ *
+ * This file is contributed by the UI library you picked. The global stylesheet
+ * is contributed by the styling system you picked, and neither knows about the
+ * other. Utility and layout classes on the markup inside still apply normally;
+ * MUI components are styled by this theme. That is the intended arrangement,
+ * not an accident of ordering.
+ *
+ * If the two ever disagree about a specific element, prefer changing the theme
+ * here over adding `!important` anywhere.
+ *
+ * ## Making it yours
+ *
+ * Edit `theme` below. Palette, typography and component defaults all belong
+ * there, and everything under this provider picks them up. This file is yours
+ * now - the generator will not touch it again.
  */
+
+const theme = createTheme({
+  // Deliberately close to MUI's defaults. A generated starter should not invent
+  // a brand; set the palette once the client's colours are known.
+  cssVariables: true,
+});
+
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return (
+    <AppRouterCacheProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box className="app-providers">{children}</Box>
+      </ThemeProvider>
+    </AppRouterCacheProvider>
+  );
 }
 
 
@@ -277,7 +333,7 @@ export interface ContactDetails {
 export const SITE: SiteIdentity = {
   name: 'Acme Ltd',
   description: 'Bespoke widgets.',
-  url: '',
+  url: 'https://acme.example',
   locale: 'en',
   author: '',
 };
@@ -335,6 +391,10 @@ origin  base + modes/coming-soon
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/material": "9.4.0",
+    "@mui/material-nextjs": "9.4.0",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0"

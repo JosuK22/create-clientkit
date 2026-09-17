@@ -382,11 +382,25 @@ export function Header() {
 type    write
 origin  ui-library:mui
 ----
+'use client';
+
 import { Box, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import type { ReactNode } from 'react';
 
 /**
  * Material UI, mounted above the application.
+ *
+ * ## Why the directive
+ *
+ * `ThemeProvider` is React context and `createTheme` runs at module scope, so
+ * this file has to be part of the client bundle. In a framework that renders
+ * the whole tree in the browser the directive is a no-op - the bundler keeps
+ * the string and nothing else changes. In one that renders on the server by
+ * default it is the boundary that makes this component legal at all.
+ *
+ * One line, stated once, correct under both. The alternative was a second copy
+ * of this file per framework, which is the per-combination template the whole
+ * architecture exists to avoid.
  *
  * Three things have to be true for MUI components to behave anywhere in the
  * tree, and all three live here:

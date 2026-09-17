@@ -3001,3 +3001,81 @@ changed and only the declaration lagged.
 byte, the four V1 goldens
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), and the
 version at 1.0.2. No README change: no supported combination moved.
+
+### Stage 26 — Next.js + MUI, composed rather than special-cased (landed)
+
+Stage 25 verified the refusal was genuine and located it precisely: MUI needs
+somewhere to put a provider and something to wrap, and the App Router
+architecture mapped neither. That was an _architecture_ gap rather than a
+capability lie, which is why it needed implementing rather than correcting.
+
+**The change is one idea, already used twice here.** The layout always wraps the
+application in whatever fills `app.providers`, and the framework contributes an
+empty one when nothing else does — exactly the arrangement the stylesheet has
+had since Stage 23.
+
+```
+app/layout.tsx          server component, always
+  └─ <AppProviders>     role app.providers
+       └─ {children}
+
+uiLibrary: none   Next contributes a pass-through, no client bundle
+uiLibrary: mui    MUI contributes its own, carrying 'use client'
+```
+
+The layout never becomes a client component, and the boundary is exactly one
+component deep. Which is why §5's warning — do not solve this by marking
+`app/layout.tsx` as `'use client'` — did not have to be taken.
+
+**Two things only a browser could tell us**, neither visible in the code and
+neither caught by a passing production build:
+
+1. **MUI's provider needed `'use client'`.** One line, added to the single
+   shared template. Inert under a client-rendered root — React + Vite builds
+   unchanged — and load-bearing under a server-rendered one. One template, not
+   a fork.
+2. **Emotion emitted its styles into `<body>`.** React 19 hoists `<style>` into
+   `<head>` while hydrating, so the two disagreed: a recoverable hydration error
+   (React #418) on every page load, while `next build` reported success
+   throughout. Found by loading the page, not by reading anything.
+
+The second produced the stage's one new capability:
+
+|                        | question it answers                                          | who has it  |
+| ---------------------- | ------------------------------------------------------------ | ----------- |
+| `client-app-root`      | is there a root above the application a provider can occupy? | React, Next |
+| `server-inserted-head` | can markup made during a server render reach the head?       | Next only   |
+
+Nothing _requires_ `server-inserted-head` — a library needing it on a
+server-rendering framework needs nothing on a client-only one. It is a fact to
+branch on, and MUI is the one adapter that reads it, choosing between its two
+provider variants and installing `@mui/material-nextjs` only where there is a
+server render to integrate with. The same shape Tailwind has used since Stage 23
+to choose between its two build plugins.
+
+**The guard that mattered most.** React Router required `client-app-root` and
+nothing else, so giving Next that capability would have made it
+capability-compatible while still having no route table to own — resolving, then
+failing at generation on an unmapped role. The fix is a _conflict_, not a
+framework branch:
+
+```ts
+{ kind: 'conflicts', capability: 'file-based-routing',
+  because: 'a framework that routes its own files leaves no route table for it to own' }
+```
+
+That holds for Astro too and names neither. Four mutations exist for this
+boundary alone; all are caught.
+
+**Dependency direction.** MUI owns every MUI package, including the Next
+integration. The package is MUI's own and its vendor named it after the
+framework it targets — that name appears in a dependency entry and one template
+import, never in a condition. Next depends on no UI library, and a test asserts
+ownership on each dependency's own `owner` field.
+
+**Unchanged.** The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no preset
+was added, no combination adapter exists, and the version stays 1.0.2. Thirteen
+V2 goldens moved, from exactly two causes: the MUI provider gained its directive
+(five React goldens) and the Next layout gained its provider boundary (eight
+Next goldens).

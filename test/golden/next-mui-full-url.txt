@@ -1,7 +1,7 @@
 == PLAN ==
 templateId       nextjs
 templateVersion  0.1.0
-mode             coming-soon
+mode             full
 targetDir        <TARGET_DIR>
 operationCount   15
 
@@ -13,10 +13,10 @@ write  app/layout.tsx
 write  app/page.tsx
 write  components/providers/AppProviders.tsx
 write  components/ui/Mark.tsx
+write  components/ui/Section.tsx
 write  lib/site.config.ts
 write  next.config.ts
 write  package.json
-write  postcss.config.mjs
 write  public/favicon.svg
 write  README.md
 write  styles/globals.css
@@ -37,12 +37,12 @@ origin  cli
     "framework": "nextjs",
     "frameworkVersion": "16.3.5"
   },
-  "mode": "coming-soon",
+  "mode": "full",
   "generatedAt": "2026-01-01T00:00:00.000Z",
   "config": {
     "projectName": "acme-site",
     "siteName": "Acme Ltd",
-    "siteUrl": null,
+    "siteUrl": "https://acme.example",
     "locale": "en",
     "packageManager": "npm",
     "features": []
@@ -127,39 +127,58 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ---- app/page.tsx ----
 type    write
-origin  modes/coming-soon
+origin  modes/full
 ----
 import { Mark } from '../components/ui/Mark';
+import { Section } from '../components/ui/Section';
 import { CONTACT, SITE } from '../lib/site.config';
 
 /**
- * The launch page.
+ * Hero, sections, CTA and footer - all server-rendered.
  *
- * A server component with no interactivity at all: no countdown, no form, no
- * client bundle. A countdown in particular is a promise with a date attached,
- * and a launch page that silently passes its own deadline is worse than one
- * that never made the claim.
+ * No `'use client'` anywhere. Nothing on this page has state, effects or event
+ * handlers, so nothing on it needs to become a client bundle. Adding an
+ * interactive piece later is one directive on one component, which is exactly
+ * why the boundary is worth not crossing by default.
  *
- * Every optional piece is omitted rather than filled with a placeholder - an
- * empty `CONTACT.email` renders nothing, not `hello@example.com`.
- *
- * The class names are the shared style contract, so this markup is identical
- * whether the project was generated with plain CSS or with Tailwind.
+ * The copy is honest scaffolding: it says what the section is for rather than
+ * pretending to describe a business nobody has told us about. The class names
+ * are the shared style contract, so the same markup renders under plain CSS or
+ * Tailwind.
  */
+
+const SECTIONS = [
+  {
+    id: 'about',
+    title: 'About',
+    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
+  },
+  {
+    id: 'work',
+    title: 'Work',
+    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
+  },
+];
+
 export default function HomePage() {
   return (
     <div className="app-shell">
+      <header className="site-header">
+        <div className="container-page site-header-inner">
+          <Mark size="sm" />
+        </div>
+      </header>
+
       <main className="app-main">
-        <div className="container-page hero">
-          <div className="hero-inner">
-            <Mark />
-
-            <p className="eyebrow">Coming soon</p>
-
+        <div className="container-page intro">
+          <div className="intro-inner">
             <h1 className="page-title">{SITE.name}</h1>
-
             {SITE.description ? <p className="lead">{SITE.description}</p> : null}
-
             {CONTACT.email ? (
               <a href={`mailto:${CONTACT.email}`} className="button-primary">
                 Get in touch
@@ -167,7 +186,29 @@ export default function HomePage() {
             ) : null}
           </div>
         </div>
+
+        <div className="container-page sections">
+          {SECTIONS.map((entry) => (
+            <Section key={entry.id} id={entry.id} title={entry.title} body={entry.body} />
+          ))}
+        </div>
       </main>
+
+      <footer className="site-footer">
+        <div className="container-page site-footer-inner">
+          <p className="copyright">
+            © {new Date().getFullYear()} {SITE.name}
+            {SITE.author ? ` · ${SITE.author}` : ''}
+          </p>
+          {CONTACT.email ? (
+            <div className="contact-links">
+              <a href={`mailto:${CONTACT.email}`} className="contact-link">
+                {CONTACT.email}
+              </a>
+            </div>
+          ) : null}
+        </div>
+      </footer>
     </div>
   );
 }
@@ -175,29 +216,85 @@ export default function HomePage() {
 
 ---- components/providers/AppProviders.tsx ----
 type    write
-origin  framework:nextjs
+origin  ui-library:mui
 ----
+'use client';
+
+import { Box, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import type { ReactNode } from 'react';
 
 /**
- * The provider boundary, with nothing in it yet.
+ * Material UI, mounted above the application.
  *
- * The layout always wraps the application in this component, so that adding a
- * UI library later is a change to one file rather than a change to the layout's
- * shape. A project generated without one gets this pass-through: no context, no
- * client bundle, no behaviour.
+ * ## Why the cache provider
  *
- * Deliberately a server component. There is nothing here that needs the
- * browser, and marking it `'use client'` would pull the whole subtree into the
- * client bundle to provide exactly nothing. The UI library that replaces this
- * file brings its own boundary when it needs one.
+ * On a framework that renders on the server, Emotion generates styles during
+ * that render and has nowhere to put them: they are emitted where the component
+ * sits, which is inside `<body>`. React then hoists `<style>` into `<head>`
+ * while hydrating, the two disagree, and every page load reports a recoverable
+ * hydration error - with the production build reporting success throughout.
  *
- * This file is yours. Put application-wide context here - a session, a theme,
- * a feature flag provider - and add `'use client'` at the top if what you add
- * needs it.
+ * `AppRouterCacheProvider` collects them and flushes them into the head before
+ * the response is sent. It is only here because the framework can do that; the
+ * client-only variant of this file has no cache provider and needs none.
+ *
+ * ## Why the directive
+ *
+ * `ThemeProvider` is React context and `createTheme` runs at module scope, so
+ * this file has to be part of the client bundle. In a framework that renders
+ * the whole tree in the browser the directive is a no-op - the bundler keeps
+ * the string and nothing else changes. In one that renders on the server by
+ * default it is the boundary that makes this component legal at all.
+ *
+ * One line, stated once, correct under both. The alternative was a second copy
+ * of this file per framework, which is the per-combination template the whole
+ * architecture exists to avoid.
+ *
+ * Three things have to be true for MUI components to behave anywhere in the
+ * tree, and all three live here:
+ *
+ *   - `ThemeProvider` supplies the theme every MUI component reads. Without it
+ *     components fall back to the default theme and any customisation below is
+ *     silently ignored.
+ *   - `CssBaseline` applies MUI's reset. It is scoped to MUI's own baseline and
+ *     deliberately does not fight the global stylesheet - see the note below.
+ *   - `Box` is an ordinary MUI component, rendered so the styling engine is
+ *     exercised on a real element rather than only configured.
+ *
+ * ## MUI and your styling system are separate choices
+ *
+ * This file is contributed by the UI library you picked. The global stylesheet
+ * is contributed by the styling system you picked, and neither knows about the
+ * other. Utility and layout classes on the markup inside still apply normally;
+ * MUI components are styled by this theme. That is the intended arrangement,
+ * not an accident of ordering.
+ *
+ * If the two ever disagree about a specific element, prefer changing the theme
+ * here over adding `!important` anywhere.
+ *
+ * ## Making it yours
+ *
+ * Edit `theme` below. Palette, typography and component defaults all belong
+ * there, and everything under this provider picks them up. This file is yours
+ * now - the generator will not touch it again.
  */
+
+const theme = createTheme({
+  // Deliberately close to MUI's defaults. A generated starter should not invent
+  // a brand; set the palette once the client's colours are known.
+  cssVariables: true,
+});
+
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return (
+    <AppRouterCacheProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box className="app-providers">{children}</Box>
+      </ThemeProvider>
+    </AppRouterCacheProvider>
+  );
 }
 
 
@@ -235,6 +332,29 @@ export function Mark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
       </span>
       <span className="brand-name">{SITE.name}</span>
     </span>
+  );
+}
+
+
+---- components/ui/Section.tsx ----
+type    write
+origin  modes/full
+----
+/**
+ * One titled section of the home page.
+ *
+ * The heading is linked to its section with `aria-labelledby` rather than left
+ * to proximity, so the landmark has an accessible name a screen reader can
+ * announce. A server component, like everything else here.
+ */
+export function Section({ id, title, body }: { id: string; title: string; body: string }) {
+  return (
+    <section id={id} aria-labelledby={`${id}-heading`}>
+      <h2 id={`${id}-heading`} className="section-title">
+        {title}
+      </h2>
+      <p className="section-body">{body}</p>
+    </section>
   );
 }
 
@@ -277,7 +397,7 @@ export interface ContactDetails {
 export const SITE: SiteIdentity = {
   name: 'Acme Ltd',
   description: 'Bespoke widgets.',
-  url: '',
+  url: 'https://acme.example',
   locale: 'en',
   author: '',
 };
@@ -313,7 +433,7 @@ export default nextConfig;
 
 ---- package.json ----
 type    write
-origin  base + modes/coming-soon
+origin  base + modes/full
 ----
 {
   "name": "acme-site",
@@ -326,7 +446,7 @@ origin  base + modes/coming-soon
   "keywords": [
     "nextjs",
     "client-site",
-    "landing-page"
+    "website"
   ],
   "scripts": {
     "dev": "next dev",
@@ -335,40 +455,20 @@ origin  base + modes/coming-soon
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/material": "9.4.0",
+    "@mui/material-nextjs": "9.4.0",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.3",
     "@types/react": "19.3.0",
-    "tailwindcss": "4.3.3",
     "typescript": "5.9.3"
   }
 }
-
-
----- postcss.config.mjs ----
-type    write
-origin  styling:tailwind
-----
-/**
- * Tailwind v4 through PostCSS.
- *
- * The other half of the same plugin: a Vite project registers
- * `@tailwindcss/vite` in its build config instead, and neither project carries
- * the package it does not use.
- *
- * Nothing else belongs here. Autoprefixer is not needed - Tailwind v4 handles
- * vendor prefixing itself - and adding plugins speculatively is how a build
- * pipeline becomes something nobody can safely change.
- */
-export default {
-  plugins: {
-    '@tailwindcss/postcss': {},
-  },
-};
 
 
 ---- public/favicon.svg ----
@@ -445,245 +545,239 @@ a scaffold that makes them for you is one you have to undo first.
 
 ---- styles/globals.css ----
 type    write
-origin  styling:tailwind
+origin  framework:nextjs
 ----
-@import 'tailwindcss';
-
 /*
- * Design tokens.
+ * Plain CSS, implementing the project's shared style contract.
  *
- * Tailwind v4 is configured in CSS: there is no tailwind.config.js. Change a
- * value here and it applies everywhere the token is used.
+ * The markup names what a thing *is* - `hero`, `page-title`, `button-primary` -
+ * and a stylesheet decides how it looks. This file is the plain-CSS
+ * implementation of that contract; `templates/styling/tailwind/` is the
+ * Tailwind one, and `templates/styling/bootstrap/` the Bootstrap one. Every one
+ * of them answers the same class names, which is what lets a component tree be
+ * rendered under a different styling system without the framework template
+ * knowing which was selected.
+ *
+ * Only one of them is ever shipped. Selecting a styling system hands that
+ * system ownership of the `styles.global` role, and this file is not composed
+ * at all.
+ *
+ * No framework, no preprocessor, no build step beyond the one Next already
+ * runs. Custom properties are the whole system: change a value here and the
+ * palette, rhythm and type scale follow everywhere.
  */
-@theme {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+:root {
   --color-ink: oklch(0.22 0.01 260);
   --color-ink-muted: oklch(0.52 0.01 260);
   --color-surface: oklch(1 0 0);
   --color-line: oklch(0.92 0.005 260);
   --measure-page: 64rem;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-@layer base {
-  html {
-    -webkit-text-size-adjust: 100%;
-  }
-
-  body {
-    margin: 0;
-    font-family: var(--font-sans);
-    color: var(--color-ink);
-    background-color: var(--color-surface);
-    text-rendering: optimizeLegibility;
-  }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-/*
- * The semantic classes the markup asks for.
- *
- * The components name what a thing is; this file decides how it looks. That
- * separation is what lets the same component tree render under a different
- * styling system without the framework template knowing which was selected.
- */
-@layer components {
-  .app-shell {
-    display: flex;
-    min-height: 100dvh;
-    flex-direction: column;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
+}
 
-  .app-main {
-    flex: 1;
-  }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+  text-rendering: optimizeLegibility;
+}
 
-  .skip-link {
-    position: absolute;
-    left: -9999px;
-  }
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
 
-  .skip-link:focus-visible {
-    left: 1rem;
-    top: 1rem;
-    z-index: 50;
-    border-radius: 0.375rem;
-    background-color: var(--color-ink);
-    padding: 0.5rem 1rem;
-    color: var(--color-surface);
-  }
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
 
-  .container-page {
-    margin-inline: auto;
-    width: 100%;
-    max-width: var(--measure-page);
-    padding-inline: 1.5rem;
-  }
+/* The shared style contract ------------------------------------------------ */
 
-  .site-header {
-    border-bottom: 1px solid var(--color-line);
-  }
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
 
-  .site-header-inner,
-  .site-footer-inner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem 2rem;
-    padding-block: 1rem;
-  }
+.app-main {
+  flex: 1;
+}
 
-  .site-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
+}
 
-  .site-nav-link,
-  .contact-link {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    color: var(--color-ink-muted);
-    font-size: 0.875rem;
-    text-decoration: none;
-    transition: color 160ms ease;
-  }
+.site-header {
+  border-bottom: 1px solid var(--color-line);
+}
 
-  .site-nav-link:hover,
-  .contact-link:hover {
-    color: var(--color-ink);
-  }
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
+}
 
-  .site-footer {
-    margin-top: auto;
-    border-top: 1px solid var(--color-line);
-  }
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--color-line);
+}
 
-  .copyright {
-    margin: 0;
-    color: var(--color-ink-muted);
-    font-size: 0.875rem;
-  }
+.copyright {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+}
 
-  .contact-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1.25rem;
-  }
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
 
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
 
-  .brand-mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    background-color: var(--color-ink);
-    color: var(--color-surface);
-    font-weight: 600;
-  }
+.contact-link:hover {
+  color: var(--color-ink);
+}
 
-  .brand-sm .brand-mark {
-    height: 2rem;
-    width: 2rem;
-    font-size: 0.875rem;
-  }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
 
-  .brand-lg .brand-mark {
-    height: 3rem;
-    width: 3rem;
-    font-size: 1.125rem;
-  }
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  color: var(--color-surface);
+  font-weight: 600;
+}
 
-  .brand-lg .brand-name {
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
 
-  .hero,
-  .intro {
-    padding-block: 5rem;
-  }
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
 
-  .hero-inner,
-  .intro-inner {
-    max-width: 42rem;
-  }
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
 
-  .eyebrow {
-    margin: 2.5rem 0 0;
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-ink-muted);
-  }
+.hero,
+.intro {
+  padding-block: 5rem;
+}
 
-  .page-title {
-    margin: 0.75rem 0 0;
-    font-size: clamp(2.25rem, 5vw, 3rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
+.hero-inner,
+.intro-inner {
+  max-width: 42rem;
+}
 
-  .lead {
-    margin: 1.25rem 0 0;
-    font-size: 1.125rem;
-    line-height: 1.7;
-    color: var(--color-ink-muted);
-  }
+.eyebrow {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
 
-  .button-primary {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    margin-top: 2rem;
-    border-radius: 0.5rem;
-    background-color: var(--color-ink);
-    padding-inline: 1.25rem;
-    color: var(--color-surface);
-    font-size: 0.875rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition: opacity 160ms ease;
-  }
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
 
-  .button-primary:hover {
-    opacity: 0.85;
-  }
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
 
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 2rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  padding-inline: 1.25rem;
+  color: var(--color-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 160ms ease;
+}
+
+.button-primary:hover {
+  opacity: 0.85;
+}
+
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
   .sections {
-    display: grid;
-    gap: 2.5rem;
-    border-top: 1px solid var(--color-line);
-    padding-block: 4rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
 
-  @media (min-width: 640px) {
-    .sections {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
 
-  .section-title {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-  }
-
-  .section-body {
-    margin: 0.75rem 0 0;
-    line-height: 1.7;
-    color: var(--color-ink-muted);
-  }
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
 }
 
 /* Respect the reader's preference; never animate for someone who asked not to. */

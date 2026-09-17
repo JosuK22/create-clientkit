@@ -63,12 +63,30 @@ const REACT_ROUTER_DECLARATION: AdapterDeclaration = {
       because: 'its routes are React components',
     },
     {
-      // The same split as MUI's, for the same reason. A framework that routes
-      // its own files has no single-page shell for a client route table to
-      // own, and nesting one inside it breaks the framework's own navigation.
+      // The same split as MUI's, for the same reason.
       kind: 'requires',
       capability: 'client-app-root',
       because: 'it mounts a client route table above the whole application',
+    },
+    {
+      /*
+       * The half of "no single-page shell to own" that a capability *requirement*
+       * cannot express.
+       *
+       * Through Stage 25 `client-app-root` carried this on its own, because the
+       * only framework lacking a client root also routed its own files. Stage 26
+       * gives Next a client root, and the two facts come apart: Next would then
+       * satisfy every requirement above while still having no route table for a
+       * client router to own. Nesting one inside its own router breaks the
+       * framework's navigation rather than extending it.
+       *
+       * A conflict rather than a requirement, because the problem is the
+       * presence of something, not the absence. It names a capability, so it
+       * holds for any framework that routes by file and none of them are named.
+       */
+      kind: 'conflicts',
+      capability: 'file-based-routing',
+      because: 'a framework that routes its own files leaves no route table for it to own',
     },
   ],
 };

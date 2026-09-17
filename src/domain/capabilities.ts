@@ -126,6 +126,28 @@ export const CAPABILITIES = [
    */
   'client-app-root',
 
+  /**
+   * Markup collected while rendering on the server can be flushed into the
+   * document head before the response is sent.
+   *
+   * Next's `useServerInsertedHTML`, and nothing else has one today. A
+   * client-only framework needs no such thing - there is no server render to
+   * collect from - so its absence is not a deficiency, it is a different shape
+   * of application.
+   *
+   * It exists because a CSS-in-JS runtime has nowhere to put the styles it
+   * generates during a server render. Stage 26 found the consequence by loading
+   * a generated page rather than by reading code: the styles were emitted into
+   * `<body>`, React 19 hoists `<style>` into `<head>` while hydrating, and the
+   * two disagreed - a recoverable hydration error on every page load that the
+   * production build reported as successful.
+   *
+   * Requiring this would be wrong: a library that needs it on a server-rendered
+   * framework needs nothing on a client-only one. It is a fact to *branch on*,
+   * which is why nothing requires it and one adapter reads it.
+   */
+  'server-inserted-head',
+
   // styling pipeline
   'postcss',
   'sass',

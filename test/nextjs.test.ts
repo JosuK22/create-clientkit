@@ -178,10 +178,11 @@ describe('it provides what is true and nothing that is convenient', () => {
     }
   });
 
-  it('does not provide a client app root, which is why context cannot be mounted', () => {
-    expect(NEXTJS_DECLARATION.provides).not.toContain('client-app-root');
-    // React does, and that single difference is what separates the two for
-    // every library that wraps the application.
+  it('provides a client app root, which is what lets context be mounted', () => {
+    // Withheld through Stage 25, correctly: the architecture mapped no
+    // `app.providers`. Stage 26 mapped it and made the layout wrap whatever
+    // fills it, which is what earns the capability rather than asserting it.
+    expect(NEXTJS_DECLARATION.provides).toContain('client-app-root');
     expect(REACT_DECLARATION.provides).toContain('client-app-root');
   });
 
@@ -256,14 +257,10 @@ describe('every refusal comes from the engine, not from a branch', () => {
     );
   });
 
-  it('refuses MUI, because there is no client root to mount a theme above', () => {
-    // The interesting one: Next *does* provide `react-runtime`, so the old
-    // requirement would have accepted this.
-    const violation = refusalText({ uiLibrary: 'mui' })
-      .split('\n')
-      .find((line) => line.trim().startsWith('- '));
-    expect(violation).toContain('client-app-root');
-    expect(violation).not.toContain('react-runtime');
+  it('accepts MUI, now that there is a client root to mount a theme above', () => {
+    // Refused through Stage 25 for a reason that was real at the time: the
+    // architecture had nowhere to put a provider. See next-mui.test.ts.
+    expect(checkCompatibility(nextManifest({ uiLibrary: 'mui' }), adapters).compatible).toBe(true);
   });
 
   it('refuses React Router, for the same missing capability', () => {
@@ -296,22 +293,39 @@ describe('every refusal comes from the engine, not from a branch', () => {
     expect(message).toContain('page.notFound');
   });
 
-  it('names no framework in any of those refusals', () => {
-    // The whole point: a reader is told which capability is missing, never
-    // "Next.js does not support X".
-    for (const over of [{ uiLibrary: 'mui' } as const, { router: 'react-router' } as const]) {
-      expect(refusalText(over).toLowerCase()).not.toContain('next');
+  it('explains every refusal with a capability, never with a verdict', () => {
+    /*
+     * The whole point: a reader is told which capability is involved, never
+     * "Next.js does not support X".
+     *
+     * A conflict names the adapter that *provides* the conflicting capability -
+     * "which framework:nextjs provides" - and that is the engine's generic
+     * rendering rather than a framework-specific message. It would say
+     * "styling:bootstrap" just as readily. So the assertion is about the shape
+     * of the explanation, not about whether the word appears.
+     */
+    for (const over of [
+      { router: 'react-router' } as const,
+      { features: ['seo'] } as Partial<ProjectManifest>,
+    ]) {
+      const text = refusalText(over).toLowerCase();
+      expect(text).toMatch(/requires [a-z-]+ \(|cannot be combined with [a-z-]+ \(/);
+      expect(text).not.toContain('does not support');
+      expect(text).not.toContain('next.js');
+      expect(text).not.toContain('incompatible with next');
     }
   });
 
-  it('the same libraries still work where the capability exists', () => {
-    // The refusals must be about the capability, not about the library. React
-    // provides `client-app-root`, so both are accepted there, unchanged.
+  it('a library is accepted or refused by capability, never by framework', () => {
+    // MUI composes on both, because both provide what it asks for. React
+    // Router composes only where nothing else already routes - a conflict
+    // rather than a missing capability, and why the two diverge on Next
+    // despite having had identical requirements.
     expect(evaluateCombination([REACT_DECLARATION, MUI_DECLARATION]).compatible).toBe(true);
+    expect(evaluateCombination([NEXTJS_DECLARATION, MUI_DECLARATION]).compatible).toBe(true);
     expect(evaluateCombination([REACT_DECLARATION, REACT_ROUTER_DECLARATION]).compatible).toBe(
       true,
     );
-    expect(evaluateCombination([NEXTJS_DECLARATION, MUI_DECLARATION]).compatible).toBe(false);
     expect(evaluateCombination([NEXTJS_DECLARATION, REACT_ROUTER_DECLARATION]).compatible).toBe(
       false,
     );
@@ -351,9 +365,12 @@ describe('the App Router architecture', () => {
   it('maps no role it cannot fill', () => {
     // `app.providers` and `app.router` are unmapped for the same reason MUI and
     // React Router are refused; `page.notFound` because no page is written.
-    for (const role of ['app.providers', 'app.router', 'page.notFound', 'app.entry'] as const) {
+    // `app.providers` left this list in Stage 26: the layout wraps the
+    // application in it, so it is a role the architecture genuinely fills.
+    for (const role of ['app.router', 'page.notFound', 'app.entry', 'app.root'] as const) {
       expect(definesRole(NEXTJS_ARCHITECTURE, role), role).toBe(false);
     }
+    expect(definesRole(NEXTJS_ARCHITECTURE, 'app.providers')).toBe(true);
   });
 
   it('uses the App Router and neither pages/ nor src/', () => {
@@ -602,12 +619,20 @@ describe('nothing outside the adapter knows about Next', () => {
       'src/adapters/react.ts',
       'src/adapters/tailwind.ts',
       'src/adapters/bootstrap.ts',
-      'src/adapters/mui.ts',
       'src/adapters/react-router.ts',
       'src/adapters/vite.ts',
     ]) {
       expect(code(file).toLowerCase(), `${file} mentions nextjs`).not.toContain('nextjs');
     }
+    /*
+     * MUI is checked differently since Stage 26. Its adapter names
+     * `@mui/material-nextjs` - MUI's own package, named by its vendor after the
+     * framework it targets - in a dependency entry and a template import. What
+     * it must not contain is a *branch* on the framework.
+     */
+    const mui = code('src/adapters/mui.ts');
+    expect(mui).not.toMatch(/framework\s*[=!]==/);
+    expect(mui).toContain("capabilities.has('server-inserted-head')");
   });
 
   it('the Next adapter imports no Vite and no other adapter', () => {
@@ -751,9 +776,13 @@ describe('choosing Next.js asks nothing that has one answer', () => {
 
   it('skips every question with one viable answer', async () => {
     const { asked } = await menus({ dimensions: { framework: 'nextjs' } });
-    for (const dimension of ['uiLibrary', 'router', 'buildTool', 'language', 'architecture']) {
+    // `uiLibrary` left this list in Stage 26: MUI resolves on Next now, so the
+    // question has two viable answers and is worth asking. The menu is filtered
+    // by the engine, not by a framework branch.
+    for (const dimension of ['router', 'buildTool', 'language', 'architecture']) {
       expect(asked, `asked for ${dimension}`).not.toContain(dimension);
     }
+    expect(asked).toContain('uiLibrary');
   });
 
   it('does ask for styling, because Tailwind and plain CSS both resolve', async () => {

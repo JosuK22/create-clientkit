@@ -238,13 +238,17 @@ describe('Next declares the capability it actually has', () => {
   });
 
   it('gained nothing else', () => {
+    // Two more since Stage 26 - `client-app-root` and `server-inserted-head` -
+    // each earned by architecture rather than asserted. See next-mui.test.ts.
     expect([...NEXTJS_DECLARATION.provides].sort()).toEqual([
+      'client-app-root',
       'composed-stylesheet',
       'document-metadata',
       'file-based-routing',
       'jsx',
       'postcss',
       'react-runtime',
+      'server-inserted-head',
       'typescript',
     ]);
   });
@@ -397,8 +401,9 @@ describe('correcting one capability changed only what it should', () => {
 
   it('everything else on Next is refused exactly as before', () => {
     const refused: ReadonlyArray<readonly [string, Partial<ProjectManifest>, string]> = [
-      ['mui', { uiLibrary: 'mui' }, 'client-app-root'],
-      ['react-router', { router: 'react-router' }, 'client-app-root'],
+      // MUI left this list in Stage 26; React Router's reason changed from a
+      // missing capability to a conflict with the framework's own routing.
+      ['react-router', { router: 'react-router' }, 'file-based-routing'],
       ['client-route-fallback', { features: ['client-route-fallback'] }, 'client-side-routing'],
       ['seo', { features: ['seo'] }, 'composed-metadata'],
       ['structured-data', { features: ['structured-data'] }, 'composed-metadata'],
@@ -509,8 +514,8 @@ describe('an impossible stack is refused before anything is planned', () => {
      * exists, which is where these must fail.
      */
     for (const over of [
-      { uiLibrary: 'mui' },
       { router: 'react-router' },
+      { features: ['seo'] },
     ] as Partial<ProjectManifest>[]) {
       expect(() => resolveProject(manifestFor(over), adapters)).toThrow(CliError);
     }

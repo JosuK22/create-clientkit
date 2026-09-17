@@ -104,6 +104,29 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
      * accepted and then silently ignored.
      */
     'composed-stylesheet',
+    /*
+     * There is a root above the application that a provider occupies, and the
+     * occupant decides whether it is client-rendered.
+     *
+     * Withheld through Stage 25, correctly: the architecture mapped no
+     * `app.providers`, so a UI library's provider had nowhere to go and the
+     * refusal surfaced as a role error rather than as a capability. Stage 26
+     * mapped the role and made the layout wrap the application in whatever
+     * fills it, which is what makes this true rather than convenient.
+     *
+     * The layout itself stays a server component. What is client-rendered is
+     * the provider, when its occupant needs to be - MUI's carries `'use
+     * client'`; the empty one this adapter contributes does not, because
+     * nothing in it needs the browser.
+     */
+    'client-app-root',
+    /*
+     * `useServerInsertedHTML`: markup generated during a server render can be
+     * flushed into the head. A fact about Next that predates any UI library -
+     * declared because it is true, and read by anything whose runtime produces
+     * styles while rendering.
+     */
+    'server-inserted-head',
   ],
   requires: [],
   /** Next 16's own floor. */
@@ -136,9 +159,21 @@ const NEXTJS_ARCHITECTURE: ArchitectureDefinition = {
    * created - the generator writes files and their parents - so every entry
    * here has a file under it in at least one starter.
    */
-  directories: ['app', 'components/ui', 'lib', 'public', 'styles'],
+  directories: ['app', 'components/providers', 'components/ui', 'lib', 'public', 'styles'],
   roles: {
     'app.layout': 'app/layout.tsx',
+    /*
+     * The provider boundary the layout always wraps the application in.
+     *
+     * Mapped since Stage 26. Leaving it unmapped was what made a UI library
+     * unrepresentable here: its provider had nowhere to go, and the refusal
+     * came out as a role error at planning time rather than as a capability.
+     *
+     * Mapping it is not a claim that a UI library was selected - the same way
+     * React maps it and fills it with nothing unless one is. What differs is
+     * who supplies the file when nobody else does, which is decided below.
+     */
+    'app.providers': 'components/providers/AppProviders.tsx',
     'page.home': 'app/page.tsx',
     'config.site': 'lib/site.config.ts',
     'config.framework': 'next.config.ts',
@@ -241,14 +276,14 @@ export function createNextjsAdapter(templateRoot: string): FrameworkAdapter {
          * the same shared contract, which is what makes that sufficient - and
          * what keeps a framework-specific styling branch out of the codebase.
          */
-        files:
-          project.manifest.styling === 'none'
+        files: [
+          ...(project.manifest.styling === 'none'
             ? [
                 {
-                  target: { kind: 'role', role: 'styles.global' },
-                  intent: 'create',
+                  target: { kind: 'role', role: 'styles.global' } as const,
+                  intent: 'create' as const,
                   payload: {
-                    kind: 'template',
+                    kind: 'template' as const,
                     source: path.join(templateRoot, 'styling', 'globals.css'),
                   },
                   owner: OWNER,
@@ -256,7 +291,34 @@ export function createNextjsAdapter(templateRoot: string): FrameworkAdapter {
                   reason: 'the design system a project with no styling adapter still needs',
                 },
               ]
-            : [],
+            : []),
+          /*
+           * The provider boundary, on exactly the same terms as the stylesheet
+           * above: contributed only when nothing else will.
+           *
+           * The layout wraps the application in this component unconditionally,
+           * so the role always has an occupant. A UI library supplies its own
+           * and this one stands down; with no UI library the project gets a
+           * pass-through that renders its children and adds no client bundle.
+           *
+           * The condition is "is there a UI library at all", never which one.
+           */
+          ...(project.manifest.uiLibrary === 'none'
+            ? [
+                {
+                  target: { kind: 'role', role: 'app.providers' } as const,
+                  intent: 'create' as const,
+                  payload: {
+                    kind: 'template' as const,
+                    source: path.join(templateRoot, 'ui', 'AppProviders.tsx'),
+                  },
+                  owner: OWNER,
+                  order: 0,
+                  reason: 'the empty provider boundary the layout always wraps the app in',
+                },
+              ]
+            : []),
+        ],
 
         // Exactly the versions in templates/nextjs/base/_package.json, asserted
         // equal by a test so the two cannot drift.
