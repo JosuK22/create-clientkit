@@ -88,6 +88,38 @@ export type {
 } from './document-contribution.js';
 
 export {
+  assertBindingsSupported,
+  bindingOwner,
+  bindingsUsedBy,
+  bindingType,
+  boundTo,
+  derivationInputs,
+  derivationType,
+  derived,
+  describeDocumentValue,
+  DOCUMENT_BINDING_IDS,
+  DOCUMENT_BINDINGS,
+  DOCUMENT_DERIVATIONS,
+  DOCUMENT_VALUE_TYPES,
+  isDocumentBinding,
+  isDocumentDerivation,
+  literal,
+  ownerOf,
+  VALUE_OWNERS,
+} from './document-value.js';
+export type {
+  BindingOfType,
+  BindingSupport,
+  DerivationOfType,
+  DocumentBinding,
+  DocumentDerivation,
+  DocumentValue,
+  DocumentValueType,
+  LiteralTypes,
+  ValueOwner,
+} from './document-value.js';
+
+export {
   appliesTo,
   assertGuaranteesAreDocumentWide,
   describeTarget,

@@ -3953,3 +3953,206 @@ was touched. The four V1 goldens are byte-identical
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no CLI
 flag, prompt, manifest dimension or preset was added, the CLI still has zero
 runtime dependencies, and the version stays 1.0.2.
+
+### Stage 35 — binding-aware document values (landed)
+
+**Why Stage 34 was blocked.** Every layer from Stage 31 to Stage 33 assumed a
+document value is a fact — `title: string`, `canonical: string`. Astro's
+document is not made of facts; it is made of expressions evaluated at the
+_generated project's_ build:
+
+```astro
+const pageTitle = title ? `${title} - ${SITE.name}` : SITE.name; const canonical = origin === '' ||
+blocked ? '' : absoluteUrl(origin, Astro.url.pathname);
+```
+
+Writing resolved literals in their place freezes the head at generation time, so
+editing `site.config.ts` stops changing the site — the one thing the generated
+project's own next-steps output promises — and pages the developer adds later
+emit no canonical at all, because a snapshot holds values only for the roles
+ClientKit knew about.
+
+#### The distinction that fixes it
+
+**Ownership is about authority at build time, not about whether ClientKit knows
+a current value.** `SITE.name` is written by the CLI through a `{{siteName}}`
+token, so ClientKit _does_ know it — and it is still project-owned, because the
+developer may change it a minute later and expects the document to follow.
+Collapsing "ClientKit knows it" into "ClientKit owns it" is precisely what
+froze the document in Stage 34.
+
+| Owner           | Meaning                                                     | Examples                                        |
+| --------------- | ----------------------------------------------------------- | ----------------------------------------------- |
+| `generation`    | ClientKit resolved it; nothing downstream can change it     | a literal                                       |
+| `project`       | the generated project's configuration decides it            | `site.name`, `site.url`, `document.socialImage` |
+| `build-context` | the framework or its build supplies it, per page or per run | `page.path`, `generator.name`                   |
+
+#### The model
+
+```ts
+type DocumentValue<K extends DocumentValueType> =
+  | { kind: 'literal'; type: K; value: LiteralTypes[K] }
+  | { kind: 'binding'; type: K; binding: BindingOfType<K> }
+  | { kind: 'derived'; type: K; derivation: DerivationOfType<K> };
+```
+
+Parameterised by the _document_ type rather than the TypeScript type, which is
+what lets `BindingOfType` reject `site.name` where a URL belongs **at compile
+time** instead of by inspecting a string at runtime. Four of the seven document
+types are strings in TypeScript — `text`, `url`, `path`, `language-tag`,
+`asset-path` — and none may stand in for another.
+
+Absence is deliberately not a fourth case: a field nobody claimed is absent from
+the statement that would have carried it, exactly as since Stage 32, so "unsaid"
+keeps one encoding rather than two.
+
+#### The closed vocabulary
+
+Every binding was found by reading what the shipped Astro document actually
+reads, then asking who decides the value at build time:
+
+| Binding                     | Type         | Owner         |
+| --------------------------- | ------------ | ------------- |
+| `site.name`                 | text         | project       |
+| `site.url`                  | url          | project       |
+| `site.description`          | text         | project       |
+| `site.language`             | language-tag | project       |
+| `document.socialImage`      | asset-path   | project       |
+| `document.twitterCardStyle` | twitter-card | project       |
+| `document.indexingBlocked`  | flag         | project       |
+| `page.path`                 | path         | build-context |
+| `generator.name`            | text         | build-context |
+
+**Why arbitrary expressions are forbidden.** A binding is a member of this
+table and nothing else. `DocumentBinding` is a union of string literals, so
+`'SITE.name'` and `` `${x}` `` are type errors; `isDocumentBinding` catches the
+same thing at boundaries where types have been erased. A string of source code
+in the domain would be an expression language by another name — and an
+evaluation surface. There is no `eval`, no `new Function`, and no equivalent.
+
+The identifiers are **semantic**: `page.path` is "the path of the page being
+rendered", never `Astro.url.pathname`. A test asserts no binding contains
+`Astro`, `SITE`, `SEO`, `CONTACT`, `SOCIAL`, `next` or `react`.
+
+#### Derivation, kept closed
+
+One entry:
+
+```ts
+'absolute-page-url': { type: 'url', from: ['site.url', 'page.path'] }
+```
+
+Astro builds a canonical address from the site's origin and the current page's
+path, and that combination is the single reason Stage 34 lost per-page
+canonicals. Naming it makes it representable; writing
+`` `${SITE.url}${Astro.url.pathname}` `` would make it arbitrary code wearing a
+data structure. `from` is declared so an architecture can refuse a derivation
+whose inputs it cannot supply.
+
+A derivation is owned by the **least settled** of its inputs, so
+`absolute-page-url` is build-context-owned.
+
+Two further derivations exist in the shipped document and are deliberately
+**not** modelled: an absolute social-image URL (needs asset resolution) and a
+Twitter card style that depends on whether an image exists (needs a
+conditional). Both need forms this vocabulary does not have, and inventing
+either to make the set look complete is how a closed vocabulary stops being
+closed.
+
+#### Availability, with no fallback
+
+An architecture declares which bindings it can supply, and
+`assertBindingsSupported` refuses a value that reaches beyond it — naming the
+architecture, the binding, its owner and its type. There is deliberately **no
+fallback**: substituting the site URL for a page URL, or an empty string for a
+missing path, emits a document that states something untrue and builds without
+complaint, which is worse than refusing to build. A test proves every binding is
+refused by an architecture that supports none.
+
+#### Canonical
+
+Stage 32/33 semantics are unchanged and now have a representation each:
+
+| State         | Representation                        | Meaning                                    |
+| ------------- | ------------------------------------- | ------------------------------------------ |
+| absent        | no value at all                       | nobody said anything                       |
+| stated `''`   | `literal('url', '')`                  | this page claims no canonical address      |
+| stated URL    | `literal('url', …)`                   | this exact address                         |
+| page-tracking | `derived('url', 'absolute-page-url')` | the address of whichever page is rendering |
+
+`canonical: ''` stays a **literal**, never a binding: turning it into a binding
+would make it track a project value and quietly acquire an address the page
+refused.
+
+#### Robots
+
+Stays a literal in the domain. The shipped template also consults
+`SEO.noindex`, which is project-owned, so `document.indexingBlocked` is in the
+vocabulary for the emitter that will have to honour that switch — included
+because real behaviour requires it, not to round out the table.
+
+#### Page props
+
+`title`, `description`, `noindex` and `structuredData` are **template-authored
+call sites**, not domain bindings — the shipped 404 passes them as literals in
+its own source. They are classified as template-owned and deliberately not
+abstracted; the objective is truthful ownership, not maximum abstraction.
+
+#### The Astro boundary
+
+```text
+document domain  →  semantic binding  →  ASTRO_BINDING_EXPRESSIONS  →  Astro expression
+```
+
+`src/adapters/astro-bindings.ts` is the only place a semantic binding meets
+Astro syntax. The domain never imports it, and a test asserts the arrow does not
+reverse. Every mapping is checked against the shipped template, so a mapping
+that described a project that no longer exists would fail.
+
+#### `site.config.ts` stays authoritative
+
+The generated project remains the source of truth for project-owned
+configuration. Nothing here generates a replacement, and nothing reduces the
+configuration surface to what ClientKit models — `CONTACT`, `SOCIAL`, `NAV`,
+`THEME` and `LAUNCH` are project concerns the generator never sees.
+
+#### The fields Stage 34 found missing
+
+| Field                                         | Classification                                                                |
+| --------------------------------------------- | ----------------------------------------------------------------------------- |
+| `og:image`, `twitter:image`                   | **C** — derived project-owned; needs an asset-resolution derivation, deferred |
+| `twitter:card = summary_large_image`          | **C** — derived project-owned; needs a conditional derivation, deferred       |
+| Organization `email`, `telephone`, `location` | **E** — intentionally template-owned; ClientKit never sees them               |
+| Organization `sameAs`                         | **E** — intentionally template-owned                                          |
+
+None of the contracts were expanded. The classification shows a binding model
+_can_ represent the first three without ClientKit claiming to know values it does
+not — which was the question — while the last four stay where they belong.
+
+#### Structured data and accessibility
+
+Structured data keeps `OrganizationContract` as a typed object. Several of its
+template-emitted fields are project-owned, so a binding-aware variant will be
+needed eventually; designing it here would have been a structured-data redesign
+and is **explicitly deferred**.
+
+Accessibility needed no binding of its own. The one guarantee with a
+document-level value is `document-language`, and the value it needs is the
+site's language — already in the vocabulary. The Stage 33 split is unchanged:
+two head facts, one root-element attribute, five structural guarantees that stay
+outside this model.
+
+#### Why the emitter is still deferred
+
+Stage 35 stops at the representation. What exists now is a way to say what a
+document value _is_ and who owns it; what does not exist is anything that turns
+a resolved document into generated source. That remains a later stage, and it
+now has a representation that will not force it to choose between lying about
+what ClientKit knows and freezing a project the developer owns.
+
+**Unchanged.** Zero goldens moved and no template, adapter behaviour or
+architecture was touched. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), `Next +
+seo`, `+ structured-data` and `+ accessibility` remain refused,
+`composed-metadata` remains ungranted on Next, React is untouched, the CLI still
+has zero runtime dependencies, and the version stays 1.0.2.
