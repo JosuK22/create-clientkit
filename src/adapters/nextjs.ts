@@ -44,7 +44,8 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
   kind: 'framework',
   displayName: 'Next.js',
   /**
-   * Three, and the absences matter more than the entries.
+   * What is true of a Next project, and the absences matter as much as the
+   * entries.
    *
    * - `file-based-routing`: the App Router turns `app/page.tsx` into a route,
    *   and an unmatched path reaches a real not-found *document* in the
@@ -60,10 +61,10 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
    * server component and ClientKit generates no client boundary above it. Not
    * `vite-plugins`: Next does not build with Vite, and claiming it would let
    * Tailwind's requirement be satisfied by a plugin pipeline that is not there.
-   * Not `composed-stylesheet`: Next ships `styles/globals.css` from its own
-   * template, so a styling adapter contributing a second one would collide.
+   * Not `composed-metadata`: the layout declares its own `metadata` export and
+   * reads no contributions, so a feature writing into the head would vanish.
    * Not `static-output`: `next build` produces a server application by default,
-   * and this stage generates no static export.
+   * and nothing here generates a static export.
    */
   provides: [
     'react-runtime',
@@ -73,13 +74,36 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
     'document-metadata',
     /*
      * Next reads `postcss.config.mjs` natively and runs the pipeline as part
-     * of its own build. Declared in Stage 23 because it is a fact about Next
-     * that predates any styling system - not because Tailwind needed a way in.
-     * The test that matters is the negative one: Bootstrap requires
-     * `composed-stylesheet`, which this still does not provide, so adding this
-     * made Tailwind work and left Bootstrap exactly as refused as it was.
+     * of its own build. A fact about Next that predates any styling system -
+     * declared in Stage 23 because it is true, not because Tailwind needed a
+     * way in.
      */
     'postcss',
+    /*
+     * The global stylesheet is composed rather than shipped.
+     *
+     * This was withheld through Stage 23, on the grounds that "Next ships
+     * `styles/globals.css` from its own template, so a styling adapter
+     * contributing a second one would collide". Stage 23 made both halves of
+     * that false and nobody updated the declaration: `styles.global` left
+     * `templateOwnedRoles`, the plain stylesheet became a contribution like
+     * any other, and the collision it warned about is exactly what the
+     * composer now arbitrates. Stage 24's investigation found the drift.
+     *
+     * Declared here because it is what the capability *means*: this
+     * architecture maps `styles.global`, ships nothing into it from a template
+     * layer, and lets composition decide the one owner. The framework never
+     * learns which styling adapter that was - it is Tailwind, Bootstrap or
+     * Next's own plain CSS, resolved identically.
+     *
+     * It is distinct from `postcss` above, and Next provides both for separate
+     * reasons. `postcss` is about *processing*: there is a pipeline a build
+     * plugin can run in. This is about *composition*: there is a stylesheet
+     * surface a contribution can be written into. A framework can have either
+     * without the other, and conflating them is how a styling system gets
+     * accepted and then silently ignored.
+     */
+    'composed-stylesheet',
   ],
   requires: [],
   /** Next 16's own floor. */

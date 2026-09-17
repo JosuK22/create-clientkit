@@ -18,7 +18,7 @@ import { checkCompatibility, resolveProject, selectAdapters } from '../src/adapt
 import { parseCliArgs } from '../src/args.js';
 import { resolveContext } from '../src/context/resolve.js';
 import { NonInteractivePrompter } from '../src/context/prompts.js';
-import type { AdapterDeclaration, ProjectManifest, StylingId } from '../src/domain/index.js';
+import type { AdapterDeclaration, ProjectManifest } from '../src/domain/index.js';
 import { definesRole, evaluateCombination, resolveRole } from '../src/domain/index.js';
 import { type CliError } from '../src/errors.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
@@ -185,10 +185,23 @@ describe('it provides what is true and nothing that is convenient', () => {
     expect(REACT_DECLARATION.provides).toContain('client-app-root');
   });
 
-  it('does not provide a composed stylesheet or a composed head', () => {
-    // Both are "the template already ships this", and both are what keep a
-    // contribution aimed at those surfaces from silently disappearing.
-    expect(NEXTJS_DECLARATION.provides).not.toContain('composed-stylesheet');
+  it('provides a composed stylesheet, and must not stop', () => {
+    /*
+     * The regression guard for Stage 24R. This was withheld through Stage 23
+     * on grounds that Stage 23 itself had made false - the template stopped
+     * shipping `styles/globals.css` and the declaration was never updated.
+     * Asserting it here means the stale claim cannot come back quietly.
+     */
+    expect(NEXTJS_DECLARATION.provides).toContain('composed-stylesheet');
+    // And the arrangement that makes it true: nothing ships the stylesheet
+    // from a template layer, so composition decides the one owner.
+    expect(adapters.framework('nextjs').templateOwnedRoles).not.toContain('styles.global');
+  });
+
+  it('still does not provide a composed head', () => {
+    // The sibling capability, and still absent for its own unchanged reason:
+    // the layout declares its own `metadata` export and reads no
+    // contributions, so a feature writing into the head would vanish.
     expect(NEXTJS_DECLARATION.provides).not.toContain('composed-metadata');
   });
 
@@ -234,8 +247,13 @@ describe('every refusal comes from the engine, not from a branch', () => {
     );
   });
 
-  it('refuses Bootstrap, because Next ships its own stylesheet', () => {
-    expect(refusalText({ styling: 'bootstrap' })).toContain('composed-stylesheet');
+  it('accepts Bootstrap, because it composes its stylesheet', () => {
+    // Refused through Stage 23, and the refusal turned out to be an artifact:
+    // Stage 23 moved the stylesheet out of the template layer, which is
+    // exactly what `composed-stylesheet` means, and the declaration lagged.
+    expect(checkCompatibility(nextManifest({ styling: 'bootstrap' }), adapters).compatible).toBe(
+      true,
+    );
   });
 
   it('refuses MUI, because there is no client root to mount a theme above', () => {
@@ -281,11 +299,7 @@ describe('every refusal comes from the engine, not from a branch', () => {
   it('names no framework in any of those refusals', () => {
     // The whole point: a reader is told which capability is missing, never
     // "Next.js does not support X".
-    for (const over of [
-      { styling: 'bootstrap' as StylingId },
-      { uiLibrary: 'mui' } as const,
-      { router: 'react-router' } as const,
-    ]) {
+    for (const over of [{ uiLibrary: 'mui' } as const, { router: 'react-router' } as const]) {
       expect(refusalText(over).toLowerCase()).not.toContain('next');
     }
   });
@@ -699,10 +713,18 @@ describe('selection treats Next like any other framework', () => {
     expect(resolution.stack['uiLibrary']).toBe('adapter');
   });
 
-  it('an explicit styling flag still reaches the engine rather than being overridden', async () => {
-    // The important half of the default: it settles the unstated case only.
-    // Bootstrap is the one that still proves it, now that Tailwind resolves.
-    expect(refusalText({ styling: 'bootstrap' })).toContain('composed-stylesheet');
+  it('an explicit styling flag beats the framework default', async () => {
+    /*
+     * The important half of `defaultStyling`: it settles the unstated case
+     * only. Through Stage 23 this was provable by a refusal - Bootstrap was
+     * rejected, so the flag had demonstrably survived. Every styling value Next
+     * accepts now resolves, so the same claim is made positively instead: each
+     * one arrives at the manifest as itself rather than as `none`.
+     */
+    for (const styling of ['tailwind', 'bootstrap', 'none'] as const) {
+      const { project } = resolveProject(nextManifest({ styling }), adapters);
+      expect(project.manifest.styling, styling).toBe(styling);
+    }
   });
 });
 

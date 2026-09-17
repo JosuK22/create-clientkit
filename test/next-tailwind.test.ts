@@ -7,10 +7,10 @@ import { planManifest, resolveWithAdapters } from '../src/adapters/bridge.js';
 import { NEXTJS_ARCHITECTURE, NEXTJS_DECLARATION } from '../src/adapters/nextjs.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
 import { checkCompatibility, selectAdapters } from '../src/adapters/selection.js';
+import { BOOTSTRAP_DECLARATION } from '../src/adapters/bootstrap.js';
 import { TAILWIND_DECLARATION } from '../src/adapters/tailwind.js';
 import type { ProjectManifest } from '../src/domain/index.js';
 import { resolveRole } from '../src/domain/index.js';
-import { type CliError } from '../src/errors.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { renderPlan, TEST_CWD } from './helpers.js';
 
@@ -83,16 +83,6 @@ const fileAt = (manifest: ProjectManifest, file: string): string => {
   const operation = planFor(manifest).plan.operations.find((entry) => entry.path === file);
   if (operation === undefined) throw new Error(`no operation for ${file}`);
   return operation.type === 'write' ? operation.content : '';
-};
-
-const refusalText = (manifest: ProjectManifest): string => {
-  try {
-    planFor(manifest);
-  } catch (error) {
-    const cli = error as CliError;
-    return `${cli.message}\n${cli.hint ?? ''}`;
-  }
-  return expect.unreachable('the combination was accepted');
 };
 
 const code = (relative: string): string =>
@@ -370,14 +360,28 @@ describe('both starters render through one shared style contract', () => {
 // ---------------------------------------------------------------------------
 
 describe('adding Tailwind made nothing else compatible', () => {
-  it('Bootstrap is still refused, for its own reason', () => {
-    const report = checkCompatibility(manifestFor({ styling: 'bootstrap' }), adapters);
-    expect(report.compatible).toBe(false);
-    const text = refusalText(manifestFor({ styling: 'bootstrap' }));
-    expect(text).toContain('composed-stylesheet');
-    // And not because of the capability Tailwind needed - the two styling
-    // systems ask for different things and remain independent.
-    expect(text).not.toContain('vite-plugins');
+  it('Bootstrap resolves on its own terms, not on Tailwind’s', () => {
+    /*
+     * Through Stage 23 this asserted a refusal, and the refusal was real but
+     * stale: Stage 23 had already made Next compose its stylesheet, which is
+     * what Bootstrap requires, and only the declaration lagged. Stage 24R
+     * corrected it.
+     *
+     * The claim the test was making survives, and is what is checked now: the
+     * two styling systems remain independent. Bootstrap resolves because Next
+     * provides `composed-stylesheet`, which is nothing to do with the
+     * `postcss` capability Tailwind needed - and Bootstrap asks for no build
+     * pipeline at all.
+     */
+    expect(checkCompatibility(manifestFor({ styling: 'bootstrap' }), adapters).compatible).toBe(
+      true,
+    );
+    const required = BOOTSTRAP_DECLARATION.requires.flatMap((constraint) =>
+      constraint.kind === 'requires' ? [constraint.capability] : [],
+    );
+    expect(required).toEqual(['composed-stylesheet']);
+    expect(required).not.toContain('postcss');
+    expect(required).not.toContain('vite-plugins');
   });
 
   it('MUI and React Router are still refused', () => {
@@ -409,9 +413,13 @@ describe('adding Tailwind made nothing else compatible', () => {
     }
   });
 
-  it('Next still provides no composed-stylesheet, which is what refuses Bootstrap', () => {
-    expect(NEXTJS_DECLARATION.provides).not.toContain('composed-stylesheet');
+  it('Next provides both capabilities, for two separate reasons', () => {
+    // `postcss` is about processing - there is a pipeline a build plugin can
+    // run in. `composed-stylesheet` is about composition - there is a
+    // stylesheet surface a contribution can be written into. Tailwind needed
+    // the first; Bootstrap needs the second; Next has both, independently.
     expect(NEXTJS_DECLARATION.provides).toContain('postcss');
+    expect(NEXTJS_DECLARATION.provides).toContain('composed-stylesheet');
   });
 });
 

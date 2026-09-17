@@ -2864,3 +2864,69 @@ equality directly.
 **Unchanged.** The four V1 goldens are byte-identical
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no Astro
 or React golden moved, no new runtime dependency, and the version stays 1.0.2.
+
+### Stage 24R — a capability declaration that stopped describing the code (landed)
+
+Stage 24 set out to prove that `nextjs + bootstrap` was refused for a genuine
+missing capability. The investigation proved the opposite, and the stage was
+reported BLOCKED rather than completed. This is the correction.
+
+```
+Stage 22   Next's template shipped styles/globals.css
+           styles.global was template-owned
+           composed-stylesheet correctly withheld
+
+Stage 23   the stylesheet left the template layer so Tailwind could own the role
+           styles.global left templateOwnedRoles
+           composed-stylesheet was not revisited      ← the drift
+
+Stage 24R  Next declares composed-stylesheet, because it now does
+```
+
+The capability's definition never changed and did not need to:
+
+> The global stylesheet is composed from contributions rather than shipped by
+> the framework's template.
+
+Post-Stage-23 Next matches that sentence exactly. The declaration did not, and
+the comment justifying it still asserted the Stage 22 arrangement — _"Next ships
+`styles/globals.css` from its own template, so a styling adapter contributing a
+second one would collide"_ — of which neither half remained true.
+
+**`postcss` and `composed-stylesheet` are not the same capability**, and Next
+provides both for unrelated reasons:
+
+|                       | question it answers                                               | who needs it |
+| --------------------- | ----------------------------------------------------------------- | ------------ |
+| `postcss`             | is there a pipeline a build plugin can run in?                    | Tailwind v4  |
+| `composed-stylesheet` | is there a stylesheet surface a contribution can be written into? | Bootstrap    |
+
+A framework can have either without the other. Astro has the second and not the
+first in the PostCSS sense; a framework that processed CSS but shipped its own
+stylesheet would have the first and not the second. Conflating them is how a
+styling system gets accepted and then silently ignored.
+
+**Why it survived three stages.** Every test asserted the refusal; none asserted
+the reason. Goldens, mutation runs and CI all passed over a declaration that had
+stopped matching the code, because "Next + Bootstrap is refused" was true
+throughout — for a reason that had quietly expired. The guard added here is
+direct:
+
+```ts
+expect(NEXTJS_DECLARATION.provides).toContain('composed-stylesheet');
+expect(adapters.framework('nextjs').templateOwnedRoles).not.toContain('styles.global');
+```
+
+**The synthetic-framework proof.** Bootstrap working on Next proves Bootstrap
+works on Next. What proves the _contract_ is a framework that does not exist: a
+declaration providing `composed-stylesheet` and nothing else — no runtime, no
+language, no build pipeline — composes with Bootstrap, and the same declaration
+with that one entry removed does not. It lives as a literal in a test file, is
+absent from the registry and from `FrameworkId`, and a test asserts it cannot be
+selected.
+
+**Unchanged.** The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no
+existing golden moved, Bootstrap is untouched, Astro still refuses Bootstrap for
+the reason that was always true, no preset was added, and the version stays
+1.0.2.

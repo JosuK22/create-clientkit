@@ -1,0 +1,725 @@
+== PLAN ==
+templateId       nextjs
+templateVersion  0.1.0
+mode             full
+targetDir        <TARGET_DIR>
+operationCount   14
+
+== ORDER ==
+write  .client-site.json
+copy   .gitattributes
+write  .gitignore
+write  app/layout.tsx
+write  app/page.tsx
+write  components/ui/Mark.tsx
+write  components/ui/Section.tsx
+write  lib/site.config.ts
+write  next.config.ts
+write  package.json
+write  public/favicon.svg
+write  README.md
+write  styles/globals.css
+write  tsconfig.json
+
+== FILES ==
+
+---- .client-site.json ----
+type    write
+origin  cli
+----
+{
+  "$schema": "https://create-clientkit.dev/schema/client-site.json",
+  "cliVersion": "9.9.9",
+  "template": {
+    "id": "nextjs",
+    "version": "0.1.0",
+    "framework": "nextjs",
+    "frameworkVersion": "16.3.5"
+  },
+  "mode": "full",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "config": {
+    "projectName": "acme-site",
+    "siteName": "Acme Ltd",
+    "siteUrl": "https://acme.example",
+    "locale": "en",
+    "packageManager": "npm",
+    "features": []
+  }
+}
+
+
+---- .gitattributes ----
+type    copy
+origin  base
+source  <TEMPLATES>/nextjs/base/_gitattributes
+(binary; copied byte-for-byte, never token-substituted)
+
+---- .gitignore ----
+type    write
+origin  base
+----
+node_modules
+.next
+out
+next-env.d.ts
+*.local
+
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+
+---- app/layout.tsx ----
+type    write
+origin  base
+----
+import type { Metadata } from 'next';
+
+import { SITE } from '../lib/site.config';
+import '../styles/globals.css';
+
+/**
+ * The root layout: the top of the tree, and the only place `<html>` exists.
+ *
+ * A server component, deliberately. Nothing here needs state, effects or
+ * browser APIs, so nothing here needs to reach the browser as JavaScript.
+ *
+ * `metadata` is baseline only - a title and a description taken from the one
+ * config file. There is no canonical URL, no Open Graph block and no social
+ * card, because those need a production URL and a considered decision per page,
+ * and inventing either would put claims in the head that nobody made.
+ */
+export const metadata: Metadata = {
+  title: SITE.name,
+  description: SITE.description,
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang={SITE.locale || 'en'}>
+      <body>{children}</body>
+    </html>
+  );
+}
+
+
+---- app/page.tsx ----
+type    write
+origin  modes/full
+----
+import { Mark } from '../components/ui/Mark';
+import { Section } from '../components/ui/Section';
+import { CONTACT, SITE } from '../lib/site.config';
+
+/**
+ * Hero, sections, CTA and footer - all server-rendered.
+ *
+ * No `'use client'` anywhere. Nothing on this page has state, effects or event
+ * handlers, so nothing on it needs to become a client bundle. Adding an
+ * interactive piece later is one directive on one component, which is exactly
+ * why the boundary is worth not crossing by default.
+ *
+ * The copy is honest scaffolding: it says what the section is for rather than
+ * pretending to describe a business nobody has told us about. The class names
+ * are the shared style contract, so the same markup renders under plain CSS or
+ * Tailwind.
+ */
+
+const SECTIONS = [
+  {
+    id: 'about',
+    title: 'About',
+    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
+  },
+  {
+    id: 'work',
+    title: 'Work',
+    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
+  },
+];
+
+export default function HomePage() {
+  return (
+    <div className="app-shell">
+      <header className="site-header">
+        <div className="container-page site-header-inner">
+          <Mark size="sm" />
+        </div>
+      </header>
+
+      <main className="app-main">
+        <div className="container-page intro">
+          <div className="intro-inner">
+            <h1 className="page-title">{SITE.name}</h1>
+            {SITE.description ? <p className="lead">{SITE.description}</p> : null}
+            {CONTACT.email ? (
+              <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                Get in touch
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="container-page sections">
+          {SECTIONS.map((entry) => (
+            <Section key={entry.id} id={entry.id} title={entry.title} body={entry.body} />
+          ))}
+        </div>
+      </main>
+
+      <footer className="site-footer">
+        <div className="container-page site-footer-inner">
+          <p className="copyright">
+            © {new Date().getFullYear()} {SITE.name}
+            {SITE.author ? ` · ${SITE.author}` : ''}
+          </p>
+          {CONTACT.email ? (
+            <div className="contact-links">
+              <a href={`mailto:${CONTACT.email}`} className="contact-link">
+                {CONTACT.email}
+              </a>
+            </div>
+          ) : null}
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+
+---- components/ui/Mark.tsx ----
+type    write
+origin  base
+----
+import { SITE } from '../../lib/site.config';
+
+/**
+ * A placeholder brand mark: the client's initials in a rounded square.
+ *
+ * Deliberately not an image. A generated project has no logo file, and shipping
+ * a stand-in graphic would be something to find and delete later; initials read
+ * as intentional until a real mark replaces them.
+ *
+ * The class names are the project's shared style contract - `brand`,
+ * `brand-lg`, `brand-mark`, `brand-name` - which every styling system
+ * implements. That is what lets this component render under plain CSS or
+ * Tailwind without knowing which was selected.
+ */
+export function Mark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
+  const initials = SITE.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <span className={`brand brand-${size}`}>
+      <span className="brand-mark" aria-hidden="true">
+        {initials || '—'}
+      </span>
+      <span className="brand-name">{SITE.name}</span>
+    </span>
+  );
+}
+
+
+---- components/ui/Section.tsx ----
+type    write
+origin  modes/full
+----
+/**
+ * One titled section of the home page.
+ *
+ * The heading is linked to its section with `aria-labelledby` rather than left
+ * to proximity, so the landmark has an accessible name a screen reader can
+ * announce. A server component, like everything else here.
+ */
+export function Section({ id, title, body }: { id: string; title: string; body: string }) {
+  return (
+    <section id={id} aria-labelledby={`${id}-heading`}>
+      <h2 id={`${id}-heading`} className="section-title">
+        {title}
+      </h2>
+      <p className="section-body">{body}</p>
+    </section>
+  );
+}
+
+
+---- lib/site.config.ts ----
+type    write
+origin  base
+----
+/**
+ * Everything client-specific, in one file.
+ *
+ * An empty string means "not set", and the UI omits that piece rather than
+ * rendering a placeholder. Nothing here is ever invented for you.
+ */
+
+export interface NavItem {
+  label: string;
+  /** In-page anchor ('#services') or a route path. */
+  href: string;
+}
+
+export interface SiteIdentity {
+  name: string;
+  description: string;
+  /**
+   * Production URL. Empty is a supported state, not a broken one - nothing
+   * absolute is emitted until you fill it in, so no page ever points at a
+   * domain nobody owns.
+   */
+  url: string;
+  locale: string;
+  author: string;
+}
+
+export interface ContactDetails {
+  email: string;
+  phone: string;
+}
+
+export const SITE: SiteIdentity = {
+  name: 'Acme Ltd',
+  description: 'Bespoke widgets.',
+  url: 'https://acme.example',
+  locale: 'en',
+  author: '',
+};
+
+/** Header links. Empty means no menu is rendered at all. */
+export const NAV: NavItem[] = [];
+
+/** Each field is optional and hidden when empty. */
+export const CONTACT: ContactDetails = {
+  email: '',
+  phone: '',
+};
+
+
+---- next.config.ts ----
+type    write
+origin  base
+----
+import type { NextConfig } from 'next';
+
+/**
+ * Deliberately empty.
+ *
+ * Every option Next offers here is a decision about deployment, images or
+ * experimental behaviour, and none of those can be made correctly before the
+ * project has a host. An empty config is the honest starting point; add to it
+ * when there is something to add.
+ */
+const nextConfig: NextConfig = {};
+
+export default nextConfig;
+
+
+---- package.json ----
+type    write
+origin  base + modes/full
+----
+{
+  "name": "acme-site",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "keywords": [
+    "nextjs",
+    "client-site",
+    "website"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bootstrap": "5.3.8",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}
+
+
+---- public/favicon.svg ----
+type    write
+origin  base
+----
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M20 40V24h6.4c4.8 0 7.6 2.7 7.6 7s-2.8 7-7.6 7H20Zm4.4-3.4h1.9c2.6 0 4-1.4 4-3.6s-1.4-3.6-4-3.6h-1.9v7.2Z" fill="#f8fafc" />
+  <circle cx="42" cy="38" r="3" fill="#38bdf8" />
+</svg>
+
+
+---- README.md ----
+type    write
+origin  base
+----
+# Acme Ltd
+
+Bespoke widgets.
+
+Built with [Next.js](https://nextjs.org) (App Router), TypeScript and plain CSS.
+
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+The site runs at http://localhost:3000.
+
+## Scripts
+
+| Script              | What it does                          |
+| ------------------- | ------------------------------------- |
+| `npm run dev`       | Development server with hot reloading |
+| `npm run build`     | Production build                      |
+| `npm run start`     | Serves the production build           |
+| `npm run typecheck` | Type-checks without emitting          |
+
+There is no `lint` script. Next 16 removed the `next lint` command, and adding
+one would mean adding ESLint and its Next configuration - a choice better made
+by you than assumed here.
+
+## Where things live
+
+```
+app/
+  layout.tsx      the root layout: <html>, <body>, baseline metadata
+  page.tsx        the home page
+components/ui/    presentational pieces
+lib/
+  site.config.ts  everything client-specific, in one file
+public/           static assets served from /
+styles/
+  globals.css     the only stylesheet; custom properties are the design system
+```
+
+## First things to change
+
+- `lib/site.config.ts` — name, description, locale and contact all live there.
+- Set `SITE.url` once the domain is known. It is empty on purpose: nothing
+  absolute is emitted until it is filled in, so no page points at a domain
+  nobody owns.
+- Replace `public/favicon.svg` with the client mark.
+
+## What is deliberately not here
+
+No CSS framework, no component library, no client-side router, no analytics and
+no deployment configuration. Each of those is a decision with consequences, and
+a scaffold that makes them for you is one you have to undo first.
+
+
+---- styles/globals.css ----
+type    write
+origin  styling:bootstrap
+----
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+/*
+ * Bootstrap supplies the reset, the type scale, the colour system and the
+ * responsive grid. Everything below maps this project's semantic class names
+ * onto Bootstrap's own custom properties, so the values stay Bootstrap's -
+ * change a Bootstrap variable and these follow.
+ */
+
+:root {
+  --measure-page: 64rem;
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+
+.skip-link:focus-visible {
+  left: 1rem;
+  top: 1rem;
+  z-index: 1080;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-emphasis-color);
+  padding: 0.5rem 1rem;
+  color: var(--bs-body-bg);
+}
+
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
+}
+
+.site-header {
+  border-bottom: var(--bs-border-width) solid var(--bs-border-color);
+}
+
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav-link,
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--bs-secondary-color);
+  font-size: var(--bs-body-font-size);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.site-nav-link:hover,
+.contact-link:hover {
+  color: var(--bs-emphasis-color);
+}
+
+.site-footer {
+  margin-top: auto;
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+}
+
+.copyright {
+  margin: 0;
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-emphasis-color);
+  color: var(--bs-body-bg);
+  font-weight: 600;
+}
+
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
+
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
+
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hero,
+.intro {
+  padding-block: 5rem;
+}
+
+.hero-inner,
+.intro-inner {
+  max-width: 42rem;
+}
+
+.eyebrow {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--bs-secondary-color);
+}
+
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 2rem;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-primary);
+  padding-inline: 1.25rem;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: filter 160ms ease;
+}
+
+.button-primary:hover {
+  filter: brightness(0.92);
+  color: #fff;
+}
+
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
+  .sections {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--bs-secondary-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+---- tsconfig.json ----
+type    write
+origin  base
+----
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
