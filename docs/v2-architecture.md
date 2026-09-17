@@ -3811,3 +3811,145 @@ was touched. The four V1 goldens are byte-identical
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no CLI
 flag, prompt, manifest dimension or preset was added, the CLI still has zero
 runtime dependencies, and the version stays 1.0.2.
+
+### Stage 33 — document scope composition (landed)
+
+**Why it was deferred.** Stage 32 resolves every statement about the document
+and stops, producing one entry per `(kind, scope)` with no relationship between
+them. That was deliberate: how a page's statement combines with the document's
+is a composition question, and inventing a rule for it inside the resolver
+would have been precedence by another name. This is that rule, made explicit.
+
+#### Specificity is declared, not sorted
+
+The property the whole stage protects:
+
+```text
+deterministic ordering  ≠  semantic precedence
+```
+
+A page-scoped statement takes precedence over a site-wide one because
+`SCOPE_SPECIFICITY` says a page is more specific than the document — and for no
+other reason. It is emphatically **not** because `page:…` sorts after `''` in
+the canonical order. That order exists so output is reproducible, and a rule
+riding on it would silently change meaning the day the ordering was adjusted for
+an unrelated reason. A mutation that sets `page: 0` is caught.
+
+The two entries are numbered `0` and `10`. The gap is deliberate: a future scope
+between the document and a page has somewhere to go without renumbering, and
+adding one is a decision somebody writes down rather than a consequence of
+alphabetical position.
+
+#### The model: page overlays document, field by field
+
+**Model A**, selected. Rejected alternatives:
+
+- **Model B — a page replaces the whole kind.** The 404 would lose its inherited
+  description, which is the return to whole-statement semantics Stage 32 was
+  written to prevent. Rejected.
+- **Model C — a page declares which fields it inherits.** A new declaration
+  surface no contributor needs, invented for a case that does not exist.
+  Rejected as speculative.
+
+The target is a domain concept and stays semantic:
+
+```ts
+type DocumentTarget = { kind: 'site' } | { kind: 'page'; role: FileRole };
+```
+
+Distinct from `DocumentScope` despite the same shape, because they answer
+different questions — a scope is what a contribution _declares it applies to_, a
+target is what somebody is _asking for_. No route, pathname, URL or file appears
+anywhere; a routing-aware scope system would be its own stage, and a structural
+test fails on `pathname`, `RegExp`, `glob`, `route` or `URL(`.
+
+#### Inheritance, every combination
+
+| every-page | page       | result                                             |
+| ---------- | ---------- | -------------------------------------------------- |
+| stated     | stated     | field-by-field overlay, page wins per field        |
+| stated     | suppressed | **suppressed**                                     |
+| stated     | absent     | inherited                                          |
+| suppressed | stated     | stated                                             |
+| suppressed | suppressed | suppressed                                         |
+| suppressed | absent     | **suppressed** — an inherited refusal is not a gap |
+| absent     | stated     | stated                                             |
+| absent     | suppressed | suppressed                                         |
+| absent     | absent     | nothing said                                       |
+
+Each of the nine has a test.
+
+#### SEO scope
+
+Field-level throughout. A page that states a title overrides the inherited title
+and inherits everything else; a page that states nothing inherits everything.
+
+`canonical: ''` is a **statement, not a gap**, and this is what made the rule
+definable. The contract means "emit no canonical tag" by it — the generated Seo
+component does `canonical !== '' && <link rel="canonical">` — so a page's empty
+value overrides an inherited address rather than falling through to it. Absence
+is how a contributor says nothing, and `Partial<SeoContract>` keeps the two
+apart. Stage 32 recorded that `''` conflates _why_ it is empty (no site URL, or
+a `noindex` page); that ambiguity is upstream and does not reach scope
+composition, which only needs present-versus-absent.
+
+#### Structured-data scope
+
+Whole objects, never merged. A page refusing the organisation is suppressed; a
+page stating a different organisation replaces it wholly; an identical
+organisation at both scopes de-duplicates. There is no deep merge, so two
+contributors can never assemble an organisation neither described.
+
+#### Accessibility scope — a Stage 31 limitation resolved
+
+Stage 31 recorded a suspicion: "`DocumentStance` permits suppressing document
+guarantees, which is probably never correct." The contract settles it.
+`ACCESSIBILITY_GUARANTEES` is documented as properties that hold on **every
+page**, each phrased so it can be checked against real built HTML. A page that
+suppressed `document-language` would still build, still pass review, and leave
+the bounded claim false for the whole project — and the boundedness is what
+gives the contract any value.
+
+So the constraint is now structural: **a document guarantee may only be stated
+for the document as a whole.** `assertGuaranteesAreDocumentWide` refuses a
+page-scoped guarantee, stated or suppressed, naming the owner and explaining
+why. Refusing beats silently ignoring, and it is applied where pages first
+become meaningful.
+
+#### Provenance survives inheritance
+
+Each composed field records its owners, its reasons and the scope it came from,
+so "this page's description came from the site-wide statement and its title from
+the page's own" is a sentence the model can produce. A result that merged the
+layers into an anonymous object could not.
+
+#### Conflicts are still conflicts
+
+Specificity combines _different_ scopes and never arbitrates between owners at
+the same one. Two owners disagreeing about a field within one scope raises
+exactly as it did in Stage 32, at either scope. Scope specificity is not a
+general last-writer-wins.
+
+#### The 404, composed
+
+With site-wide SEO, page-scoped SEO, a site-wide organisation and a page-scoped
+suppression all present, resolving `page.notFound` gives `robots:
+'noindex, nofollow'`, `canonical: ''`, the page's own title, and a suppressed
+organisation — while the site keeps `index, follow`, its canonical address and
+its organisation, and `page.home` keeps both. Three targets resolve
+independently and nothing leaks between them.
+
+#### What remains for Stage 34
+
+The document-shell composer: collection from real contributions and
+per-architecture emission. Nothing here is wired up — the scope resolver is
+imported by no adapter, no generated file changes, `Next + seo`,
+`+ structured-data` and `+ accessibility` remain refused for the coverage
+reasons Stage 29 established, `composed-metadata` remains ungranted on Next, and
+React is untouched. Scope composition is not coverage.
+
+**Unchanged.** Zero goldens moved and no adapter, template or architecture file
+was touched. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), no CLI
+flag, prompt, manifest dimension or preset was added, the CLI still has zero
+runtime dependencies, and the version stays 1.0.2.

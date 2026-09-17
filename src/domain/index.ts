@@ -87,6 +87,22 @@ export type {
   StructuredDataContribution,
 } from './document-contribution.js';
 
+export {
+  appliesTo,
+  assertGuaranteesAreDocumentWide,
+  describeTarget,
+  forPage,
+  resolveDocumentForPage,
+  SCOPE_SPECIFICITY,
+  SITE_TARGET,
+} from './document-scope.js';
+export type {
+  ComposedMetadata,
+  ComposedProvenance,
+  DocumentTarget,
+  ResolvedPageDocument,
+} from './document-scope.js';
+
 export { METADATA_FIELDS, resolveDocumentContributions } from './document-resolution.js';
 export type {
   MetadataField,
