@@ -5,24 +5,27 @@ import { describe, expect, it } from 'vitest';
 
 import { ACCESSIBILITY_GUARANTEES } from '../src/domain/accessibility.js';
 import { GUARANTEE_SURFACES } from '../src/domain/document-contribution.js';
-import type { BindingSupport } from '../src/domain/document-value.js';
+import type { AnyDocumentValue, BindingSupport } from '../src/domain/document-value.js';
 import {
+  absolutePageUrl,
   assertBindingsSupported,
+  assertDerivationInputs,
   bindingOwner,
   bindingsUsedBy,
   bindingType,
   boundTo,
-  derivationInputs,
+  derivationParameters,
   derivationType,
-  derived,
+  DOCUMENT_DERIVATION_IDS,
   describeDocumentValue,
   DOCUMENT_BINDING_IDS,
   DOCUMENT_BINDINGS,
-  DOCUMENT_DERIVATIONS,
   DOCUMENT_VALUE_TYPES,
   isDocumentBinding,
+  indexingDirective,
   isDocumentDerivation,
   literal,
+  pageTitleWithSiteName,
   ownerOf,
   VALUE_OWNERS,
 } from '../src/domain/document-value.js';
@@ -271,7 +274,7 @@ describe('ownership is about authority, not knowledge', () => {
   it('gives a derivation the least settled of its inputs', () => {
     // site.url is project-owned and page.path is build-context-owned, so the
     // combination cannot be settled before the build.
-    expect(ownerOf(derived('url', 'absolute-page-url'))).toBe('build-context');
+    expect(ownerOf(absolutePageUrl())).toBe('build-context');
   });
 });
 
@@ -280,9 +283,31 @@ describe('ownership is about authority, not knowledge', () => {
 // ---------------------------------------------------------------------------
 
 describe('derivations are named, not expressed', () => {
-  it('declares a type and its inputs', () => {
+  it('declares a result type and an ordered parameter signature', () => {
+    /*
+     * Parameters are *types*, not fixed bindings. Stage 35 pinned
+     * `absolute-page-url` to one pair of bindings, which worked while the only
+     * derivation had no variable part; a title whose page half differs per
+     * contributor needs arguments, so every derivation now declares a
+     * signature and the call site supplies values.
+     */
     expect(derivationType('absolute-page-url')).toBe('url');
-    expect(derivationInputs('absolute-page-url')).toEqual(['site.url', 'page.path']);
+    expect(derivationParameters('absolute-page-url')).toEqual(['url', 'path']);
+  });
+
+  it('declares exactly these derivations', () => {
+    // Recorded, so adding or retyping one is a deliberate act.
+    const declared = Object.fromEntries(
+      DOCUMENT_DERIVATION_IDS.map((id) => [
+        id,
+        `(${derivationParameters(id).join(', ')}) -> ${derivationType(id)}`,
+      ]),
+    );
+    expect(declared).toEqual({
+      'absolute-page-url': '(url, path) -> url',
+      'page-title-with-site-name': '(text, text) -> text',
+      'indexing-directive': '(flag) -> text',
+    });
   });
 
   it('rejects anything not declared', () => {
@@ -297,16 +322,52 @@ describe('derivations are named, not expressed', () => {
     expect(isDocumentDerivation('absolute-page-url')).toBe(true);
   });
 
-  it('draws only on bindings the vocabulary knows', () => {
-    for (const derivation of Object.keys(DOCUMENT_DERIVATIONS) as ['absolute-page-url']) {
-      for (const input of derivationInputs(derivation)) {
-        expect(isDocumentBinding(input), `${derivation} draws on ${input}`).toBe(true);
+  it('declares only parameter types the vocabulary knows', () => {
+    for (const derivation of DOCUMENT_DERIVATION_IDS) {
+      expect(DOCUMENT_VALUE_TYPES, derivation).toContain(derivationType(derivation));
+      for (const parameter of derivationParameters(derivation)) {
+        expect(DOCUMENT_VALUE_TYPES, `${derivation} takes ${parameter}`).toContain(parameter);
       }
     }
   });
 
+  it('refuses arguments that do not match the signature', () => {
+    /*
+     * The runtime half of what `DerivationArguments` guarantees at compile
+     * time, for boundaries where the types are gone - a value read back from
+     * JSON, or one that cast its way past the checker.
+     */
+    const wrongType = {
+      kind: 'derived',
+      type: 'text',
+      derivation: 'indexing-directive',
+      inputs: [literal('text', 'not a flag')],
+    } as unknown as AnyDocumentValue;
+    expect(refusal(() => assertDerivationInputs(wrongType))).toContain(
+      'expects flag at position 0',
+    );
+
+    const wrongCount = {
+      kind: 'derived',
+      type: 'text',
+      derivation: 'page-title-with-site-name',
+      inputs: [literal('text', 'only one')],
+    } as unknown as AnyDocumentValue;
+    expect(refusal(() => assertDerivationInputs(wrongCount))).toContain('takes 2 input(s)');
+  });
+
+  it('accepts the standard constructions', () => {
+    for (const value of [
+      absolutePageUrl(),
+      pageTitleWithSiteName(literal('text', 'Page not found')),
+      indexingDirective(),
+    ]) {
+      expect(() => assertDerivationInputs(value)).not.toThrow();
+    }
+  });
+
   it('reports every binding a derived value depends on, sorted', () => {
-    expect(bindingsUsedBy(derived('url', 'absolute-page-url'))).toEqual(['page.path', 'site.url']);
+    expect(bindingsUsedBy(absolutePageUrl())).toEqual(['page.path', 'site.url']);
   });
 });
 
@@ -333,9 +394,7 @@ describe('an architecture must be able to supply what a value refers to', () => 
   });
 
   it('refuses a derivation whose inputs are not all supported', () => {
-    const message = refusal(() =>
-      assertBindingsSupported(derived('url', 'absolute-page-url'), limited),
-    );
+    const message = refusal(() => assertBindingsSupported(absolutePageUrl(), limited));
     expect(message).toContain('page.path');
     expect(message).toContain('site.url');
   });
@@ -378,7 +437,7 @@ describe('the representation is deterministic', () => {
       JSON.stringify([
         literal('text', 'Acme Ltd'),
         boundTo('text', 'site.name'),
-        derived('url', 'absolute-page-url'),
+        absolutePageUrl(),
       ]),
     );
     expect(new Set(runs).size).toBe(1);
@@ -386,16 +445,16 @@ describe('the representation is deterministic', () => {
 
   it('lists bindings in a stable order', () => {
     expect([...DOCUMENT_BINDING_IDS]).toEqual([...DOCUMENT_BINDING_IDS].sort());
-    expect(bindingsUsedBy(derived('url', 'absolute-page-url'))).toEqual(
-      [...bindingsUsedBy(derived('url', 'absolute-page-url'))].sort(),
+    expect(bindingsUsedBy(absolutePageUrl())).toEqual(
+      [...bindingsUsedBy(absolutePageUrl())].sort(),
     );
   });
 
   it('describes a value the same way every time', () => {
     expect(describeDocumentValue(boundTo('text', 'site.name'))).toBe('text bound to site.name');
     expect(describeDocumentValue(literal('url', ''))).toBe('url literal ""');
-    expect(describeDocumentValue(derived('url', 'absolute-page-url'))).toBe(
-      'url derived from absolute-page-url',
+    expect(describeDocumentValue(absolutePageUrl())).toBe(
+      'url derived from absolute-page-url(url bound to site.url, path bound to page.path)',
     );
   });
 });
@@ -422,7 +481,7 @@ describe('canonical keeps its Stage 33 meaning', () => {
   it('expresses a page-tracking canonical as a derivation', () => {
     // The case Stage 34 could not represent: one component, N pages, N
     // canonicals. A snapshot had a value only for the roles ClientKit knew.
-    const tracking = derived('url', 'absolute-page-url');
+    const tracking = absolutePageUrl();
     expect(ownerOf(tracking)).toBe('build-context');
     expect(bindingsUsedBy(tracking)).toContain('page.path');
   });

@@ -146,6 +146,31 @@ export type ResolvedDocumentContribution =
 const show = (value: unknown): string => (value === undefined ? '(absent)' : JSON.stringify(value));
 
 /**
+ * A serialisation that depends on a value's structure, not on how it was built.
+ *
+ * `JSON.stringify` preserves key insertion order, so two statements that mean
+ * the same thing compare unequal if one was assembled in another order - and
+ * Stage 32 has always described this equality as *structural*. That went
+ * unnoticed while every value came from the same constructors and therefore
+ * always had the same key order. Stage 37's derivations, which can be read back
+ * from JSON or assembled by hand, made the gap reachable.
+ *
+ * Arrays keep their order, because an ordered list is part of the meaning: a
+ * derivation's arguments are positional, and sorting them would make
+ * `f(a, b)` equal `f(b, a)`.
+ */
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+  if (Array.isArray(value)) return `[${value.map((entry) => canonical(entry)).join(',')}]`;
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, entry]) => entry !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`);
+  return `{${entries.join(',')}}`;
+}
+
+/**
  * Names the kind, the field, the scope and every owner with its value.
  *
  * `field` is omitted for a kind that resolves as a whole, because naming a
@@ -201,9 +226,7 @@ function agree(
   const [first] = claims;
   if (first === undefined) throw new Error('unreachable: no claims');
 
-  const differing = claims.find(
-    (claim) => JSON.stringify(claim.value) !== JSON.stringify(first.value),
-  );
+  const differing = claims.find((claim) => canonical(claim.value) !== canonical(first.value));
   if (differing !== undefined) {
     conflict(kind, field, scope, [
       { owner: first.owner, value: first.value, reason: first.reason },

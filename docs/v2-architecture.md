@@ -4296,3 +4296,130 @@ changed.
 touched. The four V1 goldens are byte-identical
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), the CLI
 still has zero runtime dependencies, and the version stays 1.0.2.
+
+### Stage 37 — parameterized document derivations (landed)
+
+**The gap Stage 36 left.** Two document facts could not be represented. A title
+is `title ? \`${title} - ${SITE.name}\` : SITE.name` — composed from a page part
+that differs per contributor and a project-owned site name. A robots directive
+follows the project's own indexing switch. Stage 35's derivations had a _fixed_
+pair of bindings and no way to take an argument, so both stayed literals, and a
+literal title freezes the site name into every page that states one.
+
+#### A signature, not an expression tree
+
+A derivation now declares an ordered **parameter signature** and a result type;
+a value supplies the arguments.
+
+```ts
+DOCUMENT_DERIVATIONS = {
+  'absolute-page-url': { type: 'url', parameters: ['url', 'path'] },
+  'page-title-with-site-name': { type: 'text', parameters: ['text', 'text'] },
+  'indexing-directive': { type: 'text', parameters: ['flag'] },
+};
+```
+
+**Why this is not a general AST.** A derivation names _what happens_, never how
+to compute it. There is no concatenation node, no conditional, no property
+access, no call and no operator — the four things an expression tree is made of
+are all absent, and a test fails if any of them appears. The vocabulary grows
+only when a real document behaviour needs a name.
+
+Arguments are typed position by position through a mapped tuple
+(`DerivationArguments<D>`), so supplying a `url` where `text` is required is a
+compile error. `assertDerivationInputs` repeats the check at boundaries where
+types have been erased, recursively.
+
+#### What the source actually says
+
+Both derivations were read off `Seo.astro` rather than from the brief, and both
+readings differ from what a summary would suggest.
+
+**Title makes no absent/empty distinction.** The template tests truthiness, so
+`undefined` and `''` behave identically. The model therefore makes no
+distinction either — an empty page title is simply how a page says it adds
+nothing. Inventing a distinction the source does not make would be modelling
+behaviour that does not exist.
+
+**Robots has two inputs, not one.** The template computes
+`blocked = noindex || SEO.noindex` — a page's own opt-out **or** the project
+switch. Only the switch is an input to `indexing-directive`, and the
+disjunction is not missing: a page that opts out states its own directive at its
+own scope, and **scope specificity is what combines the two**. Modelling `||`
+would have added a boolean operator to a vocabulary that deliberately has none,
+to express something the scope model already expresses. The template's default
+`noindex = false` means "say nothing", not "say index", and absence is exactly
+how the model says nothing.
+
+#### Ownership
+
+Still the least settled of the inputs, and the rule survives parameters
+unchanged: a value is only as settled as its least settled ingredient. It is now
+**recursive**, because an argument may itself be a derivation.
+
+| Value                                              | Owner                                         |
+| -------------------------------------------------- | --------------------------------------------- |
+| `pageTitleWithSiteName(literal('Page not found'))` | `project` — half of it is still the project's |
+| `derived(page-title…, literal, literal)`           | `generation` — nothing unsettled remains      |
+| `indexingDirective()`                              | `project`                                     |
+| `absolutePageUrl()`                                | `build-context`                               |
+
+A title is **not** generation-owned merely because ClientKit knows the page
+title and seeds the site name; the composed value is evaluated in the generated
+project, so the project owns the result.
+
+#### Equality became structural in fact, not just in name
+
+Stage 32 has always described this equality as _structural_, and the
+implementation compared with `JSON.stringify` — which preserves key insertion
+order. That went unnoticed while every value came from the same constructors.
+Derivations, which can be read back from JSON or assembled by hand, made the gap
+reachable, so comparison now uses a canonical form with sorted keys.
+
+**Array order is preserved.** `f(a, b)` is not `f(b, a)`: a title composed as
+"Alpha - Beta" says something different from "Beta - Alpha", and sorting
+arguments to tidy the comparison would silently merge two different statements.
+
+#### Nesting
+
+Permitted, because an argument is a value and a value may be derived. Cycles
+cannot be built: values are immutable and assembled bottom-up, so one would have
+to contain itself before it existed — the same reason Stage 27's wrapper
+ordering needs no cycle detection. Depth is unbounded and every branch
+terminates at a literal or a binding.
+
+#### Nothing else moved
+
+Same-scope disagreement is still a conflict with **no kind precedence** — a
+derivation does not beat a literal and a literal does not beat a derivation.
+Cross-scope override is still decided by specificity alone. Stance is unchanged:
+a page suppression still beats an inherited derivation.
+
+The 404 result is identical to Stage 36's. The page states its own title,
+robots and canonical, so all three stay literals — the site-wide derivations do
+not reach down and make them dynamic — while the site keeps all three derived.
+
+`FileRole` is still closed, and a page nobody enumerated is still covered by an
+every-page derivation that is never evaluated.
+
+#### The Astro boundary
+
+`src/adapters/astro-derivations.ts` declares **which derivations Astro can
+realise** and nothing else. Separate from `astro-bindings.ts` on purpose: a
+binding maps to one expression Astro already writes, while a derivation is an
+operation whose realisation is emitter work. Keeping them in one file would
+invite the spelling to be added alongside the mapping, which is the emitter
+arriving by the back door. A test asserts the file contains no template
+literal, no conditional and no directive string.
+
+#### Why the emitter is still deferred
+
+The vocabulary can now represent every dynamic document fact the shipped Astro
+head computes, unevaluated and with ownership attached. Turning that into
+generated source — deciding how Astro spells each operation, and where the
+result is written — is the next stage's work. Nothing here is wired: Next
+remains refused, React is untouched, and no template changed.
+
+**Unchanged.** Zero goldens moved. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), the CLI
+still has zero runtime dependencies, and the version stays 1.0.2.

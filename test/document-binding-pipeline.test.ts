@@ -22,7 +22,7 @@ import type {
   DocumentValueType,
   LiteralTypes,
 } from '../src/domain/document-value.js';
-import { boundTo, derived, literal, ownerOf } from '../src/domain/document-value.js';
+import { absolutePageUrl, boundTo, literal, ownerOf } from '../src/domain/document-value.js';
 import { resolveSeoContract } from '../src/domain/seo.js';
 import { resolveOrganization } from '../src/domain/structured-data.js';
 import type { CliError } from '../src/errors.js';
@@ -112,15 +112,8 @@ describe('a resolved field can carry any of the three value kinds', () => {
   });
 
   it('carries a derivation, unevaluated', () => {
-    const composed = metaOn(
-      [says(A, { canonical: derived('url', 'absolute-page-url') })],
-      forPage('page.home'),
-    );
-    expect(composed.value.canonical).toEqual({
-      kind: 'derived',
-      type: 'url',
-      derivation: 'absolute-page-url',
-    });
+    const composed = metaOn([says(A, { canonical: absolutePageUrl() })], forPage('page.home'));
+    expect(composed.value.canonical).toEqual(absolutePageUrl());
     expect(ownerOf(composed.value.canonical!)).toBe('build-context');
   });
 
@@ -135,7 +128,7 @@ describe('a resolved field can carry any of the three value kinds', () => {
         [
           says(A, {
             title: boundTo('text', 'site.name'),
-            canonical: derived('url', 'absolute-page-url'),
+            canonical: absolutePageUrl(),
           }),
         ],
         forPage('page.home'),
@@ -160,11 +153,7 @@ describe('equality is structural, and kind is not authority', () => {
       { title: boundTo('text', 'site.name') },
       { title: boundTo('text', 'site.name') },
     ],
-    [
-      'identical derivations',
-      { canonical: derived('url', 'absolute-page-url') },
-      { canonical: derived('url', 'absolute-page-url') },
-    ],
+    ['identical derivations', { canonical: absolutePageUrl() }, { canonical: absolutePageUrl() }],
   ];
 
   for (const [label, first, second] of pairs) {
@@ -197,13 +186,13 @@ describe('equality is structural, and kind is not authority', () => {
     [
       'literal versus derived',
       { canonical: literal('url', 'https://acme.example/') },
-      { canonical: derived('url', 'absolute-page-url') },
+      { canonical: absolutePageUrl() },
       'metadata.canonical',
     ],
     [
       'binding versus derived',
       { canonical: boundTo('url', 'site.url') },
-      { canonical: derived('url', 'absolute-page-url') },
+      { canonical: absolutePageUrl() },
       'metadata.canonical',
     ],
   ];
@@ -260,7 +249,7 @@ describe('scope specificity decides across scopes, whatever the kinds', () => {
      * without the resolver comparing a derivation to a literal to decide.
      */
     const contributions = [
-      says(A, { canonical: derived('url', 'absolute-page-url') }),
+      says(A, { canonical: absolutePageUrl() }),
       says(B, { canonical: literal('url', '') }, at),
     ];
     expect(lit(metaOn(contributions, forPage('page.notFound')).value.canonical)).toBe('');
@@ -286,7 +275,7 @@ describe('scope specificity decides across scopes, whatever the kinds', () => {
 
   it('an unstated field inherits its derivation', () => {
     const contributions = [
-      says(A, { canonical: derived('url', 'absolute-page-url') }),
+      says(A, { canonical: absolutePageUrl() }),
       says(B, { title: literal('text', 'Home') }, onPage('page.home')),
     ];
     const composed = metaOn(contributions, forPage('page.home'));
@@ -305,10 +294,7 @@ describe('scope specificity decides across scopes, whatever the kinds', () => {
   it('a cross-scope override is never a conflict', () => {
     expect(() =>
       resolveDocumentForPage(
-        [
-          says(A, { canonical: derived('url', 'absolute-page-url') }),
-          says(B, { canonical: literal('url', '') }, at),
-        ],
+        [says(A, { canonical: absolutePageUrl() }), says(B, { canonical: literal('url', '') }, at)],
         forPage('page.notFound'),
       ),
     ).not.toThrow();
@@ -334,30 +320,20 @@ describe('a page ClientKit does not know still gets a correct address', () => {
      * snapshot emitter would have left user-added pages with no canonical at
      * all.
      */
-    const contributions = [says(A, { canonical: derived('url', 'absolute-page-url') })];
+    const contributions = [says(A, { canonical: absolutePageUrl() })];
 
     for (const target of [SITE_TARGET, forPage('page.home'), forPage('page.notFound')]) {
       const composed = metaOn(contributions, target);
       // Identical and unevaluated at every target: nothing page-specific was
       // baked in, so a page outside the vocabulary resolves the same way.
-      expect(composed.value.canonical).toEqual({
-        kind: 'derived',
-        type: 'url',
-        derivation: 'absolute-page-url',
-      });
+      expect(composed.value.canonical).toEqual(absolutePageUrl());
     }
   });
 
   it('never fabricates a URL for any target', () => {
     const serialised = JSON.stringify([
-      resolveDocumentForPage(
-        [says(A, { canonical: derived('url', 'absolute-page-url') })],
-        SITE_TARGET,
-      ),
-      resolveDocumentForPage(
-        [says(A, { canonical: derived('url', 'absolute-page-url') })],
-        forPage('page.home'),
-      ),
+      resolveDocumentForPage([says(A, { canonical: absolutePageUrl() })], SITE_TARGET),
+      resolveDocumentForPage([says(A, { canonical: absolutePageUrl() })], forPage('page.home')),
     ]);
     for (const invented of ['https://acme.example', 'example.com', 'localhost', '/contact', '/']) {
       expect(serialised, `fabricated ${invented}`).not.toContain(`"${invented}"`);
@@ -445,7 +421,7 @@ describe('the not-found page, with a binding-aware site statement', () => {
       title: boundTo('text', 'site.name'),
       description: boundTo('text', 'site.description'),
       robots: literal('text', 'index, follow'),
-      canonical: derived('url', 'absolute-page-url'),
+      canonical: absolutePageUrl(),
     }),
     // The not-found page states its own facts.
     says(
@@ -493,11 +469,7 @@ describe('the not-found page, with a binding-aware site statement', () => {
 
   it('leaves the site tracking its own address', () => {
     const site = metaOn(contributions, SITE_TARGET);
-    expect(site.value.canonical).toEqual({
-      kind: 'derived',
-      type: 'url',
-      derivation: 'absolute-page-url',
-    });
+    expect(site.value.canonical).toEqual(absolutePageUrl());
     expect(lit(site.value.robots)).toBe('index, follow');
   });
 
@@ -568,7 +540,7 @@ describe('a contract lifts into all-literal statements', () => {
 describe('mixed value kinds resolve deterministically', () => {
   const all: DocumentContribution[] = [
     says(A, { title: boundTo('text', 'site.name') }),
-    says(A, { canonical: derived('url', 'absolute-page-url') }),
+    says(A, { canonical: absolutePageUrl() }),
     says(B, { title: literal('text', 'Page not found') }, onPage('page.notFound')),
   ];
 

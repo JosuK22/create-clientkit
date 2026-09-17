@@ -93,7 +93,7 @@ export {
   bindingsUsedBy,
   bindingType,
   boundTo,
-  derivationInputs,
+  derivationParameters,
   derivationType,
   derived,
   describeDocumentValue,

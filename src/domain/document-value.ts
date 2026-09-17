@@ -201,43 +201,84 @@ export function isDocumentBinding(value: string): value is DocumentBinding {
 // ---------------------------------------------------------------------------
 
 /**
- * Values assembled from other values, named rather than expressed.
+ * Values assembled from other values: a named operation over typed inputs.
  *
- * Exactly one entry, and the restraint is the point. Astro builds a canonical
- * address from the site's origin and the current page's path, and that
- * combination is the single reason Stage 34's snapshot approach lost per-page
- * canonicals. Naming it makes it representable; writing
- * `` `${SITE.url}${Astro.url.pathname}` `` would make it arbitrary code
- * wearing a data structure.
+ * Stage 35 declared one derivation whose inputs were a fixed pair of bindings.
+ * Stage 36 found two document facts that shape cannot carry, because their
+ * inputs vary per contributor rather than being fixed:
  *
- * `from` is declared so an architecture can refuse a derivation whose inputs it
- * cannot supply, rather than approximating one.
+ *   - a page title composed with the site's name, where the page part is
+ *     whatever that page says it is;
+ *   - an indexing directive derived from the project's own switch.
  *
- * Two further derivations exist in the shipped document and are deliberately
- * *not* modelled here - an absolute social-image URL, and a Twitter card style
- * that depends on whether an image exists. Both need forms this vocabulary does
- * not have (asset resolution, and a conditional), and inventing either to make
- * the set look complete is how a closed vocabulary stops being closed. They are
- * classified in the Stage 35 documentation and left for the stage that needs
- * them.
+ * So a derivation now declares an ordered **parameter signature** and a result
+ * type, and a value supplies the arguments. That is the whole of the change.
+ *
+ * ## Why this is not an expression language
+ *
+ * A derivation names *what happens*, never *how to compute it*. There is no
+ * concatenation node, no conditional node, no property access, no call, and no
+ * operator of any kind - the four things a general expression tree is made of
+ * are all absent, and adding them is what would turn this into one. The
+ * vocabulary grows only when a real document behaviour needs a name, and each
+ * name means one specific operation that an architecture knows how to realise.
+ *
+ * Three entries, each traced to something the shipped Astro document does.
  */
 export const DOCUMENT_DERIVATIONS = {
-  'absolute-page-url': {
-    type: 'url',
-    from: ['site.url', 'page.path'],
-  },
+  /**
+   * An absolute address for the page being rendered, from an origin and a path.
+   *
+   * `origin === '' || blocked ? '' : absoluteUrl(origin, Astro.url.pathname)`.
+   * The blocked half is not an input: a page that refuses a canonical says so
+   * at its own scope, and specificity settles it. What is left is the join.
+   */
+  'absolute-page-url': { type: 'url', parameters: ['url', 'path'] },
+  /**
+   * A page's title, qualified by the site's name.
+   *
+   * `title ? \`${title} - ${SITE.name}\` : SITE.name`. The template tests
+   * truthiness, so an absent page title and an empty one behave identically -
+   * and this therefore makes no distinction between them either. Inventing one
+   * would be modelling a behaviour the source does not have.
+   */
+  'page-title-with-site-name': { type: 'text', parameters: ['text', 'text'] },
+  /**
+   * The robots directive a page should carry, from whether indexing is blocked.
+   *
+   * `blocked ? 'noindex, nofollow' : 'index, follow'`, where the template's
+   * `blocked` is `noindex || SEO.noindex` - a page's own opt-out *or* the
+   * project's switch.
+   *
+   * Only the project's switch is an input here, and the disjunction is not
+   * missing: a page that opts out states its own directive at its own scope,
+   * and scope specificity is what combines the two. Modelling `||` as a
+   * derivation would have added a boolean operator to a vocabulary that
+   * deliberately has none, to express something the scope model already
+   * expresses.
+   */
+  'indexing-directive': { type: 'text', parameters: ['flag'] },
 } as const satisfies Readonly<
-  Record<string, { readonly type: DocumentValueType; readonly from: readonly DocumentBinding[] }>
+  Record<
+    string,
+    { readonly type: DocumentValueType; readonly parameters: readonly DocumentValueType[] }
+  >
 >;
 
 export type DocumentDerivation = keyof typeof DOCUMENT_DERIVATIONS;
+
+/** Every derivation id, sorted, so any listing of them is order-stable. */
+export const DOCUMENT_DERIVATION_IDS: readonly DocumentDerivation[] = (
+  Object.keys(DOCUMENT_DERIVATIONS) as DocumentDerivation[]
+).sort();
 
 export function derivationType(derivation: DocumentDerivation): DocumentValueType {
   return DOCUMENT_DERIVATIONS[derivation].type;
 }
 
-export function derivationInputs(derivation: DocumentDerivation): readonly DocumentBinding[] {
-  return DOCUMENT_DERIVATIONS[derivation].from;
+/** The ordered types a derivation's arguments must have. */
+export function derivationParameters(derivation: DocumentDerivation): readonly DocumentValueType[] {
+  return DOCUMENT_DERIVATIONS[derivation].parameters;
 }
 
 export type DerivationOfType<K extends DocumentValueType> = {
@@ -247,6 +288,21 @@ export type DerivationOfType<K extends DocumentValueType> = {
 export function isDocumentDerivation(value: string): value is DocumentDerivation {
   return Object.prototype.hasOwnProperty.call(DOCUMENT_DERIVATIONS, value);
 }
+
+/**
+ * The arguments one derivation takes, typed position by position.
+ *
+ * A mapped tuple over the declared parameter list, so supplying a `url` where
+ * the first parameter is `text` is a compile error rather than something a
+ * runtime check has to notice.
+ */
+type ValuesOf<T extends readonly DocumentValueType[]> = {
+  -readonly [I in keyof T]: DocumentValue<T[I]>;
+};
+
+export type DerivationArguments<D extends DocumentDerivation> = ValuesOf<
+  (typeof DOCUMENT_DERIVATIONS)[D]['parameters']
+>;
 
 // ---------------------------------------------------------------------------
 // The value
@@ -266,7 +322,28 @@ export function isDocumentDerivation(value: string): value is DocumentDerivation
 export type DocumentValue<K extends DocumentValueType> =
   | { readonly kind: 'literal'; readonly type: K; readonly value: LiteralTypes[K] }
   | { readonly kind: 'binding'; readonly type: K; readonly binding: BindingOfType<K> }
-  | { readonly kind: 'derived'; readonly type: K; readonly derivation: DerivationOfType<K> };
+  | {
+      readonly kind: 'derived';
+      readonly type: K;
+      readonly derivation: DerivationOfType<K>;
+      /**
+       * The arguments, in the order the derivation declares them.
+       *
+       * Typed as values rather than as bindings, so an argument may itself be
+       * a literal, a binding or another derivation. Nesting is therefore
+       * possible and is not forbidden - a title whose site-name half is itself
+       * derived is a coherent thing to say.
+       *
+       * A cycle cannot be built. Values are immutable and assembled
+       * bottom-up, so a value would have to contain itself before it existed;
+       * there is no reference, no name and no lookup for one to close through.
+       * The same reason Stage 27's wrapper ordering needs no cycle detection.
+       */
+      readonly inputs: readonly AnyDocumentValue[];
+    };
+
+/** A value of some type, for a position whose type is decided elsewhere. */
+export type AnyDocumentValue = { [K in DocumentValueType]: DocumentValue<K> }[DocumentValueType];
 
 export function literal<K extends DocumentValueType>(
   type: K,
@@ -282,11 +359,72 @@ export function boundTo<K extends DocumentValueType>(
   return { kind: 'binding', type, binding };
 }
 
-export function derived<K extends DocumentValueType>(
-  type: K,
-  derivation: DerivationOfType<K>,
-): DocumentValue<K> {
-  return { kind: 'derived', type, derivation };
+export function derived<D extends DocumentDerivation>(
+  derivation: D,
+  ...inputs: DerivationArguments<D>
+): DocumentValue<(typeof DOCUMENT_DERIVATIONS)[D]['type']> {
+  const value = {
+    kind: 'derived',
+    type: DOCUMENT_DERIVATIONS[derivation].type,
+    derivation,
+    inputs: inputs as readonly AnyDocumentValue[],
+  };
+  return value as unknown as DocumentValue<(typeof DOCUMENT_DERIVATIONS)[D]['type']>;
+}
+
+/**
+ * The three standard constructions, named so call sites read as intentions.
+ *
+ * Ergonomics only: each is exactly the `derived` call it wraps, and nothing
+ * here is part of the vocabulary. They exist because the arguments for these
+ * three are always the same, and spelling them out at every call site invites
+ * one of them to drift.
+ */
+export function absolutePageUrl(): DocumentValue<'url'> {
+  return derived('absolute-page-url', boundTo('url', 'site.url'), boundTo('path', 'page.path'));
+}
+
+/** @param pageTitle empty means the page adds nothing, exactly as the template reads it. */
+export function pageTitleWithSiteName(pageTitle: DocumentValue<'text'>): DocumentValue<'text'> {
+  return derived('page-title-with-site-name', pageTitle, boundTo('text', 'site.name'));
+}
+
+export function indexingDirective(): DocumentValue<'text'> {
+  return derived('indexing-directive', boundTo('flag', 'document.indexingBlocked'));
+}
+
+/**
+ * Refuses arguments that do not match a derivation's declared signature.
+ *
+ * The runtime half of the guarantee `DerivationArguments` makes at compile
+ * time, for boundaries where types have been erased - a value read back from
+ * JSON, or built by something that cast its way past the checker.
+ */
+export function assertDerivationInputs(value: AnyDocumentValue): void {
+  if (value.kind !== 'derived') return;
+
+  const expected = derivationParameters(value.derivation);
+  if (value.inputs.length !== expected.length) {
+    throw new CliError(
+      `"${value.derivation}" takes ${expected.length} input(s), not ${value.inputs.length}.`,
+      {
+        hint: `It is declared as (${expected.join(', ')}) -> ${derivationType(value.derivation)}.`,
+      },
+    );
+  }
+
+  expected.forEach((type, index) => {
+    const input = value.inputs[index];
+    if (input === undefined || input.type !== type) {
+      throw new CliError(
+        `"${value.derivation}" expects ${type} at position ${index}, found ${input?.type ?? 'nothing'}.`,
+        {
+          hint: `It is declared as (${expected.join(', ')}) -> ${derivationType(value.derivation)}.`,
+        },
+      );
+    }
+    assertDerivationInputs(input);
+  });
 }
 
 /** Who decides this value at the generated project's build. */
@@ -297,9 +435,16 @@ export function ownerOf<K extends DocumentValueType>(value: DocumentValue<K>): V
     case 'binding':
       return bindingOwner(value.binding);
     case 'derived': {
-      // A derivation is owned by the least settled of its inputs: if any part
-      // comes from the build, the whole value does.
-      const owners = derivationInputs(value.derivation).map(bindingOwner);
+      /*
+       * The least settled of its inputs, and the rule survives parameters
+       * unchanged: a value is only as settled as its least settled ingredient.
+       * A title composed from a generation-time page title and a project-owned
+       * site name is project-owned, because the project can still change half
+       * of it - and freezing it would be exactly the Stage 34 mistake.
+       *
+       * Recursive, so a nested derivation reports through its own inputs.
+       */
+      const owners = value.inputs.map((input) => ownerOf(input));
       if (owners.includes('build-context')) return 'build-context';
       return owners.includes('project') ? 'project' : 'generation';
     }
@@ -316,7 +461,9 @@ export function bindingsUsedBy<K extends DocumentValueType>(
     case 'binding':
       return [value.binding];
     case 'derived':
-      return [...derivationInputs(value.derivation)].sort();
+      // Every binding anywhere beneath it, de-duplicated and sorted, so an
+      // architecture is asked for the whole set a value depends on.
+      return [...new Set(value.inputs.flatMap((input) => bindingsUsedBy(input)))].sort();
   }
 }
 
@@ -379,6 +526,8 @@ export function describeDocumentValue<K extends DocumentValueType>(
     case 'binding':
       return `${value.type} bound to ${value.binding}`;
     case 'derived':
-      return `${value.type} derived from ${value.derivation}`;
+      return `${value.type} derived from ${value.derivation}(${value.inputs
+        .map((input) => describeDocumentValue(input))
+        .join(', ')})`;
   }
 }
