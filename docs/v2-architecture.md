@@ -4764,3 +4764,10 @@ stays 1.0.2.
    deterministic and it is not precedence; if a future architecture needs head
    order to carry meaning, it will need to say so explicitly rather than rely on
    this.
+7. The render site is the shell, so it is per-project, not per-page. A real
+   build with a synthetic contributor confirmed the composed entries appear on
+   every page that uses `BaseLayout.astro`, the 404 included. The 404's own
+   semantics are untouched — it still asks not to be indexed, carries no
+   canonical and no JSON-LD — but a composed entry today is site-wide. Anything
+   page-varying needs the entries to be computed per page and threaded through
+   the layout, which is realization's problem, not the surface's.
