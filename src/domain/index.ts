@@ -135,6 +135,22 @@ export type {
   ResolvedPageDocument,
 } from './document-scope.js';
 
+export {
+  assertPlanRealizable,
+  bindingsRequiredBy,
+  buildDocumentEmission,
+  derivationsRequiredBy,
+  describeEmissionPlan,
+  EMISSION_FIELDS,
+  statedValue,
+} from './document-emission.js';
+export type {
+  DocumentEmissionItem,
+  DocumentEmissionPlan,
+  EmissionField,
+  RealizationSupport,
+} from './document-emission.js';
+
 export { METADATA_FIELDS, resolveDocumentContributions } from './document-resolution.js';
 export type {
   MetadataField,

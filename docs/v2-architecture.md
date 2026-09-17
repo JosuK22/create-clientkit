@@ -4423,3 +4423,151 @@ remains refused, React is untouched, and no template changed.
 **Unchanged.** Zero goldens moved. The four V1 goldens are byte-identical
 (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), the CLI
 still has zero runtime dependencies, and the version stays 1.0.2.
+
+### Stage 38 — the document emission boundary (landed)
+
+**Where this sits.** Stage 34 stopped because resolved facts could not be
+emitted without freezing the generated project. Stage 35 gave a value three
+forms and an owner, Stage 36 threaded them through resolution, Stage 37 gave
+derivations typed parameters. This stage draws the line those four were
+building toward:
+
+```text
+ResolvedDocument  →  emission IR  →  architecture realization  →  (Stage 39)
+```
+
+Everything left of the IR is **semantics** — what the document says, which scope
+won, who disagreed. Everything right of it is **spelling**. The IR exists so
+neither side has to know the other.
+
+#### What an emitter is handed
+
+```ts
+interface DocumentEmissionPlan {
+  target: DocumentTarget;
+  items: readonly DocumentEmissionItem[];
+}
+```
+
+An emitter never sees a contribution, a scope, an owner's disagreement, a
+feature, a manifest or a conflict — **it does not repeat resolution**. It sees a
+list of document facts in a fixed order, each either stated or refused, and it
+carries the target so a failure can name the page.
+
+Seven fields, in this order: `title`, `description`, `robots`, `canonical`,
+`open-graph`, `twitter`, `structured-data`. The order is semantic and is **not**
+precedence; arbitration finished before the IR existed.
+
+#### Three states, still three
+
+| State      | Representation                            |
+| ---------- | ----------------------------------------- |
+| stated     | an item carrying a value                  |
+| suppressed | an item carrying reasons and **no** value |
+| absent     | no item at all                            |
+
+A suppression is not an item with an empty value, and an absence is not a
+suppression — an emitter that could not tell them apart would eventually fill a
+gap somebody deliberately refused. A suppressed metadata statement produces a
+suppressed item for _every_ metadata field, so none of them looks merely
+unmentioned.
+
+#### Nothing is evaluated
+
+A binding stays a binding; a derivation stays a derivation with its arguments
+intact, nested ones included. A test serialises a full plan and asserts it
+contains neither `Acme Ltd` nor `https://acme.example` while containing
+`site.name` and `absolute-page-url`. Turning those into values here would freeze
+what the project owns — the Stage 34 failure, arriving one layer later.
+
+#### No markup, ever
+
+There is no `html`, `markup`, `source`, `expression` or `code` field anywhere in
+the IR, and a test fails if one appears. An IR carrying a string of source would
+have moved the framework back into the domain by the shortest possible route.
+
+#### Canonical, all four states
+
+| Input                        | IR                                             |
+| ---------------------------- | ---------------------------------------------- |
+| absent                       | no item                                        |
+| `literal('')`                | an item stating emptiness — a claim, not a gap |
+| `literal(url)`               | a fixed canonical                              |
+| `derived(absolute-page-url)` | a dynamic canonical, unevaluated               |
+
+A test asserts all four serialise differently.
+
+#### The realization contract
+
+```ts
+interface RealizationSupport {
+  architecture: string;
+  bindings: readonly DocumentBinding[];
+  derivations: readonly DocumentDerivation[];
+}
+```
+
+A declaration, not a set of functions — _how_ an architecture writes any of it is
+Stage 39's problem, and putting a function here would be that stage arriving
+early. `bindingsRequiredBy` and `derivationsRequiredBy` report what a given plan
+actually needs, which is how **required-for-this-plan** stays separate from
+**known-but-unused**: a plan of literals requires nothing, and an architecture
+supporting nothing can realise it.
+
+`assertPlanRealizable` refuses anything the architecture cannot spell, naming the
+field, the value, the architecture, the reason and the page. **There is no
+fallback**: nothing is dropped, substituted, turned into a literal or fabricated.
+A test asserts the plan is unchanged after a refusal.
+
+#### Malformed values
+
+The boundary also rejects what a cast can smuggle past the type system: a
+binding or derivation outside the vocabulary, wrong argument types, wrong
+argument counts, and values nested past any honest depth.
+
+The depth bound is **not** a cycle detector. Stage 37 established that cycles
+cannot be constructed — values are immutable, built bottom-up, and `JSON.parse`
+cannot express one. What remains is a malformed value arriving through an erased
+cast, where an unbounded walk would hang instead of failing. A bound turns that
+into a named refusal for the cost of a counter, and the deepest thing the
+vocabulary can honestly express is two levels.
+
+#### Accessibility contributes nothing, and why
+
+Its one valued fact is the document's language — and the shipped Astro layout
+writes that as `lang={SITE.locale}`, a **binding**. `AccessibilityContract`
+holds a generation-time snapshot of the same value, so emitting it would freeze
+what the project owns: Stage 34's failure exactly. Representing it truthfully
+needs a binding-aware accessibility contract, which stays deferred. The
+remaining guarantees are body structure and assertions about the shell rather
+than values, and belong to a document-structure boundary this stage does not
+build.
+
+#### Provenance
+
+Each item carries the owners that claimed it, for diagnostics. The contribution
+graph is **not** duplicated — a test asserts the plan contains no scope,
+specificity or contribution machinery, so an emitter cannot re-run arbitration
+even if it wanted to.
+
+#### Ordering
+
+From the vocabulary, by construction. The build walks `EMISSION_FIELDS`
+directly; an earlier draft walked a `Record` literal and sorted afterwards,
+which produced the right answer for the wrong reason — the record's keys already
+matched, so the sort was unreachable and the real ordering came from object
+insertion order. That is the dependence this layer exists to avoid, so the walk
+was inverted and the sort removed rather than kept as a guard nobody could
+prove.
+
+#### Why Stage 39 is still ahead
+
+Everything the Astro head computes is now representable, unevaluated, with
+ownership attached, and Astro declares that it can realise all of it. What does
+not exist is any code that decides how Astro _spells_ a binding or performs a
+derivation, or where the result is written. That is Stage 39.
+
+**Unchanged.** Zero goldens moved, no template touched. The four V1 goldens are
+byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+Next remains refused, React is untouched, the CLI still has zero runtime
+dependencies, and the version stays 1.0.2.

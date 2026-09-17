@@ -1,5 +1,7 @@
+import type { RealizationSupport } from '../domain/document-emission.js';
 import type { DocumentDerivation } from '../domain/document-value.js';
 import { DOCUMENT_DERIVATION_IDS } from '../domain/document-value.js';
+import { ASTRO_BINDING_SUPPORT } from './astro-bindings.js';
 
 /**
  * Which semantic derivations Astro can realise.
@@ -28,4 +30,18 @@ export interface DerivationSupport {
 export const ASTRO_DERIVATION_SUPPORT: DerivationSupport = {
   architecture: 'astro-standard',
   supports: [...DOCUMENT_DERIVATION_IDS],
+};
+
+/**
+ * Everything Astro can spell, as one declaration.
+ *
+ * Composed from the binding and derivation lists rather than restated, so the
+ * three can never drift into disagreeing about what Astro supports. This is
+ * what a future realization is handed alongside a plan; it still contains no
+ * spelling, because how Astro writes any of it is Stage 39's problem.
+ */
+export const ASTRO_REALIZATION: RealizationSupport = {
+  architecture: 'astro-standard',
+  bindings: ASTRO_BINDING_SUPPORT.supports,
+  derivations: ASTRO_DERIVATION_SUPPORT.supports,
 };
