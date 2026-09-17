@@ -33,6 +33,7 @@ import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
 import { createAdapterRegistry } from './registry.js';
+import { composeAstroDocumentHead } from './astro-document-surface.js';
 import { resolveProject } from './selection.js';
 
 /**
@@ -825,7 +826,7 @@ export function planManifest(
     ...composedRouter(project, contributions),
   ]);
 
-  const operations = applyMerges(
+  const merged = applyMerges(
     project,
     contributions,
     mergeComposed(
@@ -833,6 +834,17 @@ export function planManifest(
       composedProviderShell(project, contributions, withContributions),
     ),
   );
+
+  /*
+   * The composed document head, with nothing to compose.
+   *
+   * Stage 40 built the render site; the realization that fills it is a later
+   * stage, so no adapter contributes an entry and this is a no-op on every
+   * path. Wired anyway, and deliberately: the V1 goldens run through this call,
+   * so their being byte-identical *is* the proof that the default path changes
+   * nothing. An unwired surface would prove that much less.
+   */
+  const operations = composeAstroDocumentHead(project.architecture, merged, []);
 
   const packageResult = composePackageOperation(project, contributions, operations);
   // Refuses two adapters describing the head differently, before anything is

@@ -4571,3 +4571,196 @@ derivation, or where the result is written. That is Stage 39.
 byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
 Next remains refused, React is untouched, the CLI still has zero runtime
 dependencies, and the version stays 1.0.2.
+
+### Stage 40 — a composition-owned Astro document surface (landed)
+
+Stage 39 stopped without writing an emitter. This stage builds the thing whose
+absence stopped it: a place in the generated Astro project where a future
+realization can render, which costs nothing when nothing renders there.
+
+#### Why Stage 39 was blocked
+
+The emission plan was complete and Astro declared it could realise every field
+in it, but there was nowhere to put the result. Astro's document is spread
+across `BaseLayout.astro`, `Seo.astro`, `StructuredData.astro` and the pages,
+and every byte of all of them is captured by the four V1 goldens. V1 selects no
+features, so there is no variant path through those files — any emitter that
+wrote into them wrote into V1's bytes.
+
+That left two moves, and Stage 39 refused both. Changing the goldens would
+retire the only evidence that V1 still works. Generating a component nothing
+imports would produce a file that exists, type-checks, builds, and is dead:
+the failure mode where the pipeline looks finished because its output is
+syntactically present.
+
+#### The surface, and why it composes rather than replaces
+
+`composeAstroDocumentHead` in `src/adapters/astro-document-surface.ts` takes the
+planned file operations and a list of head entries, and returns operations. With
+no entries it returns the array it was given, by reference:
+
+```text
+no contributions  ->  no component, no import, no change
+contributions     ->  a component, imported, rendered after <Seo />
+```
+
+The reference return is the point. The default path is byte-identical because it
+performs no work — not because it carefully reconstructs the original output and
+is checked against it. A reconstruction can be subtly wrong; doing nothing
+cannot. It is wired into the bridge in its no-op form deliberately, so the V1
+goldens prove the identity on every run rather than the code path sitting
+unexercised until something first contributes.
+
+When entries do arrive, the component is written at the path the architecture
+maps to `app.document.head`, an import is spliced after the shell's last existing
+frontmatter import, and `<DocumentHead />` is inserted after an anchor line in
+the shell. Neither path is a literal here: both come from `resolveRole`, because
+where Astro keeps its layouts is Astro's decision and copying it into the
+composer would give that decision two homes that drift.
+
+#### The anchor
+
+`ASTRO_HEAD_ANCHOR` is the shell's `<Seo … />` line, matched exactly once. Astro's
+head is ordered — the descriptive tags come from `<Seo />` and composed entries
+follow them — so the insertion point is part of the architecture rather than
+somewhere convenient. Finding zero or two occurrences is refused rather than
+guessed at, and a test matches the constant against the shipped template, so a
+template edit that moved the line fails at the boundary instead of quietly
+placing composed entries where nobody chose.
+
+#### Template ownership versus composition ownership
+
+`src/domain/document-surface.ts` is the model, and it is pure domain — it knows
+the emission vocabulary and that somebody owns each field, and nothing about
+Astro. An architecture declares which fields its composed surface may emit;
+everything else in `EMISSION_FIELDS` is template-owned by omission, which is the
+safe default, since a field nobody thought about stays with the implementation
+that already works.
+
+Ownership is **not** arbitration. Which _value_ a field carries was settled by
+Stages 31–33. This says only who renders it, and nothing in the file reads a
+scope, a contributor, a conflict or a precedence rule.
+
+#### Partial ownership, and why Twitter is not composed
+
+Astro composes `title`, `description`, `robots`, `canonical` and `open-graph`.
+It keeps `twitter` and `structured-data`, each with a stated reason, because for
+those two the shipped template is **more capable than the semantic contract**:
+
+- `Seo.astro` upgrades `twitter:card` to `SEO.twitterCard` once a social image
+  is configured and emits `twitter:image`; `TwitterContract` hard-codes
+  `'summary'` and models no image at all.
+- `StructuredData.astro` emits email, telephone, `sameAs` and a location from the
+  project configuration; `OrganizationContract` carries none of them.
+
+So "replace the template's head with the composed one" is not a refactor, it is
+a regression, and the ownership split exists to say so precisely. Open Graph
+splits cleanly — the semantic block's six fields are disjoint from `og:image`,
+which stays with `Seo.astro`. Twitter does not split, because `card` is claimed
+by both sides with the template winning, so it stays template-owned whole rather
+than being carved up field by field inside a field.
+
+#### Preventing the document that says everything twice
+
+Two guards, because there are two ways to get there. A declaration listing a
+field as composed _and_ giving it a template-owned reason contradicts itself and
+is refused when it is read. A contribution aimed at a field the architecture
+keeps is refused when it arrives, naming the reason the template owns it.
+
+Both failures produce valid Astro that builds without complaint and renders two
+`<title>` elements, or two `twitter:card` metas with different values. They are
+structurally detectable, so they are detected here rather than in a browser.
+
+#### Values the project owns stay the project's
+
+Nothing about this changes where the document's dynamic values come from. A
+generated project was edited after generation — site name, URL, description and
+locale — and rebuilt **without re-running ClientKit**; the head followed:
+`<html lang="fr-FR">`, the new title, the new description, and a canonical on
+the new origin. A page the user added afterwards got the same treatment:
+`Contact - Renamed Ltd` and a canonical at `/contact/`. The composed surface is
+a render site, not a snapshot, and Stage 34's failure — freezing build-time
+values into shipped source — is not reintroduced.
+
+#### 404 and the rest of the existing document
+
+The 404 page still passes `noindex={true}`, still emits `robots: noindex,
+nofollow`, still carries no canonical and no JSON-LD, while the home page
+carries exactly one title and one JSON-LD block. None of that is new behaviour;
+it is behaviour that had to survive, and it is now asserted rather than assumed.
+
+#### Capability contract interaction
+
+`app.document.head` joins the semantic roles as the first **composed** role —
+mapped by the architecture, but generated rather than shipped. Stage 28's
+invariant that every mapped role points at a file the template actually ships
+now skips composed roles, and gains an inverse: a composed role whose path the
+template _does_ ship is refused, because that is the collision where a generated
+file and a shipped file claim the same place. The capability contract itself is
+unchanged; no capability was reclassified and no surface changed its `via`.
+
+#### Synthetic validation
+
+Stage 40 ships no contributor — realization is a later stage — so the render
+path is proven by a synthetic one in the tests: entries in, component out,
+imported and rendered inside `<head>`, at the mapped path, in an order that comes
+from the document vocabulary rather than from arrival (six permutations, one
+result). That the production wiring passes an empty list is exactly why the
+goldens can prove byte-identity; the synthetic path is what proves the other
+branch is not vapour.
+
+#### Why realization is still ahead
+
+What exists now is a place to render and a statement of what may be rendered
+there. What does not exist is any code that turns a `DocumentEmissionPlan` into
+Astro source — no binding is spelled, no derivation is performed, no plan is
+consumed. The bridge passes an empty list of entries and nothing in the
+repository passes a non-empty one outside the tests. **The Astro emitter is not
+implemented.** This stage answers only "where can a realization safely render?",
+which is the question Stage 39 could not answer and the reason it stopped.
+
+#### Next.js and React remain untouched
+
+Next is still refused at selection. React has no document surface declaration,
+because nothing has established what React's document _is_ — the provider-shell
+pattern that describes its component tree does not describe a head. Declaring
+ownership for an architecture whose render site nobody has identified would be
+inventing the answer rather than recording it.
+
+#### Mutation testing
+
+24 mutations, zero survivors. Beyond the obvious guards, four mutate shipped
+template bytes rather than source, on the grounds that "the existing document
+keeps working" is only worth asserting if a regression in the template is caught
+too: dropping `noindex` from 404, flattening the `twitter:card` upgrade, moving
+the anchor line, and shipping a file at the composed role's path. The two Stage
+39 named as the real risks — a component generated but never rendered, and a
+field composed that the template already owns — are mutated directly and caught
+by the tests written for them.
+
+**Unchanged.** Zero goldens moved, no template byte edited. The four V1 goldens
+are byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+no `DocumentHead.astro` is generated by any real selection, Next remains refused,
+React is untouched, the CLI still has zero runtime dependencies, and the version
+stays 1.0.2.
+
+#### Known limitations
+
+1. No realization. Nothing converts an emission plan into head entries, so the
+   composed surface is inert in every generated project today.
+2. Astro only. The ownership model is architecture-neutral; exactly one
+   architecture declares against it.
+3. The composed surface is head-only. `app.document.body` and the rest of the
+   document shell have no surface, and the structural guarantees Stage 38
+   deferred are still deferred.
+4. `twitter` and `structured-data` are template-owned indefinitely, not
+   temporarily. Composing them needs the semantic contracts to grow an image
+   model and contact/location fields first; until then the split is the honest
+   description, not a migration step.
+5. The anchor is a line match. It is verified against the shipped template by a
+   test, but a template refactor still has to be accompanied by an anchor update
+   — the coupling is checked, not eliminated.
+6. Ordering inside the composed head is alphabetical by field. It is
+   deterministic and it is not precedence; if a future architecture needs head
+   order to carry meaning, it will need to say so explicitly rather than rely on
+   this.

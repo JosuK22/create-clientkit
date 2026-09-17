@@ -307,13 +307,42 @@ describe('Astro file roles map onto the real template paths', () => {
       ),
   );
 
+  /**
+   * Roles whose file is produced rather than shipped.
+   *
+   * Astro's map was entirely template-owned until Stage 40, so "every mapped
+   * role points at a shipped file" was the whole invariant. `app.document.head`
+   * is its first composed role - the same category React's `app.providers` and
+   * Next's `app.shell` have been in since Stages 26-27 - and asserting a
+   * composed file exists in the template would be asserting the opposite of
+   * what it is for.
+   *
+   * Listed rather than pattern-matched, so adding a composed role is a
+   * deliberate act and the invariant keeps its force for every other role.
+   */
+  const COMPOSED_ROLES = new Set(['app.document.head']);
+
   it('every mapped role points at a file the template actually ships', () => {
     for (const [role, target] of Object.entries(ASTRO_ARCHITECTURE.roles)) {
       if (role === 'assets.public') continue; // a directory, not a file
+      if (COMPOSED_ROLES.has(role)) continue; // generated on demand, never shipped
       const templatePath = target === 'package.json' ? '_package.json' : target;
       expect(templateFiles.has(templatePath), `role "${role}" -> ${target} does not exist`).toBe(
         true,
       );
+    }
+  });
+
+  it('ships no file for a composed role', () => {
+    // The other direction, so the exemption above cannot quietly cover a role
+    // that really is template-owned.
+    for (const role of COMPOSED_ROLES) {
+      const target = ASTRO_ARCHITECTURE.roles[role as keyof typeof ASTRO_ARCHITECTURE.roles];
+      expect(target, `${role} is not mapped`).toBeDefined();
+      expect(
+        templateFiles.has(target as string),
+        `${role} -> ${target} is shipped, so it is not composed`,
+      ).toBe(false);
     }
   });
 

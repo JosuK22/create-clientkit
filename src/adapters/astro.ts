@@ -78,6 +78,15 @@ const ASTRO_ARCHITECTURE: ArchitectureDefinition = {
   ],
   roles: {
     'app.layout': 'src/layouts/BaseLayout.astro',
+    /*
+     * Where composed head entries go, when anything contributes one.
+     *
+     * Mapping it is not a claim that anything does. Nothing is written here
+     * unless the document surface has entries - which is what keeps a project
+     * with no document contributions byte-identical to the one this template
+     * has always produced.
+     */
+    'app.document.head': 'src/components/DocumentHead.astro',
     'page.home': 'src/pages/index.astro',
     'page.notFound': 'src/pages/404.astro',
     'config.site': 'src/config/site.config.ts',
