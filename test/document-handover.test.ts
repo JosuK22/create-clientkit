@@ -7,7 +7,7 @@ import type { AstroHeadEntry } from '../src/adapters/astro-document-surface.js';
 import {
   ASTRO_DOCUMENT_OWNERSHIP,
   ASTRO_SEO_HANDOVER,
-  composeAstroDocumentHead,
+  composeAstroDocument,
 } from '../src/adapters/astro-document-surface.js';
 import {
   ASTRO_BINDING_EXPRESSIONS,
@@ -31,7 +31,9 @@ import { assertHandoverIsPossible, fieldsToHandOver } from '../src/domain/docume
 import type { DocumentBinding } from '../src/domain/document-value.js';
 import { DOCUMENT_BINDING_IDS } from '../src/domain/document-value.js';
 import type { ProjectManifest } from '../src/domain/manifest.js';
+import { SITE_TARGET } from '../src/domain/document-scope.js';
 import { resolveRole } from '../src/domain/roles.js';
+import type { FileOperation } from '../src/generate/files.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import type { CliError } from '../src/errors.js';
 
@@ -64,6 +66,22 @@ const codeOnly = (file: string): string =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
+/**
+ * The site-wide form, named so the target is visible at every call site.
+ *
+ * Stage 43 made the target explicit; these tests predate it and all mean the
+ * site. Spelling that out here keeps them honest rather than letting a
+ * target-less call stand in.
+ */
+const composeSite = (
+  operations: readonly FileOperation[],
+  entries: readonly AstroHeadEntry[],
+): readonly FileOperation[] =>
+  composeAstroDocument(
+    ASTRO,
+    operations,
+    entries.length === 0 ? [] : [{ target: SITE_TARGET, entries }],
+  );
 const refusal = (run: () => unknown): string => {
   try {
     run();
@@ -428,7 +446,7 @@ describe('choosing what to hand over', () => {
 
 describe('composing a field takes it off the template', () => {
   const composeWith = (entries: readonly AstroHeadEntry[]) =>
-    composeAstroDocumentHead(ASTRO, plannedOperations(), entries);
+    composeSite(plannedOperations(), entries);
 
   const written = (
     entries: readonly AstroHeadEntry[],
@@ -498,7 +516,7 @@ describe('composing a field takes it off the template', () => {
     const without = plannedOperations().filter(
       (operation) => operation.path !== 'src/components/Seo.astro',
     );
-    const message = refusal(() => composeAstroDocumentHead(ASTRO, without, [entryFor('title')]));
+    const message = refusal(() => composeSite(without, [entryFor('title')]));
     expect(message).toContain('no component to be handed over from');
     expect(message).toContain('src/components/Seo.astro');
   });
@@ -509,13 +527,13 @@ describe('composing a field takes it off the template', () => {
         ? { ...operation, content: `${operation.content}\n<meta name="extra" />\n` }
         : operation,
     );
-    const message = refusal(() => composeAstroDocumentHead(ASTRO, tampered, [entryFor('title')]));
+    const message = refusal(() => composeSite(tampered, [entryFor('title')]));
     expect(message).toContain('not the component the handover model describes');
   });
 
   it('leaves the default path untouched', () => {
     const operations = plannedOperations();
-    expect(composeAstroDocumentHead(ASTRO, operations, [])).toBe(operations);
+    expect(composeSite(operations, [])).toBe(operations);
   });
 });
 
@@ -640,7 +658,7 @@ describe('imports are gathered deterministically', () => {
 
 describe('the composed head gets the imports its entries need', () => {
   const head = (bindings: readonly DocumentBinding[]) => {
-    const operations = composeAstroDocumentHead(ASTRO, plannedOperations(), [
+    const operations = composeSite(plannedOperations(), [
       {
         field: 'title',
         source: `<title>{${astroExpressionFor('site.name')}}</title>`,
@@ -751,10 +769,8 @@ describe('handover is deterministic', () => {
 
   it('produces identical operations under every permutation of the entries', () => {
     const entries = [entryFor('title', ['site.name']), entryFor('canonical', ['site.url'])];
-    const a = JSON.stringify(composeAstroDocumentHead(ASTRO, plannedOperations(), entries));
-    const b = JSON.stringify(
-      composeAstroDocumentHead(ASTRO, plannedOperations(), [entries[1]!, entries[0]!]),
-    );
+    const a = JSON.stringify(composeSite(plannedOperations(), entries));
+    const b = JSON.stringify(composeSite(plannedOperations(), [entries[1]!, entries[0]!]));
     expect(a).toBe(b);
   });
 });

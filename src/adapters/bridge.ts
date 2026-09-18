@@ -33,7 +33,7 @@ import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
 import { createAdapterRegistry } from './registry.js';
-import { composeAstroDocumentHead } from './astro-document-surface.js';
+import { composeAstroDocument } from './astro-document-surface.js';
 import { resolveProject } from './selection.js';
 
 /**
@@ -844,7 +844,7 @@ export function planManifest(
    * so their being byte-identical *is* the proof that the default path changes
    * nothing. An unwired surface would prove that much less.
    */
-  const operations = composeAstroDocumentHead(project.architecture, merged, []);
+  const operations = composeAstroDocument(project.architecture, merged, []);
 
   const packageResult = composePackageOperation(project, contributions, operations);
   // Refuses two adapters describing the head differently, before anything is

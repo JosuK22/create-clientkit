@@ -5110,3 +5110,158 @@ the CLI still has zero runtime dependencies, and the version stays 1.0.2.
 5. Imports carry no aliasing, so two modules exporting the same symbol name
    cannot both be imported. Refused rather than mishandled, and nothing in the
    vocabulary needs it today.
+
+### Stage 43 — page-aware composition (landed)
+
+Stage 42 made ownership physical but left the composed head in the shell, so
+every composed document rendered on every page: a synthetic canonical aimed at
+nothing in particular turned up on the 404. The target was not lost by accident
+— the surface never took one.
+
+#### The target is carried, not inferred
+
+`composeAstroDocument` takes compositions, each a `DocumentTarget` and the
+entries realized for it. The target comes from the semantic layer unchanged;
+nothing in the adapter reads a scope, combines two, or decides which is more
+specific. Stage 33 did all of that, and this only knows that a resolved document
+belongs to a target.
+
+#### The mechanism: a named slot with a fallback
+
+Four mechanisms were tested against a real build before one was chosen.
+
+1. **Astro hoisting head tags out of a body-slotted component** — measured, and
+   it does not. A `<meta>` rendered through the default slot lands in `<body>`.
+2. **A path comparison in the shell** (`Astro.url.pathname === '/404'`) — would
+   work, since prerendered pages do see `/` and `/404/` at build time, but it
+   freezes a route into generated source and needs ClientKit to know each page's
+   URL. Rejected.
+3. **Inserting after the page's opening layout tag** — the four page shapes this
+   template ships spell that four different ways: bare, with attributes on one
+   line, and with attributes across five. That needs attribute parsing.
+4. **A named slot, filled as the page's last child** — chosen.
+
+```astro
+<!-- the shell -->
+<slot name="head"><DocumentHead /></slot>
+
+<!-- a page with a document of its own -->
+<Fragment slot="head"><DocumentHeadPageNotFound /></Fragment>
+```
+
+Astro renders a named slot's fallback only when nothing fills it, which is
+exactly the specificity Stage 33 defined: a page that states its own document
+replaces the site's, and a page that states nothing inherits it. No condition,
+no page list, no path, and no way for both to render.
+
+Because slot order does not matter, the fragment goes in as the page's **last**
+child — which lets the anchor be the layout's closing tag, one exact string
+found exactly once, with no attributes to parse. The layout's local name is read
+from the page's own import rather than assumed.
+
+#### Site and page targets
+
+A site-wide document is written at `app.document.head` and rendered as the
+slot's fallback in the shell; no page file is touched, because touching pages
+for it would mean ClientKit had to know which pages exist. A page document is
+written to a sibling component named from the role — `page.notFound` becomes
+`DocumentHeadPageNotFound`, a function of the role alone — and rendered by the
+file that role maps to.
+
+#### Targets that cannot be honoured
+
+A role the architecture does not map, and a page nothing plans, are both
+refused. The tempting fallback is to render such a document in the shell, which
+would broaden exactly the scope the target was chosen to narrow. Two documents
+for the same target are refused too: merging them would be arbitration, and
+arbitration finished before the architecture was involved.
+
+#### Coverage: the defect the first real build found
+
+The first build composed `description` site-wide and `description` plus
+`canonical` for the 404. Both pages looked right. The home page and a
+user-added page **silently lost their canonical**, because the template gives a
+field up once for the whole project — `Seo.astro` is one shared component — and
+nothing replaced it for pages without a document of their own.
+
+`assertHandoverIsCovered` now refuses that, on two conditions that both follow
+from how the pieces render:
+
+- a site-wide document must exist, because it is what every page that states
+  nothing falls back to — and pages added after generation always will;
+- every target must state every handed-over field, because a target's document
+  replaces the site's wholesale rather than merging with it.
+
+The second is not a restriction on what a page may say. Scope composition
+already resolves each page to a _complete_ document, inherited fields included,
+so a target that omits one is not a page saying less — it is a caller that
+skipped the resolution.
+
+This also made the "no site document" branch in the shell unreachable, so it was
+removed rather than kept as a fallback nobody could prove.
+
+#### User-added pages
+
+A page the developer adds afterwards uses the same layout and fills no slot, so
+it gets the site-wide document. Validated on a real build: a hand-written
+`contact.astro` that ClientKit never saw carries the site description and
+canonical, with exactly one of every tag. Nothing enumerates pages anywhere —
+a test asserts the composer names no route, no pathname and no component path.
+
+#### 404 isolation
+
+Measured on a real build and again in a browser against the built site:
+
+|            | site tags | page tags | title | description | canonical | robots            | JSON-LD |
+| ---------- | --------- | --------- | ----- | ----------- | --------- | ----------------- | ------- |
+| `/`        | 2         | 0         | 1     | 1           | 1         | index, follow     | 1       |
+| `/404`     | 0         | 2         | 1     | 1           | 1         | noindex, nofollow | 0       |
+| `/contact` | 2         | 0         | 1     | 1           | 1         | index, follow     | 1       |
+
+The page document reaches its page and no other; the site document reaches
+every other page including one added by hand; nothing is duplicated; and the
+404's own semantics — `noindex`, no structured data — are untouched, because
+they come from props the template still owns.
+
+#### No global state
+
+Page context is a parameter. There is no module-level current page, no
+environment read, no `globalThis`, and no singleton — asserted by a test that
+scans for `let`, `var`, `process.env` and `globalThis` at module scope, and by
+one that composes a page target and then checks a later site-only call is
+unchanged.
+
+#### Ownership is unchanged
+
+Twitter, structured data, `og:image`, `og:locale`, `og:type`, `og:site_name`,
+the `twitter:card` upgrade and `twitter:image` all stay with the template
+exactly as Stage 42 left them. Page-awareness moved where documents render, not
+who owns what.
+
+#### Why realization is still deferred
+
+Nothing consumes a `DocumentEmissionPlan`, no derivation is performed, and every
+entry in this stage is synthetic and marked `data-ck`. This stage answers only
+"can a document reach one page without becoming global?" — which it now does.
+
+**Unchanged.** No template byte edited, no golden moved. The four V1 goldens are
+byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+Next remains refused, React is untouched, the CLI still has zero runtime
+dependencies, and the version stays 1.0.2.
+
+#### Known limitations
+
+1. Page targets reach only pages ClientKit maps to a role. A user-added page
+   cannot be given its own document by the generator — it inherits the
+   site-wide one, which is correct but not selectable.
+2. Every target must state every handed-over field. That matches how scope
+   resolution produces documents, but it means a composition cannot express a
+   delta.
+3. The page anchor is the layout's closing tag. Robust across the four shipped
+   page shapes and guarded by a must-occur-once check, but a page that renders
+   its layout twice is refused rather than handled.
+4. The fragment is always the page's last child. Slot order does not matter to
+   Astro, so this is invisible in output, but the generated source reads oddly
+   next to a hand-written page.
+5. Still no realization: the entries are synthetic, so nothing yet proves a
+   _semantic_ document reaches the right page — only that a document does.

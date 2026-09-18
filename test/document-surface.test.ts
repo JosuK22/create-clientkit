@@ -7,7 +7,7 @@ import type { AstroHeadEntry } from '../src/adapters/astro-document-surface.js';
 import {
   ASTRO_DOCUMENT_OWNERSHIP,
   ASTRO_HEAD_ANCHOR,
-  composeAstroDocumentHead,
+  composeAstroDocument,
 } from '../src/adapters/astro-document-surface.js';
 import { planManifest } from '../src/adapters/bridge.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
@@ -21,6 +21,7 @@ import {
   templateOwnedFields,
 } from '../src/domain/document-surface.js';
 import type { ProjectManifest } from '../src/domain/manifest.js';
+import { SITE_TARGET } from '../src/domain/document-scope.js';
 import { resolveRole } from '../src/domain/roles.js';
 import type { FileOperation } from '../src/generate/files.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
@@ -54,6 +55,22 @@ const codeOnly = (file: string): string =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
+/**
+ * The site-wide form, named so the target is visible at every call site.
+ *
+ * Stage 43 made the target explicit; these tests predate it and all mean the
+ * site. Spelling that out here keeps them honest rather than letting a
+ * target-less call stand in.
+ */
+const composeSite = (
+  operations: readonly FileOperation[],
+  entries: readonly AstroHeadEntry[],
+): readonly FileOperation[] =>
+  composeAstroDocument(
+    ASTRO,
+    operations,
+    entries.length === 0 ? [] : [{ target: SITE_TARGET, entries }],
+  );
 const refusal = (run: () => unknown): string => {
   try {
     run();
@@ -114,7 +131,7 @@ const syntheticEntry: AstroHeadEntry = {
 describe('with nothing to compose, the surface does nothing', () => {
   it('returns the operations it was given, unchanged', () => {
     const operations = planOf(astroManifest()).plan.operations;
-    const composed = composeAstroDocumentHead(ASTRO, operations, []);
+    const composed = composeSite(operations, []);
     // Identity, not equality: the default path performs no work at all, which
     // is the strongest form of "byte-identical" available.
     expect(composed).toBe(operations);
@@ -155,8 +172,7 @@ describe('with nothing to compose, the surface does nothing', () => {
 describe('with something to compose, the surface renders it', () => {
   const composed = (
     entries: readonly AstroHeadEntry[] = [syntheticEntry],
-  ): readonly FileOperation[] =>
-    composeAstroDocumentHead(ASTRO, planOf(astroManifest()).plan.operations, entries);
+  ): readonly FileOperation[] => composeSite(planOf(astroManifest()).plan.operations, entries);
 
   it('generates the component at the mapped role', () => {
     const target = resolveRole(ASTRO, 'app.document.head');
@@ -195,7 +211,11 @@ describe('with something to compose, the surface renders it', () => {
      */
     const shell = composed().find((entry) => entry.path === 'src/layouts/BaseLayout.astro');
     if (shell?.type !== 'write') throw new Error('narrowing failed');
-    expect(shell.content).toContain(`${ASTRO_HEAD_ANCHOR}\n    <DocumentHead />`);
+    // Since Stage 43 the site-wide head is the head slot's *fallback*, so a
+    // page that states its own document replaces it rather than adding to it.
+    expect(shell.content).toContain(
+      `${ASTRO_HEAD_ANCHOR}\n    <slot name="head"><DocumentHead /></slot>`,
+    );
     const headStart = shell.content.indexOf('<head>');
     const headEnd = shell.content.indexOf('</head>');
     const rendered = shell.content.indexOf('<DocumentHead />');
@@ -233,7 +253,7 @@ describe('with something to compose, the surface renders it', () => {
         ? { ...entry, content: '---\nimport X from "y";\n---\n<html></html>' }
         : entry,
     );
-    const message = refusal(() => composeAstroDocumentHead(ASTRO, broken, [syntheticEntry]));
+    const message = refusal(() => composeSite(broken, [syntheticEntry]));
     expect(message).toContain('could not find its place');
     expect(message).toContain('found 0');
   });
@@ -242,7 +262,7 @@ describe('with something to compose, the surface renders it', () => {
     const without = planOf(astroManifest()).plan.operations.filter(
       (entry) => entry.path !== 'src/layouts/BaseLayout.astro',
     );
-    expect(refusal(() => composeAstroDocumentHead(ASTRO, without, [syntheticEntry]))).toContain(
+    expect(refusal(() => composeSite(without, [syntheticEntry]))).toContain(
       'nothing to render into',
     );
   });
@@ -360,9 +380,7 @@ describe('a field cannot be owned twice', () => {
         bindings: [],
       },
     ];
-    const message = refusal(() =>
-      composeAstroDocumentHead(ASTRO, planOf(astroManifest()).plan.operations, entries),
-    );
+    const message = refusal(() => composeSite(planOf(astroManifest()).plan.operations, entries));
     expect(message).toContain('twitter');
     expect(message).toContain('astro-standard');
   });
@@ -401,7 +419,7 @@ describe('composition is deterministic', () => {
   ];
 
   const render = (order: readonly AstroHeadEntry[]): string =>
-    JSON.stringify(composeAstroDocumentHead(ASTRO, planOf(astroManifest()).plan.operations, order));
+    JSON.stringify(composeSite(planOf(astroManifest()).plan.operations, order));
 
   it('is identical under all six permutations', () => {
     const permutations = [
@@ -420,11 +438,9 @@ describe('composition is deterministic', () => {
   });
 
   it('orders entries by field then owner, never by arrival', () => {
-    const composed = composeAstroDocumentHead(
-      ASTRO,
-      planOf(astroManifest()).plan.operations,
-      entries,
-    ).find((entry) => entry.path === 'src/components/DocumentHead.astro');
+    const composed = composeSite(planOf(astroManifest()).plan.operations, entries).find(
+      (entry) => entry.path === 'src/components/DocumentHead.astro',
+    );
     if (composed?.type !== 'write') throw new Error('narrowing failed');
     const order = ['a', 'b', 'c'].map((name) => composed.content.indexOf(`name="${name}"`));
     // canonical < description < title alphabetically, so b, c, a.
@@ -439,11 +455,9 @@ describe('composition is deterministic', () => {
 
 describe('existing template behaviour survives', () => {
   const shellOf = (entries: readonly AstroHeadEntry[]): string => {
-    const found = composeAstroDocumentHead(
-      ASTRO,
-      planOf(astroManifest()).plan.operations,
-      entries,
-    ).find((entry) => entry.path === 'src/layouts/BaseLayout.astro');
+    const found = composeSite(planOf(astroManifest()).plan.operations, entries).find(
+      (entry) => entry.path === 'src/layouts/BaseLayout.astro',
+    );
     if (found?.type !== 'write') throw new Error('narrowing failed');
     return found.content;
   };
@@ -537,7 +551,7 @@ describe('the semantic layer stayed architecture-independent', () => {
     // surface is inert in production - which is why generated output is
     // unchanged.
     const bridge = source('src/adapters/bridge.ts');
-    expect(bridge).toContain('composeAstroDocumentHead(project.architecture, merged, [])');
+    expect(bridge).toContain('composeAstroDocument(project.architecture, merged, [])');
   });
 });
 

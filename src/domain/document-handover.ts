@@ -1,5 +1,7 @@
 import type { EmissionField } from './document-emission.js';
 import { EMISSION_FIELDS } from './document-emission.js';
+import type { DocumentTarget } from './document-scope.js';
+import { describeTarget } from './document-scope.js';
 import type { DocumentSurfaceOwnership } from './document-surface.js';
 import { ownerOfField } from './document-surface.js';
 import { CliError } from '../errors.js';
@@ -138,4 +140,74 @@ export function fieldsToHandOver(
   }
 
   return EMISSION_FIELDS.filter((field) => wanted.has(field));
+}
+
+/**
+ * What one target's document actually states, for the coverage check below.
+ */
+export interface DocumentCoverage {
+  readonly target: DocumentTarget;
+  readonly fields: readonly EmissionField[];
+}
+
+/**
+ * Refuses a handover no composition covers.
+ *
+ * The mirror of the duplicate Stage 41 measured, and just as invisible. A field
+ * leaves the template once, for the whole project, because the component that
+ * emitted it is shared. If some target then fails to state that field, every
+ * page resolving to that target renders a document quietly missing it - valid
+ * HTML, a clean build, and a canonical that silently stopped existing.
+ *
+ * Measured rather than reasoned: a first run composed `description` for the site
+ * and `description` plus `canonical` for the not-found page. Both pages looked
+ * right; the home page and a user-added page lost their canonical entirely.
+ *
+ * Two conditions, and both follow from how the pieces render:
+ *
+ *   - a site-wide document must exist, because it is what every page that
+ *     states nothing of its own falls back to - including pages added after
+ *     generation, which nothing here can enumerate;
+ *   - every target must state every field handed over, because a target's
+ *     document replaces the site's wholesale rather than merging with it.
+ *
+ * The second is not a restriction on what a page may say. Scope composition
+ * already resolves each page to a *complete* document - inherited fields
+ * included - so a target that omits one is not a page saying less, it is a
+ * caller that skipped the resolution.
+ */
+export function assertHandoverIsCovered(
+  handedOver: readonly EmissionField[],
+  coverage: readonly DocumentCoverage[],
+): void {
+  if (handedOver.length === 0) return;
+
+  if (!coverage.some((entry) => entry.target.kind === 'site')) {
+    throw new CliError(
+      `${handedOver.join(', ')} would leave the template with no site-wide document to replace them.`,
+      {
+        hint:
+          'Every page that states nothing of its own falls back to the site-wide document, ' +
+          'and pages added after generation always will. Without one, those pages render a ' +
+          'document missing these fields - which builds cleanly and is wrong.',
+      },
+    );
+  }
+
+  for (const entry of coverage) {
+    const missing = EMISSION_FIELDS.filter(
+      (field) => handedOver.includes(field) && !entry.fields.includes(field),
+    );
+    if (missing.length > 0) {
+      throw new CliError(
+        `The document for ${describeTarget(entry.target)} does not state ${missing.join(', ')}.`,
+        {
+          hint:
+            'A target’s document replaces the site-wide one rather than merging with it, ' +
+            'so a field it leaves out is a field that page no longer has. Scope composition ' +
+            'resolves every page to a complete document; this one arrived incomplete.',
+        },
+      );
+    }
+  }
 }
