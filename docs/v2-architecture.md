@@ -5578,3 +5578,146 @@ project exactly as it was; a test asserts that byte for byte.
    that might be selected on its own.
 4. Still one architecture and one composed field. Nothing about framework
    breadth or field coverage changed here.
+
+### Stage 46 — page-owned document metadata investigation (BLOCKED)
+
+Stage 44 composed `canonical` and stopped there, recording that `title`,
+`description` and `robots` vary through Astro's prop channel and the composed
+surface could not reach them. This stage went and measured that channel. The
+answer is a genuine asymmetry, and it blocks composing those three today.
+
+#### The actual metadata flow
+
+Traced in the shipped template, not inferred from tests:
+
+```text
+page            <BaseLayout title="Contact" description="…" noindex={false}>
+   ↓ props
+BaseLayout      const { title, description, noindex } = Astro.props
+   ↓ props
+Seo.astro       pageTitle       = title ? `${title} - ${SITE.name}` : SITE.name
+                metaDescription = (description ?? SITE.description).trim()
+                blocked         = noindex || SEO.noindex
+                robots          = blocked ? 'noindex, nofollow' : 'index, follow'
+                canonical       = origin === '' || blocked ? '' : absoluteUrl(origin, Astro.url.pathname)
+```
+
+One channel, and it is the same one a page written after generation uses.
+
+#### Ownership matrix
+
+|             | semantic owner               | origin                                   | known to ClientKit?  | varies per page | binding today                             | derivation today              |
+| ----------- | ---------------------------- | ---------------------------------------- | -------------------- | --------------- | ----------------------------------------- | ----------------------------- |
+| title       | page, qualified by project   | `title` prop + `SITE.name`               | no (page half)       | yes             | `site.name` only                          | `page-title-with-site-name` ✓ |
+| description | page, inherited from project | `description` prop ?? `SITE.description` | no (page half)       | yes             | `site.description` only                   | none needed                   |
+| robots      | page **or** project          | `noindex` prop \|\| `SEO.noindex`        | no (page half)       | yes             | `document.indexingBlocked` (project half) | `indexing-directive` ✓        |
+| canonical   | project + build context      | `SITE.url` + `Astro.url.pathname`        | no, and correctly so | yes             | `site.url`, `page.path` ✓                 | `absolute-page-url` ✓         |
+
+Canonical is composable precisely because **both** its inputs already have
+bindings. The other three each have a project half with a binding and a page
+half with none.
+
+#### The asymmetry, measured
+
+Stage 43 gave the composition two positions. They are not equivalent:
+
+```text
+site-wide     <slot name="head"><DocumentHead /></slot>     evaluated in the shell
+page-targeted <Fragment slot="head"><DocumentHeadX /></Fragment>  evaluated in the page
+```
+
+A probe component taking `title`, `description` and `noindex` was rendered in
+both positions in a real project and built:
+
+| page                                               | site-wide position receives           |
+| -------------------------------------------------- | ------------------------------------- |
+| `/` (declares nothing)                             | `(none)`, `(none)`, `false`           |
+| `/404`                                             | its own values                        |
+| `/contact` (hand-written, never seen by ClientKit) | `Contact`, `How to reach us.`, `true` |
+
+So the site-wide position **does** see page-owned metadata, for arbitrary
+user-added pages, with no route knowledge — and absence arrives as absence
+rather than as the site's values, which the semantic model requires.
+
+The page-targeted position does not. `astro check` refuses `title` there with
+`Cannot find name 'title'`, and a build of `{Astro.props.title}` in that
+position resolved to nothing: slot content is evaluated in the page's scope, and
+a page has no props of its own. The only way to supply it is to write the
+literal a second time, next to the one already in the layout invocation.
+
+#### Why that blocks composition
+
+Handover is project-wide — `Seo.astro` is one shared component, so a field
+leaves the template for every page at once. Composing `title` therefore requires
+**every** target to state it, including the page-targeted ones. The 404 has a
+page-targeted composition (its canonical suppression), so it would have to state
+a title it cannot read — leaving only a frozen copy of what `404.astro` already
+declares, which drifts the moment a developer edits that page.
+
+That is hard stop E: page metadata frozen at generation time.
+
+#### Candidate mechanisms
+
+|                                                                                       | verdict                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Layout props**                                                                   | Works for the site-wide position, measured. Needs a small contract addition — the binding model expresses context as _imports_, and a page value needs context expressed as a _prop_ threaded from the shell. Does not help the page-targeted position. |
+| **B. Named slots**                                                                    | Already the mechanism. It is what creates the asymmetry rather than what could fix it.                                                                                                                                                                  |
+| **C. Page-owned bindings** (`page.title`, `page.description`, `page.indexingBlocked`) | Truthful and well-typed, and realizable as the component's own props — but only where the component receives them, which is position A.                                                                                                                 |
+| **D. Existing derivations**                                                           | Sufficient. `page-title-with-site-name(page.title, site.name)` and `indexing-directive(flag)` already have the right shapes; no new derivation is needed or justified.                                                                                  |
+| **E. Astro context (`Astro.locals`)**                                                 | Rejected: it needs the page to publish its metadata through a second API alongside the layout invocation, duplicating the value, and it is request-scoped state.                                                                                        |
+| **F. Page wrapper**                                                                   | Rejected: a wrapper that carries metadata is the layout invocation again, and any variant that identifies the page re-creates route-specific composition.                                                                                               |
+
+#### What is missing, precisely
+
+> **A way for a page-targeted composed component to read the metadata its page
+> declared — or, equivalently, a way for a page to need no page-targeted
+> composition at all.**
+
+Two routes exist and neither is Stage 46's to take:
+
+1. Give page-targeted components the page's props. That means passing them
+   through the page's `<BaseLayout …>` invocation, which is the attribute-list
+   surgery Stage 43 rejected for having four shapes in the shipped template.
+2. Remove the need for page-targeted compositions, by letting the site-wide
+   document express what the 404 needs. That means a canonical that reads the
+   indexing flag — which Stage 37 deliberately refused, recording that "a page
+   that refuses a canonical says so at its own scope, and specificity settles
+   it". Reversing that is a semantics decision, not an implementation one.
+
+#### What was deliberately not done
+
+No production code changed. No binding was added, because adding
+`page.title` now would introduce a vocabulary entry that only half the
+composition can realize. No derivation was added — the existing two already fit.
+`Seo.astro` was not edited. Ownership is unchanged: `canonical` composed,
+everything else template-owned.
+
+#### Canonical is unaffected
+
+`/` and `/contact` still derive their address from `SITE.url` and
+`Astro.url.pathname`; `/404` still suppresses it at its own scope. Asserted, and
+unchanged since Stage 44.
+
+**Unchanged.** No template byte edited, no golden moved, no production module
+touched. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), and the
+version stays 1.0.2.
+
+#### Known limitations
+
+1. `title`, `description` and `robots` remain template-owned, now for a measured
+   reason rather than a suspected one.
+2. The page half of each of those three has no binding, and adding one would be
+   realizable in only one of the two composed positions.
+3. The asymmetry between the two positions is a property of Astro slot scoping,
+   not of this design — any architecture reached through a slot will have the
+   same question to answer.
+4. The investigation covers one architecture. Whether another framework's page
+   metadata is reachable from its composed surface is unexamined.
+
+#### Next architectural step
+
+Decide between the two routes above before composing any further field. Both are
+semantics decisions with consequences beyond this stage: one changes the page
+contract, the other re-opens Stage 37's deliberate separation of scope from
+derivation.
