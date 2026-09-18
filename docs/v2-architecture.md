@@ -5444,3 +5444,137 @@ structured data — still change nothing.
 5. The production pipeline is exercised by one feature. Nothing yet proves two
    contributors disagreeing at the same scope produce a conflict in a real
    generated project, though Stage 32 proves it in the domain.
+
+### Stage 45 — multi-contributor document composition (landed)
+
+Stage 44 proved the pipeline end to end with one production feature, which
+leaves the question this stage exists for: is the architecture compositional, or
+does it merely work when nobody else is talking?
+
+#### The two contributors
+
+|                           | states                                               | scope           |
+| ------------------------- | ---------------------------------------------------- | --------------- |
+| `feature:seo`             | `canonical = absolute-page-url(site.url, page.path)` | every page      |
+| `feature:seo`             | `canonical = literal('')`                            | `page:notFound` |
+| `feature:structured-data` | organisation data **suppressed**                     | `page:notFound` |
+
+Structured data was chosen after ruling the alternatives out, and the reasoning
+is worth keeping.
+
+**Why the refusal and not the contract.** `OrganizationContract` carries five
+fields; `StructuredData.astro` emits up to nine, adding email, telephone,
+`sameAs` and a location it does not model. The template is the more capable of
+the two, so it keeps the field — stating the contract as a document would be
+claiming to replace something richer than itself. The _refusal_ is different,
+and the feature does own it: a not-found page is not a page about the
+organisation. The generated project already agrees, since the shipped 404 passes
+`structuredData={false}`.
+
+**Why suppression and not an empty value.** They have meant different things
+since Stage 31: this page was decided against, not left unsaid. Nothing renders
+for either today, but the refusal is now recorded rather than remembered, and a
+later stage that can realise organisation data truthfully will find it already
+stated.
+
+#### Why the others could not
+
+- **Accessibility** would need `documentLanguage` as a binding; its contract
+  holds a generation-time snapshot, which Stage 38 already recorded as
+  unfaithful. A `document-guarantees` contribution would resolve but never reach
+  an emission plan, so it would not prove the join.
+- **not-found** could truthfully say the 404 claims no address — it is the
+  feature that knows the page exists. But a contributor that states a field
+  _only_ at page scope cannot stand alone: the template gives a field up for the
+  whole project, so every other page would silently lose its canonical, and the
+  coverage rule refuses exactly that. Measured, not reasoned: the refusal is
+  `The document for the site does not state canonical.`
+
+#### Same scope, two owners
+
+At `page:notFound` both features speak. They state different fields, so Stage
+32's field-level rule composes them without merging:
+
+```text
+the "page.notFound" page
+canonical: literal
+structured-data: suppressed
+```
+
+Two owners, one plan, neither folded into the other, and neither adapter names
+the other in its code.
+
+No two production features truthfully state the _same field at the same scope_
+today, so identical-statement agreement and same-scope conflict are exercised
+through the production resolver with a second owner invented in the tests —
+where inventing one is allowed, and where it is labelled `feature:test-only`.
+
+- **Identical statements deduplicate** into one item, and the provenance names
+  both owners: deduplicated, not discarded.
+- **Differing statements refuse**, naming the field, the scope, both owners,
+  both values, and stating that nothing picks a winner.
+- **Stated meeting suppressed** refuses too, unchanged since Stage 31.
+
+#### Order independence
+
+Contributor order changes nothing, and that is asserted three ways: identical
+emission plans for every target, byte-identical operations, and — for conflicts
+— an **identical diagnostic string**. A message that named whichever owner spoke
+first would be a winner by another name.
+
+Feature selection order is also irrelevant: `['seo', 'structured-data']` and
+`['structured-data', 'seo']` produce byte-identical projects.
+
+#### Cross-scope behaviour
+
+```text
+/         every-page statement    canonical = https://acme.example/
+/404      page statement          no canonical, no JSON-LD
+/contact  every-page statement    canonical = https://acme.example/contact/
+```
+
+`/contact` was written by hand after generation; ClientKit has never heard of
+it. It inherits the site-wide document and receives nothing belonging to
+`page:notFound`. No route registry, no pathname branch, no enumeration.
+
+#### One pipeline
+
+The bridge grew no second resolver. It collects `entry.documents` without
+reading who sent them, and a test asserts it contains no `feature:seo`,
+`feature:structured-data` or equivalent branch. The domain modules import no
+adapter, no template and nothing named `Astro`.
+
+#### Ownership and duplicates
+
+Unchanged. Only `canonical` is composition-owned; `title`, `description`,
+`robots`, Open Graph, Twitter and structured data remain where Stage 42 and 44
+left them. Adding a second contributor composed **the same file set** as SEO
+alone — proof that another voice did not quietly widen the composition.
+
+Measured in the built DOM with both features selected: one `<title>`, one
+description, one robots and one `twitter:card` per page; one canonical on `/`
+and `/contact` and none on `/404`; JSON-LD present on content pages and absent
+from the 404.
+
+#### Atomicity
+
+A conflict raises while planning, and planning is pure and separate from
+applying — there is nothing written until a plan is complete, and an incomplete
+plan is never returned. `composeAstroDocument` builds new operations rather than
+mutating what it was given, so a refusal during composition leaves the planned
+project exactly as it was; a test asserts that byte for byte.
+
+#### Known limitations
+
+1. No two production features state the same field at the same scope, so
+   agreement and conflict between two _real_ owners is not yet demonstrated —
+   only between a real one and a test-only one, through the production resolver.
+2. Structured data's contribution changes no generated byte today. It is
+   truthful and it reaches the plan, but the field it speaks about is
+   template-owned, so nothing renders from it either way.
+3. A contributor that states a field only at page scope cannot stand alone. That
+   is correct — the alternative is silently stripping the field from every other
+   page — but it means some truthful contributions cannot be made by a feature
+   that might be selected on its own.
+4. Still one architecture and one composed field. Nothing about framework
+   breadth or field coverage changed here.

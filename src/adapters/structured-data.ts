@@ -4,6 +4,7 @@ import type { Contribution } from '../domain/contributions.js';
 import { emptyContribution } from '../domain/contributions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
+import { onPage } from '../domain/document-contribution.js';
 import { resolveOrganization } from '../domain/structured-data.js';
 
 /**
@@ -100,6 +101,42 @@ export function createStructuredDataAdapter(): Adapter {
 
       return {
         ...emptyContribution(OWNER),
+
+        /*
+         * What the document should *not* say about the organisation.
+         *
+         * The positive statement stays where it is. `OrganizationContract`
+         * carries five fields and the shipped component emits up to nine -
+         * email, telephone, sameAs and a location it does not model - so the
+         * template is the more capable of the two and keeps the field. Stating
+         * the contract as a document would be claiming to replace something
+         * richer than itself.
+         *
+         * The refusal is a different matter, and this feature does own it: a
+         * not-found page is not a page about the organisation, so it says
+         * nothing about one. That is a fact about what a 404 *is*, held by the
+         * feature that knows what organisation data means, and the generated
+         * project already agrees with it - the shipped 404 passes
+         * `structuredData={false}`.
+         *
+         * Suppression rather than an empty value, because they mean different
+         * things and have since Stage 31: this page was decided against, not
+         * left unsaid. Nothing renders for it either way today, and when a
+         * later stage can realise organisation data truthfully, the refusal is
+         * already recorded rather than needing to be remembered.
+         */
+        documents: [
+          {
+            kind: 'structured-data',
+            owner: OWNER,
+            reason: 'a not-found page describes no organisation',
+            scope: onPage('page.notFound'),
+            jsonLd: {
+              state: 'suppressed',
+              because: 'a page that was not found describes no organisation',
+            },
+          },
+        ],
 
         config: [
           {
