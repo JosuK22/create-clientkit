@@ -11,6 +11,7 @@ import {
 } from '../src/adapters/astro-document-surface.js';
 import { planManifest } from '../src/adapters/bridge.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
+import type { EmissionField } from '../src/domain/document-emission.js';
 import { EMISSION_FIELDS } from '../src/domain/document-emission.js';
 import type { DocumentSurfaceOwnership } from '../src/domain/document-surface.js';
 import {
@@ -520,5 +521,75 @@ describe('the semantic layer stayed architecture-independent', () => {
     // unchanged.
     const bridge = source('src/adapters/bridge.ts');
     expect(bridge).toContain('composeAstroDocumentHead(project.architecture, merged, [])');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What the shipped template already emits
+// ---------------------------------------------------------------------------
+
+/**
+ * Where each document field is already spelled in the template that ships.
+ *
+ * Read off `Seo.astro` and `StructuredData.astro` rather than assumed. These
+ * are the tags a composed realization would be competing with, so the mapping
+ * is the fact everything below rests on.
+ */
+const TEMPLATE_EMITS: Readonly<Record<EmissionField, { file: string; marker: string }>> = {
+  title: { file: 'components/Seo.astro', marker: '<title>' },
+  description: { file: 'components/Seo.astro', marker: '<meta name="description"' },
+  robots: { file: 'components/Seo.astro', marker: '<meta name="robots"' },
+  canonical: { file: 'components/Seo.astro', marker: '<link rel="canonical"' },
+  'open-graph': { file: 'components/Seo.astro', marker: 'property="og:title"' },
+  twitter: { file: 'components/Seo.astro', marker: 'name="twitter:card"' },
+  'structured-data': {
+    file: 'components/StructuredData.astro',
+    marker: 'application/ld+json',
+  },
+};
+
+describe('the shipped template already emits every document field', () => {
+  const shipped = (file: string): string => source(`templates/astro-tailwind/base/src/${file}`);
+
+  it.each(EMISSION_FIELDS)('emits %s', (field) => {
+    const { file, marker } = TEMPLATE_EMITS[field];
+    expect(shipped(file), `${file} no longer emits ${field}`).toContain(marker);
+  });
+
+  it('emits the fields the ownership model calls composition-owned', () => {
+    /*
+     * Stage 41's finding, pinned so it cannot be rediscovered by building it.
+     *
+     * `ASTRO_DOCUMENT_OWNERSHIP` says the composed surface may emit title,
+     * description, robots, canonical and open-graph. The template emits all
+     * five today, unconditionally, for every page. So a realization that took
+     * the declaration at its word would not replace those tags - it would add
+     * a second set beside them. A real build of exactly that produced two
+     * <title> elements and two <link rel="canonical"> with different values on
+     * the home page, and a canonical on the 404 where the template
+     * deliberately emits none, and it built without complaint.
+     *
+     * Nothing here is a judgement about which side should own them. It records
+     * that both sides currently claim them, which is the thing a future
+     * realization has to resolve before it writes a single tag.
+     */
+    for (const field of ASTRO_DOCUMENT_OWNERSHIP.composed) {
+      const { file, marker } = TEMPLATE_EMITS[field];
+      expect(shipped(file), `${field} is declared composed but ${file} emits it`).toContain(marker);
+    }
+  });
+
+  it('gives a realization no field it could emit alone', () => {
+    // The set difference a Stage 41 emitter would have needed: fields the
+    // composed surface owns and the template does not already spell. It is
+    // empty, which is why realization is blocked rather than partial.
+    const emittedByTemplate = EMISSION_FIELDS.filter((field) => {
+      const { file, marker } = TEMPLATE_EMITS[field];
+      return shipped(file).includes(marker);
+    });
+    const available = ASTRO_DOCUMENT_OWNERSHIP.composed.filter(
+      (field) => !emittedByTemplate.includes(field),
+    );
+    expect(available).toEqual([]);
   });
 });

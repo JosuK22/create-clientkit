@@ -4771,3 +4771,165 @@ stays 1.0.2.
    canonical and no JSON-LD — but a composed entry today is site-wide. Anything
    page-varying needs the entries to be computed per page and threaded through
    the layout, which is realization's problem, not the surface's.
+
+### Stage 41 — Astro document realization (BLOCKED)
+
+Stage 41 set out to realize the Stage 38 emission plan into Astro source through
+the Stage 40 surface, page-aware. It is blocked, and not on page-awareness. The
+obstacle is that there is no field for a realization to own.
+
+#### The premise that turned out to be wrong
+
+Stage 40 declared `title`, `description`, `robots`, `canonical` and
+`open-graph` composition-owned for Astro, and `twitter` and `structured-data`
+template-owned with reasons. That declaration was never contradicted, because
+nothing ever composed anything — the surface was wired in its no-op form.
+
+Reading the template settles it. `Seo.astro` emits **all seven** emission
+fields, unconditionally, on every page:
+
+```text
+<title>                       title
+<meta name="description">     description
+<meta name="robots">          robots
+<link rel="canonical">        canonical
+property="og:…" × 7           open-graph
+name="twitter:…" × 4          twitter
+application/ld+json           structured-data   (StructuredData.astro)
+```
+
+So the five fields declared composition-owned are already spelled by the
+template. A realization taking the declaration at its word does not replace
+those tags; it adds a second set beside them.
+
+#### What a real build does
+
+Two fields were realized into the Stage 40 surface using the binding table that
+already exists — `title` as `{SITE.name}`, `canonical` as `{SITE.url}` — and the
+project was built:
+
+| Page | Tag                      | Result                                            |
+| ---- | ------------------------ | ------------------------------------------------- |
+| home | `<title>`                | **2**                                             |
+| home | `<link rel="canonical">` | **2**, with different values                      |
+| 404  | `<title>`                | **2**, with different text                        |
+| 404  | `<link rel="canonical">` | **1**, where the template deliberately emits none |
+
+`astro build` reported Complete. That is the failure this whole line of stages
+exists to prevent: a document that is valid, builds without complaint, and
+contradicts itself. The 404 row is worse than duplication — a canonical on a
+`noindex` page is the page-scoped semantics leaking, produced by a composed
+entry that had no page-scope in it at all.
+
+#### The exact missing abstraction
+
+> **Ownership is declared per field; the template emits per component.**
+
+Stage 40's model can say "the composed surface owns `title`". It has no way to
+make `Seo.astro` stop emitting one, and `Seo.astro` is captured byte-for-byte by
+the V1 goldens. Splitting it is what a realization needs and what the V1
+contract forbids.
+
+Naming it precisely: what is missing is a **handover mechanism** — a way for a
+shipped, byte-captured template component to surrender a subset of the fields it
+emits to the composed surface, for projects that compose, while projects that do
+not compose keep the shipped component byte-identical.
+
+#### Routes checked, and why each fails
+
+1. **Compose additively** — what Stage 40 set up. Duplicates every field, proven
+   by the build above.
+2. **Edit `Seo.astro` to drop the composed fields** — changes V1 bytes. The file
+   is captured in `coming-soon-url.txt`; the checksum moves. Hard stop.
+3. **Replace `<Seo />` with the composed head when composing** — no duplication,
+   but `og:image`, `twitter:image`, the `twitter:card` upgrade, `og:locale`
+   normalisation, `og:type` and `og:site_name` all disappear, because the
+   semantic contracts model none of them. Expanding the contracts to cover them
+   is explicitly out of scope, and would be a metadata-model stage rather than a
+   realization one.
+4. **A feature-layer template variant**, so only feature-selected projects get a
+   split `Seo.astro` — the Astro template has no feature layer. It ships `base`
+   and `modes` only; the `seo` feature contributes no files at all, just a claim.
+5. **Drive the existing `<Seo />` props from the plan** — a reconstruction of
+   bytes that already exist, adding no capability, and it cannot express two of
+   the four canonical states: `Seo.astro` has no `canonical` prop, so a literal
+   canonical and an explicitly-empty one are both unsayable through it.
+6. **Identify the page from `Astro.url.pathname`** — this one actually works.
+   A probe confirmed the prerendered pages see `/` and `/404/` at build time, so
+   page identity is available. It is moot: the mechanism that was supposed to be
+   the hard part is fine, and the thing it would carry has nowhere to go.
+
+#### What page-awareness would have looked like
+
+Worth recording, since it was investigated rather than skipped. The smallest
+viable mechanism is the layout's existing prop channel: `BaseLayout.astro`
+already takes `title`, `description` and `noindex` and passes them to `<Seo />`,
+and a user-added page participates by using the same layout, with no ClientKit
+enumeration of pages anywhere. Page identity is also observable directly through
+`Astro.url.pathname`. Neither was implemented, because both deliver the same
+nothing while ownership is unresolved.
+
+#### What was not done, and is not deferred quietly
+
+No emitter, no realization module, no binding spelling beyond the table that
+already existed, no derivation realization, no new bindings, no new derivations,
+no contract fields, no template edits, no ownership changes. `title`,
+`description`, `robots`, `canonical`, `open-graph`, `twitter` and
+`structured-data` are all realized by the template, exactly as they were before
+this stage. Accessibility remains deferred for the reason Stage 38 gave — its
+one valued fact is `lang={SITE.locale}`, a binding, and `AccessibilityContract`
+holds a generation-time snapshot of it.
+
+#### A second finding: an expression is not enough to write down
+
+The probe's first build failed with `ReferenceError: SITE is not defined`.
+`ASTRO_BINDING_EXPRESSIONS` maps `site.name` to `SITE.name`, which is what Astro
+calls it — but `SITE` is a symbol that has to be imported from
+`src/config/site.config.ts`, and nothing records that. The binding table
+describes how a value is _spelled_ and not what makes the spelling _resolvable_.
+Any realization needs both. That is a small, real gap in the Stage 35–36
+contract, found by trying to use it.
+
+#### Structured data, for the record
+
+`OrganizationContract` carries five fields; `StructuredData.astro` emits up to
+nine, adding `email`, `telephone`, `sameAs` and `location` from project
+configuration, all read dynamically. Realizing the contract would drop four
+fields and freeze the rest — the contract's `name` and `url` are resolved
+strings, while the template reads `SITE.name` and `SITE.url` at the project's
+own build. It stays template-owned, which is what Stage 40 already said.
+
+#### What this stage did land
+
+One test file section, pinning the contradiction so it is not rediscovered by
+building it: the shipped template is asserted to emit each of the seven fields,
+the fields Stage 40 calls composition-owned are asserted to be among them, and
+the set a realization could have emitted alone is asserted to be empty. The
+tests pass today and fail the moment either side moves.
+
+#### Recommendation
+
+The declaration in `ASTRO_DOCUMENT_OWNERSHIP` is a live hazard while it stands:
+a future stage that trusts it produces the document built above. It should
+either be corrected to record that all seven fields are template-owned today, or
+kept as the _target_ state with the handover mechanism built first. That is a
+decision about Stage 40's model rather than a repair a blocked stage should make
+on its own, so it is recorded here and not applied.
+
+**Unchanged.** No template byte edited, no golden moved, no generated output
+changed. The four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), Next
+remains refused, React is untouched, the CLI still has zero runtime
+dependencies, and the version stays 1.0.2.
+
+#### Known limitations
+
+1. No Astro realization exists. The Stage 38 plan still has no consumer.
+2. The Stage 40 ownership declaration and the shipped template disagree about
+   five fields. Pinned by tests, not resolved.
+3. `ASTRO_BINDING_EXPRESSIONS` records expressions without their imports, so it
+   is not sufficient on its own to generate compiling Astro source.
+4. The document pipeline remains unwired from production: nothing builds a
+   `DocumentContribution`, so Stages 31–38 are exercised only by tests.
+5. Page-awareness is designed but unbuilt; both candidate mechanisms were
+   validated on a real build and neither was implemented.
