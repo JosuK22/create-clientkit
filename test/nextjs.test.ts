@@ -279,18 +279,16 @@ describe('every refusal comes from the engine, not from a branch', () => {
     }
   });
 
-  it('refuses not-found by naming the role it cannot place', () => {
-    // Not a capability refusal: Next genuinely has file-based routing. What it
-    // has no mapping for is `page.notFound`, because this stage writes no
-    // not-found page - and a role mapped to a file nobody writes would make
-    // the guarantee pass on a promise nothing keeps.
-    let message = '';
-    try {
-      planNext({ features: ['not-found'] });
-    } catch (error) {
-      message = `${(error as CliError).message}\n${(error as CliError).hint ?? ''}`;
-    }
-    expect(message).toContain('page.notFound');
+  it('places not-found now that a page is written for it', () => {
+    /*
+     * Until Stage 50 this refused, and the refusal was the honest one: Next
+     * genuinely has file-based routing, so the capability engine accepted the
+     * feature, and planning then failed because no path existed for the role.
+     * Accepted-then-unbuildable is what mapping a role to nothing produces.
+     * The template now ships the page, so both halves agree.
+     */
+    expect(() => planNext({ features: ['not-found'] })).not.toThrow();
+    expect(pathsOf({ features: ['not-found'] })).toContain('app/not-found.tsx');
   });
 
   it('explains every refusal with a capability, never with a verdict', () => {
@@ -364,13 +362,14 @@ describe('the App Router architecture', () => {
 
   it('maps no role it cannot fill', () => {
     // `app.providers` and `app.router` are unmapped for the same reason MUI and
-    // React Router are refused; `page.notFound` because no page is written.
-    // `app.providers` left this list in Stage 26: the layout wraps the
-    // application in it, so it is a role the architecture genuinely fills.
-    for (const role of ['app.router', 'page.notFound', 'app.entry', 'app.root'] as const) {
+    // React Router are refused. `app.providers` left this list in Stage 26: the
+    // layout wraps the application in it. `page.notFound` left it in Stage 50,
+    // when the template started shipping the file the role points at.
+    for (const role of ['app.router', 'app.entry', 'app.root'] as const) {
       expect(definesRole(NEXTJS_ARCHITECTURE, role), role).toBe(false);
     }
     expect(definesRole(NEXTJS_ARCHITECTURE, 'app.providers')).toBe(true);
+    expect(definesRole(NEXTJS_ARCHITECTURE, 'page.notFound')).toBe(true);
   });
 
   it('uses the App Router and neither pages/ nor src/', () => {

@@ -6145,3 +6145,99 @@ byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0
    has no defined behaviour beyond refusal. That is the shape of the next
    problem.
 4. SEO's stated reason for requiring `composed-metadata` is stale.
+
+### Stage 50 — Next.js not-found surface (landed)
+
+Stage 49 stopped because Next maps no `page.notFound`. This stage closes that,
+and nothing else.
+
+#### The gap was worse than "unmapped"
+
+`not-found` requires the `file-based-routing` capability, which Next genuinely
+provides. So the compatibility engine accepted the feature — and resolution then
+refused, because no path existed for the role:
+
+```text
+compatibility [not-found]: compatible
+  plan [not-found]: REFUSED -> "Next.js App Router" maps no path for
+                               "page.notFound", which this stack needs.
+```
+
+Accepted by one half of the system and unbuildable by the other. That is exactly
+what Stage 28's capability contract exists to prevent, and it had been true of
+Next since the adapter was written. The role stayed unmapped for a good reason —
+pointing it at a file nobody writes would make the guarantee pass on a promise
+nothing keeps — so the fix is to write the file.
+
+#### The surface, measured
+
+`app/not-found.tsx` is Next's native answer, and it was measured before it was
+adopted. On a generated, installed, built and served project:
+
+| path                                        | status  | rendered                     |
+| ------------------------------------------- | ------- | ---------------------------- |
+| `/`                                         | 200     | home                         |
+| `/contact` (added by hand after generation) | 200     | the user's page              |
+| `/nope`                                     | **404** | the generated not-found page |
+| `/contact/missing`                          | **404** | the generated not-found page |
+| `/a/b/c`                                    | **404** | the generated not-found page |
+
+Unmatched paths resolve to it at any depth, including beneath a page ClientKit
+has never seen, with the correct status code. Next's router does the resolving,
+so there is no route list anywhere — none was added, and none is needed.
+
+#### What the page is
+
+The smallest page that is genuinely the project's. A server component with no
+interactivity, using the same shared class contract as every other page this
+template ships, so the markup is identical whether the project was generated
+with plain CSS or with Tailwind. Every optional piece is omitted rather than
+filled in: an unset `CONTACT.email` renders no link and an empty `NAV` renders no
+suggestions, exactly as the Astro 404 behaves.
+
+It ships from `base/`, so both starters get it — the same arrangement Astro uses,
+where the feature is a _guarantee_ that the project has a not-found page rather
+than the thing that creates one.
+
+#### What the page deliberately is not
+
+It declares no `metadata` export. Title, description, robots and canonical are
+separate architectural concerns and remain where Stage 47 put them.
+
+Two facts about what Next does on its own, recorded rather than implemented:
+
+- the title is inherited from the root layout — `/nope` serves the site name,
+  not a page-specific title;
+- `robots: noindex` appears on the not-found response, supplied by Next itself.
+
+Neither is ClientKit's doing and neither was touched.
+
+#### Why canonical is still deferred
+
+Stage 49's blocker was that a canonical realization needs somewhere to say "this
+page claims no address", and Next had no not-found role to say it at. That role
+now exists. Nothing else changed: no canonical realization, no `metadataBase`, no
+`alternates`, no Next document realizer, and `composed-metadata` is still
+withheld — so `Next + seo`, `Next + structured-data` and `Next + accessibility`
+remain refused exactly as before.
+
+#### What moved
+
+Eleven Next V2 snapshots gained one file each: `operationCount` rose by one, one
+line joined the order, and the new file's content appears. That is the entire
+diff in all eleven. The four V1 goldens are Astro and are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`).
+
+React remains refused on `file-based-routing`, unchanged and for the original
+reason: an unmatched path never reaches the application.
+
+#### Known limitations
+
+1. The not-found page carries no page-specific title. Next inherits the layout's,
+   which is a metadata concern this stage was not allowed to touch.
+2. `Next + not-found` is newly valid, so the feature's guarantee is now checked
+   against a real file on two architectures rather than one. No other Next
+   refusal changed.
+3. The page renders navigation links from `NAV` only. A project that has not
+   configured navigation gets a not-found page with a single home link, which is
+   the same omission-over-invention rule the rest of the template follows.

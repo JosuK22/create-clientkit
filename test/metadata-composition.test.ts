@@ -331,14 +331,11 @@ describe('Next remains without the capability', () => {
       expect(report.compatible, label).toBe(false);
       expect(JSON.stringify(report.violations), label).toContain(because);
     }
-    // not-found is refused by the architecture rather than a capability.
-    let message = '';
-    try {
-      resolveProject(nextManifest({ features: ['not-found'] as FeatureId[] }), adapters);
-    } catch (error) {
-      message = (error as Error).message;
-    }
-    expect(message).toContain('page.notFound');
+    // not-found is not among them: Stage 50 gave Next the page its role names,
+    // so the feature resolves. The metadata refusals above are untouched by it.
+    expect(() =>
+      resolveProject(nextManifest({ features: ['not-found'] as FeatureId[] }), adapters),
+    ).not.toThrow();
   });
 });
 

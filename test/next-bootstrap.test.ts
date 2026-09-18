@@ -416,14 +416,13 @@ describe('correcting one capability changed only what it should', () => {
     }
   });
 
-  it('not-found is still refused by the architecture, not by a capability', () => {
-    let message = '';
-    try {
-      planFor(manifestFor({ features: ['not-found'] }));
-    } catch (error) {
-      message = (error as CliError).message;
-    }
-    expect(message).toContain('page.notFound');
+  it('not-found is placed by the architecture now that a page exists for it', () => {
+    // Refused until Stage 50, when the template started shipping the file the
+    // role points at. Bootstrap is unaffected either way.
+    const paths = planFor(manifestFor({ features: ['not-found'] })).plan.operations.map(
+      (entry) => entry.path,
+    );
+    expect(paths).toContain('app/not-found.tsx');
   });
 
   it('Bootstrap is still refused where the capability is genuinely absent', () => {

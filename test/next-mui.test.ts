@@ -448,14 +448,12 @@ describe('gaining the capability made nothing else compatible', () => {
     expect(JSON.stringify(report.violations)).toContain('client-side-routing');
   });
 
-  it('not-found is still refused by the architecture', () => {
-    let message = '';
-    try {
-      planFor(nextManifest({ uiLibrary: 'none', features: ['not-found'] }));
-    } catch (error) {
-      message = (error as CliError).message;
-    }
-    expect(message).toContain('page.notFound');
+  it('not-found is placed by the architecture now that a page exists for it', () => {
+    // Refused until Stage 50. MUI is unaffected either way.
+    const paths = planFor(
+      nextManifest({ uiLibrary: 'none', features: ['not-found'] }),
+    ).plan.operations.map((entry) => entry.path);
+    expect(paths).toContain('app/not-found.tsx');
   });
 
   it('refused combinations still fail before any file exists', () => {

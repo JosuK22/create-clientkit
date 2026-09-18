@@ -146,10 +146,13 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
  * are unmapped for the same reason they are refusals: there is no client root
  * to mount providers above, and the router is the framework's.
  *
- * `page.notFound` is unmapped rather than pointed at `app/not-found.tsx`,
- * because this stage generates no not-found page. Mapping a role to a file that
- * is never written would make `assertRequiredRoles` pass on a promise nothing
- * keeps.
+ * `page.notFound` is mapped since Stage 50, and the condition it was withheld
+ * under is the one that changed: the template now ships `app/not-found.tsx`, so
+ * the role points at a file that is really written. Before that the capability
+ * engine accepted the `not-found` feature - Next genuinely has file-based
+ * routing - and planning then refused because no path existed for the role.
+ * Accepted and then unbuildable is exactly what mapping a role to nothing
+ * produces, which is why it stayed unmapped until there was a file.
  */
 const NEXTJS_ARCHITECTURE: ArchitectureDefinition = {
   id: 'next-app',
@@ -190,6 +193,15 @@ const NEXTJS_ARCHITECTURE: ArchitectureDefinition = {
      */
     'app.shell': 'components/providers/AppProviders.tsx',
     'page.home': 'app/page.tsx',
+    /*
+     * The not-found page, which Next resolves for any unmatched path at any
+     * depth - including paths under pages the developer adds later. Mapping it
+     * is what lets the `not-found` feature be satisfied here: before Stage 50
+     * the capability engine accepted the feature, because Next genuinely has
+     * file-based routing, and planning then refused because no path existed for
+     * the role. Accepted and then unbuildable is the gap that mapping closes.
+     */
+    'page.notFound': 'app/not-found.tsx',
     'config.site': 'lib/site.config.ts',
     'config.framework': 'next.config.ts',
     /*
@@ -240,7 +252,7 @@ export function createNextjsAdapter(templateRoot: string): FrameworkAdapter {
      * The unconditional three. `styles.global` is deliberately absent here and
      * decided in `resolve` instead - see below.
      */
-    templateOwnedRoles: ['config.framework', 'package', 'config.site'],
+    templateOwnedRoles: ['config.framework', 'package', 'config.site', 'page.notFound'],
 
     resolve(manifest: ProjectManifest): AdapterResolution {
       return {

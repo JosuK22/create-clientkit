@@ -638,20 +638,18 @@ describe('composed-metadata', () => {
 // ---------------------------------------------------------------------------
 
 describe('a role the architecture cannot place is refused at resolution', () => {
-  it('refuses next + not-found before any planning happens', () => {
+  it('accepts next + not-found now that the role is placed', () => {
     /*
-     * The one genuine late failure in the system before this stage: compatible
-     * (Next really does route by file), then dead halfway through planning with
-     * `Architecture "next-app" does not define a path for the file role
-     * "page.notFound"` - naming no feature, no reason, and offering a hint
-     * about styling.
+     * This was the one genuine late failure in the system: compatible (Next
+     * really does route by file), then dead halfway through resolution because
+     * no path existed for `page.notFound`. Stage 28 moved that refusal earlier
+     * and gave it a reason; Stage 50 removed the need for it by shipping the
+     * file the role points at, so both halves now agree rather than one
+     * accepting what the other cannot build.
      */
     const manifest = nextManifest({ features: ['not-found'] });
     expect(checkCompatibility(manifest, adapters).compatible).toBe(true);
-
-    const message = refusal(() => resolveProject(manifest, adapters));
-    expect(message).toContain('page.notFound');
-    expect(message).toContain('feature:not-found');
+    expect(() => resolveProject(manifest, adapters)).not.toThrow();
   });
 
   it('keeps the planner guard for the question only a plan can answer', () => {
@@ -738,7 +736,6 @@ describe('the refusals are unchanged', () => {
       'composed-metadata',
     ],
     ['next + accessibility', nextManifest({ features: ['accessibility'] }), 'composed-metadata'],
-    ['next + not-found', nextManifest({ features: ['not-found'] }), 'page.notFound'],
     [
       'next + client-route-fallback',
       nextManifest({ features: ['client-route-fallback'] }),
@@ -887,7 +884,9 @@ describe('hardening changed no generated project', () => {
       counts[label] = plan.plan.operations.length;
     }
     // Recorded values, so a change has to be looked at rather than absorbed.
-    expect(counts).toEqual({ next: 14, 'next + mui': 15, 'react + tailwind': 21 });
+    // Next gained app/not-found.tsx in Stage 50, which is the one intended
+    // change to these counts and the reason they are recorded at all.
+    expect(counts).toEqual({ next: 15, 'next + mui': 16, 'react + tailwind': 21 });
   });
 
   it('resolves identically on repeated runs', () => {
