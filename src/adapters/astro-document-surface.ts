@@ -1,6 +1,11 @@
 import type { DocumentSurfaceOwnership } from '../domain/document-surface.js';
 import { assertFieldsAreComposable } from '../domain/document-surface.js';
 import type { EmissionField } from '../domain/document-emission.js';
+import type { HandoverCapability } from '../domain/document-handover.js';
+import { fieldsToHandOver } from '../domain/document-handover.js';
+import type { DocumentBinding } from '../domain/document-value.js';
+import { collectAstroImports, renderAstroImports } from './astro-bindings.js';
+import { ASTRO_SEO_HANDOVER_FIELDS, renderAstroSeoSource } from './astro-seo-source.js';
 import type { ArchitectureDefinition } from '../domain/roles.js';
 import { resolveRole } from '../domain/roles.js';
 import type { FileOperation } from '../generate/files.js';
@@ -100,6 +105,19 @@ export interface AstroHeadEntry {
   readonly source: string;
   /** Who contributed it, for diagnostics. */
   readonly owner: string;
+  /**
+   * The bindings the source refers to, so its imports can be written.
+   *
+   * Stage 41's probe generated `{SITE.name}` and the build failed with
+   * `ReferenceError: SITE is not defined`, because knowing how a value is
+   * spelled says nothing about what makes the spelling resolvable. An entry
+   * therefore declares which bindings it used, and the surface asks the
+   * binding table what those need in scope.
+   *
+   * Semantic bindings, not symbols: the entry names `site.name` and never
+   * `SITE`, so the one place that knows Astro's spelling stays the one place.
+   */
+  readonly bindings: readonly DocumentBinding[];
 }
 
 /**
@@ -122,11 +140,39 @@ export function composeAstroDocumentHead(
 
   const SHELL_PATH = shellPath(architecture);
   const ASTRO_DOCUMENT_HEAD_PATH = headPath(architecture);
+  const METADATA_PATH = resolveRole(architecture, 'app.document.metadata');
 
   assertFieldsAreComposable(
     ASTRO_DOCUMENT_OWNERSHIP,
     entries.map((entry) => entry.field),
   );
+
+  /*
+   * The handover. Every field about to be composed is taken off the template in
+   * the same step that adds it to the composed head, so the two can never
+   * disagree - which is the disagreement Stage 41 measured as two titles and
+   * two canonicals in one document.
+   */
+  const handedOver = fieldsToHandOver(
+    ASTRO_DOCUMENT_OWNERSHIP,
+    ASTRO_SEO_HANDOVER,
+    entries.map((entry) => entry.field),
+  );
+
+  const metadata = operations.find((operation) => operation.path === METADATA_PATH);
+  if (metadata === undefined || metadata.type !== 'write') {
+    throw new CliError('The document fields have no component to be handed over from.', {
+      hint: `Nothing planned produces "${METADATA_PATH}".`,
+    });
+  }
+  if (metadata.content !== renderAstroSeoSource([])) {
+    throw new CliError(`"${METADATA_PATH}" is not the component the handover model describes.`, {
+      hint:
+        'The segment model reproduces the shipped component exactly, and this planned file ' +
+        'differs from it. Handing fields over from source the model does not describe would ' +
+        'remove whichever lines it happened to match.',
+    });
+  }
 
   const shell = operations.find((operation) => operation.path === SHELL_PATH);
   if (shell === undefined || shell.type !== 'write') {
@@ -151,6 +197,16 @@ export function composeAstroDocumentHead(
     (a, b) => a.field.localeCompare(b.field) || a.owner.localeCompare(b.owner),
   );
 
+  /*
+   * What the entries need in scope, asked of the binding table rather than
+   * guessed from their source. Collected across every entry so two that both
+   * read the site configuration produce one import.
+   */
+  const imports = renderAstroImports(
+    collectAstroImports(ordered.flatMap((entry) => entry.bindings)),
+    (role) => relativeFromShell(ASTRO_DOCUMENT_HEAD_PATH, resolveRole(architecture, role)),
+  );
+
   const component = [
     '---',
     '/**',
@@ -159,6 +215,7 @@ export function composeAstroDocumentHead(
     ' * Generated because something contributed to it. Every entry below was',
     ' * decided by the document pipeline; this file only renders them.',
     ' */',
+    ...imports,
     '---',
     '',
     ...ordered.map((entry) => entry.source),
@@ -171,7 +228,18 @@ export function composeAstroDocumentHead(
   );
 
   const composed: readonly FileOperation[] = [
-    ...operations.filter((operation) => operation.path !== SHELL_PATH),
+    ...operations.filter(
+      (operation) => operation.path !== SHELL_PATH && operation.path !== METADATA_PATH,
+    ),
+    {
+      // The other half of the handover: the template component, rebuilt without
+      // the fields that have just moved. Rendered from the segment model rather
+      // than edited, so nothing is removed that the model does not describe.
+      type: 'write' as const,
+      path: METADATA_PATH,
+      content: renderAstroSeoSource(handedOver),
+      origin: `${metadata.origin} - ${handedOver.join(', ')} handed over`,
+    },
     {
       type: 'write' as const,
       path: SHELL_PATH,
@@ -231,3 +299,15 @@ function addImport(content: string, statement: string, shell: string): string {
   }
   return [...lines.slice(0, lastImport + 1), statement, ...lines.slice(lastImport + 1)].join('\n');
 }
+
+/**
+ * Which document fields Astro's own template can stop emitting.
+ *
+ * Read off the segment model rather than restated, so the capability and the
+ * mechanism cannot disagree: a field is surrenderable exactly when some segment
+ * serves it, which is exactly when rendering can leave it out.
+ */
+export const ASTRO_SEO_HANDOVER: HandoverCapability = {
+  architecture: 'astro-standard',
+  surrenderable: ASTRO_SEO_HANDOVER_FIELDS,
+};

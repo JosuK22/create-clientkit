@@ -104,6 +104,7 @@ const syntheticEntry: AstroHeadEntry = {
   field: 'title',
   source: '<meta name="ck-synthetic" content="surface proof" />',
   owner: 'contributor:synthetic',
+  bindings: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -356,6 +357,7 @@ describe('a field cannot be owned twice', () => {
         field: 'twitter',
         source: '<meta name="twitter:card" content="x" />',
         owner: 'contributor:x',
+        bindings: [],
       },
     ];
     const message = refusal(() =>
@@ -378,9 +380,24 @@ describe('a field cannot be owned twice', () => {
 
 describe('composition is deterministic', () => {
   const entries: AstroHeadEntry[] = [
-    { field: 'title', source: '<meta name="a" content="1" />', owner: 'contributor:b' },
-    { field: 'canonical', source: '<meta name="b" content="2" />', owner: 'contributor:a' },
-    { field: 'description', source: '<meta name="c" content="3" />', owner: 'contributor:c' },
+    {
+      field: 'title',
+      source: '<meta name="a" content="1" />',
+      owner: 'contributor:b',
+      bindings: [],
+    },
+    {
+      field: 'canonical',
+      source: '<meta name="b" content="2" />',
+      owner: 'contributor:a',
+      bindings: [],
+    },
+    {
+      field: 'description',
+      source: '<meta name="c" content="3" />',
+      owner: 'contributor:c',
+      bindings: [],
+    },
   ];
 
   const render = (order: readonly AstroHeadEntry[]): string =>

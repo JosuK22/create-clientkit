@@ -4933,3 +4933,180 @@ dependencies, and the version stays 1.0.2.
    `DocumentContribution`, so Stages 31–38 are exercised only by tests.
 5. Page-awareness is designed but unbuilt; both candidate mechanisms were
    validated on a real build and neither was implemented.
+
+### Stage 42 — field-level handover (landed)
+
+Stage 41 blocked because ownership was an opinion. Stage 40 declared five fields
+composition-owned; `Seo.astro` emitted all seven regardless; a real build of two
+of them produced two `<title>` elements, two canonicals disagreeing with each
+other, and a canonical on a `noindex` page. This is the mechanism that makes the
+declaration physically true, one field at a time.
+
+#### What handover is
+
+Two separate questions, both of which have to be answered before a field moves:
+
+```text
+ownership     (Stage 40)   the composed surface may emit this
+surrenderable (Stage 42)   the template can stop emitting it
+```
+
+`src/domain/document-handover.ts` holds the second and checks the pair.
+`assertHandoverIsPossible` refuses an ownership declaration naming a field the
+architecture's template cannot release — which is Stage 41's finding turned into
+a check that runs. `fieldsToHandOver` refuses the two ways a field can go wrong:
+taking one the composition does not own (the document would then be silently
+missing it) and taking one the template cannot release (it would be stated
+twice). The asymmetry is deliberate: a template able to release a field nobody
+has claimed is a decision not yet taken, not a contradiction.
+
+The domain knows none of this is about Astro. It knows there is a vocabulary of
+fields, that somebody owns each one, and that an architecture reports what its
+own template can give up.
+
+#### The component as a structure
+
+`Seo.astro` cannot be split into per-field files — V1's file list is frozen. It
+cannot be edited — V1's bytes are frozen. And it must not be rewritten by
+regex, because a pattern that deletes a `<title>` is a guess about source it
+does not understand.
+
+So `src/adapters/astro-seo-source.ts` models the component as 22 ordered
+segments, each optionally declaring which fields it serves. A segment survives
+when it serves nothing in particular, or when any field it serves is still the
+template's. Rendering with nothing handed over concatenates all 22 and
+reproduces the shipped file **byte for byte**, asserted by a test — so the model
+cannot drift from the template, and the V1 path never touches it at all.
+
+The segment array is generated from the real file rather than transcribed, so it
+is faithful by construction; the byte-identity test is what keeps it faithful
+afterwards.
+
+#### Why the handover reaches into the frontmatter
+
+Because `noUnusedLocals` is on in the generated project. Measured, not assumed:
+stripping the five composition-owned tags naively left `ogLocale`, `canonical`,
+`robots` and the `type` prop unused, and `astro check` reported four errors.
+
+Two of those live inside a line shared with something that stays — the
+`absoluteUrl` helper sits in an import beside two helpers Twitter needs, and
+`noindex` and `type` sit in one destructure beside props every field reads. So
+segments are sub-line where the source is.
+
+The dependency closure had to be exact, and the first attempt was not. It
+declared `absoluteUrl` as serving only `canonical`, so handing over the canonical
+link removed the helper while the `canonical` const — which `og:url` still reads
+— stayed and called it. `astro check` said `Cannot find name 'absoluteUrl'`. The
+closure is now: `blocked` and `noindex` serve robots, canonical and open-graph;
+`canonical` and `absoluteUrl` serve canonical and open-graph; `robots` serves
+robots; `ogLocale` and the `type` prop serve open-graph.
+
+All **32** subsets of the five fields were rendered into a real project and
+type-checked. 32/32 pass.
+
+#### Default and composing paths
+
+```text
+nothing composed   ->  the template is copied, untouched          (V1 bytes)
+title composed     ->  the template loses <title>, the head gains one
+```
+
+The default path does not go through the model, so the V1 goldens remain the
+proof rather than a reconstruction of one. A real generation confirms it:
+`Seo.astro` and `BaseLayout.astro` come out identical to the shipped templates,
+and no `DocumentHead.astro` exists.
+
+#### Partial ownership, in practice
+
+Composing `title` and `canonical` and building the result:
+
+|                                     |                                                      |
+| ----------------------------------- | ---------------------------------------------------- |
+| `absoluteUrl`                       | dropped from the helper import                       |
+| `canonical` const                   | **kept** — `og:url` still reads it                   |
+| `noindex`, `type` props             | kept — robots and Open Graph still template-owned    |
+| Twitter block                       | untouched                                            |
+| `<title>`, `<link rel="canonical">` | gone from the template, present in the composed head |
+
+One `<title>`, one canonical, one robots, one `og:title`, one `twitter:card` on
+every page, on a project with a user-added `contact.astro`. `astro check`
+reported 0 errors over 17 files; `astro build` built 3 pages.
+
+#### What the template keeps
+
+`twitter` and `structured-data` remain template-owned, for the reasons Stage 40
+gave and Stage 41 confirmed: `Seo.astro` upgrades `twitter:card` to
+`SEO.twitterCard` once a social image exists and emits `twitter:image`, neither
+of which `TwitterContract` models; `StructuredData.astro` emits `email`,
+`telephone`, `sameAs` and `location`, which `OrganizationContract` does not
+carry. No contract was expanded. `og:image` stays with the template while Open
+Graph does, and leaves with the block when it does — it is part of that block
+rather than a separate claim.
+
+#### The binding realization contract
+
+Stage 41's second finding was that `ASTRO_BINDING_EXPRESSIONS` describes how a
+value is _spelled_ and not what makes the spelling _resolvable_: a generated
+`{SITE.name}` failed with `ReferenceError: SITE is not defined`.
+
+`ASTRO_BINDING_REALIZATIONS` now pairs each expression with the imports it
+needs, and a head entry declares which bindings it used:
+
+```text
+site.name  ->  SITE.name   +  { role: config.site, named: SITE }
+page.path  ->  Astro.url.pathname  +  nothing   (ambient in a component)
+```
+
+The module is named by **role**, not by path, so where the configuration lives
+stays the architecture's decision and the specifier is computed relative to
+whichever file is importing. Still closed: every expression is a constant keyed
+by a binding the domain declares, nothing is assembled from input, and a test
+asserts no template literal interpolates into one.
+
+Imports de-duplicate by symbol, sort by role then symbol, and render one
+statement per module — so two bindings that both read the site configuration
+produce `import { SEO, SITE } from '../config/site.config.ts';` and not two
+lines. A symbol claimed by two different roles is refused rather than silently
+resolved, because keeping either would leave the file reading the wrong module
+and still compiling. Ordering is source generation, not precedence.
+
+#### 404
+
+On the default path the 404 is exactly as it was: `noindex={true}`,
+`structuredData={false}`, `noindex, nofollow` in the output, no canonical, no
+JSON-LD. With the synthetic composition active, robots and structured data are
+still template-owned and still correct on the 404 — but the composed canonical
+appears there too, because the synthetic entry is a site-wide constant with no
+page-awareness. That is the contributor being deliberately naive, not the
+handover: the composed head is still rendered once in the shared layout, exactly
+as Stage 40 left it. Every one of the five fields is page-varying in the
+template, so a page-aware composition is a precondition for composing any of
+them for real. That is the next stage's problem and it is stated here so it is
+not discovered by building.
+
+#### What is deliberately not here
+
+No realization. Nothing turns a `DocumentEmissionPlan` into Astro source, no
+derivation is performed, and the entries used throughout are synthetic and
+test-only. Handover moves ownership; spelling a document is a later stage.
+Accessibility remains deferred. Next.js and React are untouched.
+
+**Unchanged.** No template byte edited, no golden moved. The four V1 goldens are
+byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+the CLI still has zero runtime dependencies, and the version stays 1.0.2.
+
+#### Known limitations
+
+1. The composed head is still site-wide. Handover is field-level; rendering is
+   not yet page-level, and all five composable fields are page-varying in the
+   template, so composing any of them for real needs page-awareness first.
+2. The segment model describes exactly one component of one architecture. A
+   second architecture needs its own, and nothing yet generalises the shape.
+3. `serves` is a declaration, not an analysis. It was proven by type-checking all
+   32 subsets and is guarded by tests, but a future edit to `Seo.astro` must
+   update it — the byte-identity test forces the edit to be noticed, not made.
+4. Handover is all-or-nothing per field. Open Graph is one field and seven tags;
+   there is no way to compose `og:title` while the template keeps `og:image`.
+5. Imports carry no aliasing, so two modules exporting the same symbol name
+   cannot both be imported. Refused rather than mishandled, and nothing in the
+   vocabulary needs it today.

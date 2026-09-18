@@ -87,6 +87,12 @@ const ASTRO_ARCHITECTURE: ArchitectureDefinition = {
      * has always produced.
      */
     'app.document.head': 'src/components/DocumentHead.astro',
+    /*
+     * The component that emits the document fields today, and the one handover
+     * takes them from. Unlike `app.document.head` this is a file the template
+     * really ships, so it is generated only when a field actually moves.
+     */
+    'app.document.metadata': 'src/components/Seo.astro',
     'page.home': 'src/pages/index.astro',
     'page.notFound': 'src/pages/404.astro',
     'config.site': 'src/config/site.config.ts',

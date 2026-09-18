@@ -90,6 +90,20 @@ export const FILE_ROLES = [
    * nothing is rendered, which is why the default path is byte-identical.
    */
   'app.document.head',
+  /**
+   * The component the architecture's own template uses to emit document fields.
+   *
+   * The counterpart of `app.document.head`, and the reason handover is possible
+   * at all. One is where the composition writes; this is what has to stop
+   * writing for it. Stage 41 proved a document needs both named: ownership that
+   * cannot reach the emitting component is a statement with no effect, and the
+   * result was a page with two titles.
+   *
+   * Mapping it means "this file emits document fields and can be asked to emit
+   * fewer". An architecture whose template spreads them across several files,
+   * or which cannot release any, maps nothing and composes nothing.
+   */
+  'app.document.metadata',
   /** Home page. */
   'page.home',
   /** Not-found page. */
