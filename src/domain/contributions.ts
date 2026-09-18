@@ -1,3 +1,4 @@
+import type { DocumentContribution } from './document-contribution.js';
 import type { FileRole } from './roles.js';
 
 /**
@@ -188,6 +189,20 @@ export interface Contribution {
   readonly templateLayers: readonly TemplateLayerContribution[];
   /** Directories to create even if nothing writes into them. */
   readonly directories: readonly string[];
+  /**
+   * What this adapter says the generated document should state.
+   *
+   * The entry point to the pipeline Stages 31-43 built: a contribution here is
+   * resolved, composed by scope, turned into an emission plan and realized by
+   * the architecture. It carries semantic values - literals, bindings and
+   * derivations - and never markup, so nothing an adapter writes here knows
+   * which framework will eventually spell it.
+   *
+   * Optional, and empty for every adapter that has nothing to say about the
+   * document. A project whose adapters all contribute none is the V1 path, and
+   * it composes nothing at all.
+   */
+  readonly documents?: readonly DocumentContribution[];
 }
 
 /** An empty contribution, for adapters that legitimately add nothing (`styling: none`). */
@@ -200,5 +215,6 @@ export function emptyContribution(owner: AdapterRef): Contribution {
     config: [],
     templateLayers: [],
     directories: [],
+    documents: [],
   };
 }

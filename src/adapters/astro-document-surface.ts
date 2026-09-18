@@ -4,7 +4,8 @@ import type { EmissionField } from '../domain/document-emission.js';
 import type { HandoverCapability } from '../domain/document-handover.js';
 import { assertHandoverIsCovered, fieldsToHandOver } from '../domain/document-handover.js';
 import type { DocumentBinding } from '../domain/document-value.js';
-import { collectAstroImports, renderAstroImports } from './astro-bindings.js';
+import type { AstroImport } from './astro-bindings.js';
+import { collectAstroImports, dedupeAstroImports, renderAstroImports } from './astro-bindings.js';
 import { ASTRO_SEO_HANDOVER_FIELDS, renderAstroSeoSource } from './astro-seo-source.js';
 import type { DocumentTarget } from '../domain/document-scope.js';
 import { describeTarget } from '../domain/document-scope.js';
@@ -120,6 +121,17 @@ export interface AstroHeadEntry {
    * `SITE`, so the one place that knows Astro's spelling stays the one place.
    */
   readonly bindings: readonly DocumentBinding[];
+  /**
+   * Anything else the source needs in scope, beyond what its bindings need.
+   *
+   * A derivation is performed with the project's own helpers, and those are not
+   * reachable from the value's bindings - `bindingsUsedBy` walks what a value
+   * *refers to*, and knows nothing about how an operation is carried out. A
+   * realized canonical therefore imports `SITE` because of its binding and
+   * `absoluteUrl` because of its derivation, and only the realization knows the
+   * second.
+   */
+  readonly imports?: readonly AstroImport[];
 }
 
 /**
@@ -366,7 +378,10 @@ function renderHeadComponent(
    * read the site configuration produce one import.
    */
   const imports = renderAstroImports(
-    collectAstroImports(ordered.flatMap((entry) => entry.bindings)),
+    dedupeAstroImports([
+      ...collectAstroImports(ordered.flatMap((entry) => entry.bindings)),
+      ...ordered.flatMap((entry) => entry.imports ?? []),
+    ]),
     (role) => relativeFromShell(componentPath, resolveRole(architecture, role)),
   );
 
@@ -381,7 +396,7 @@ function renderHeadComponent(
     ...imports,
     '---',
     '',
-    ...ordered.map((entry) => entry.source),
+    ...ordered.map((entry) => entry.source).filter((line) => line !== ''),
     '',
   ].join('\n');
 }

@@ -626,10 +626,33 @@ describe('the pipeline stayed pure', () => {
     }
   });
 
-  it('is imported by no adapter', () => {
+  it('is used by the bridge without being reimplemented there', () => {
+    /*
+     * Until Stage 44 this asserted the bridge imported none of these, because
+     * nothing consumed the pipeline. It does now - that is the stage - so the
+     * property worth protecting changed shape: the bridge must *call* the
+     * pipeline rather than grow one of its own.
+     */
     const bridge = source('src/adapters/bridge.ts');
-    for (const module of ['document-value', 'document-scope', 'document-resolution']) {
-      expect(bridge, `bridge.ts imports ${module}`).not.toContain(module);
+    expect(bridge).toContain('resolveDocumentForPage(');
+    expect(bridge).toContain('buildDocumentEmission(');
+    for (const reimplementation of [
+      'resolveDocumentContributions(',
+      'SCOPE_SPECIFICITY',
+      'overlayMetadata',
+      'appliesTo(',
+    ]) {
+      expect(bridge, `bridge.ts reimplements ${reimplementation}`).not.toContain(reimplementation);
+    }
+  });
+
+  it('still points one way: the domain imports no adapter', () => {
+    for (const file of [
+      'src/domain/document-value.ts',
+      'src/domain/document-scope.ts',
+      'src/domain/document-resolution.ts',
+    ]) {
+      expect(source(file), `${file} imports an adapter`).not.toContain('../adapters/');
     }
   });
 });

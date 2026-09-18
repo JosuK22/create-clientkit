@@ -34,6 +34,12 @@ import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
 import { createAdapterRegistry } from './registry.js';
 import { composeAstroDocument } from './astro-document-surface.js';
+import { realizeAstroDocument } from './astro-document-realization.js';
+import { ASTRO_REALIZATION } from './astro-derivations.js';
+import type { DocumentContribution } from '../domain/document-contribution.js';
+import { assertPlanRealizable, buildDocumentEmission } from '../domain/document-emission.js';
+import type { DocumentTarget } from '../domain/document-scope.js';
+import { SITE_TARGET, forPage, resolveDocumentForPage } from '../domain/document-scope.js';
 import { resolveProject } from './selection.js';
 
 /**
@@ -836,15 +842,27 @@ export function planManifest(
   );
 
   /*
-   * The composed document head, with nothing to compose.
+   * The document, from what the adapters said to what Astro writes.
    *
-   * Stage 40 built the render site; the realization that fills it is a later
-   * stage, so no adapter contributes an entry and this is a no-op on every
-   * path. Wired anyway, and deliberately: the V1 goldens run through this call,
-   * so their being byte-identical *is* the proof that the default path changes
-   * nothing. An unwired surface would prove that much less.
+   * The whole pipeline in five lines, and every step already existed: the
+   * contributions are resolved and composed by scope for one target at a time
+   * (Stages 32-33), projected into an emission plan (Stage 38), checked against
+   * what this architecture can supply (Stage 38 again), realized into Astro
+   * expressions (Stage 44) and handed to the surface that knows where each
+   * target renders (Stage 43).
+   *
+   * With no document contributions the list is empty and the call is the
+   * identity it has been since Stage 40 - which is why the V1 goldens running
+   * through it prove the default path changes nothing.
    */
-  const operations = composeAstroDocument(project.architecture, merged, []);
+  const documents = contributions.flatMap((entry) => entry.documents ?? []);
+  const compositions = documentTargets(documents).map((target) => {
+    const plan = buildDocumentEmission(resolveDocumentForPage(documents, target));
+    assertPlanRealizable(plan, ASTRO_REALIZATION);
+    return realizeAstroDocument(plan);
+  });
+
+  const operations = composeAstroDocument(project.architecture, merged, compositions);
 
   const packageResult = composePackageOperation(project, contributions, operations);
   // Refuses two adapters describing the head differently, before anything is
@@ -871,4 +889,31 @@ export function planManifest(
     project,
     contributions,
   };
+}
+
+/**
+ * Which targets a set of document contributions actually speaks about.
+ *
+ * The site, plus every page some contribution scopes itself to - and nothing
+ * else. Not a list of the project's pages: a page nobody says anything specific
+ * about needs no target, because it resolves to the site's document and renders
+ * the shell's fallback. That is what keeps a page the developer adds later
+ * working without ClientKit ever having heard of it.
+ *
+ * Sorted by role so the compositions are ordered by what was said rather than
+ * by the order adapters happened to run. Deterministic ordering, not
+ * precedence: scope composition settled that already.
+ */
+function documentTargets(documents: readonly DocumentContribution[]): readonly DocumentTarget[] {
+  if (documents.length === 0) return [];
+
+  const roles = [
+    ...new Set(
+      documents.flatMap((contribution) =>
+        contribution.scope.kind === 'page' ? [contribution.scope.role] : [],
+      ),
+    ),
+  ].sort();
+
+  return [SITE_TARGET, ...roles.map((role) => forPage(role))];
 }

@@ -707,12 +707,13 @@ describe('the model is architecture-neutral by construction', () => {
 // Nothing was wired up
 // ---------------------------------------------------------------------------
 
-describe('the model is not yet connected to anything', () => {
-  it('is imported by no adapter', () => {
+describe('the model reaches generation through one pipeline', () => {
+  it('is contributed by a feature and consumed by the bridge', () => {
     /*
-     * Stage 31 ends at the payload. The features still contribute their
-     * `ConfigContribution` claims exactly as they did, which is why no
-     * generated file moves - and this asserts that rather than trusting it.
+     * Stage 31 asserted the opposite - that nothing imported this - because
+     * nothing did. Stage 44 connected it, so the property that matters now is
+     * that there is exactly one way in: a feature states a contribution, the
+     * bridge resolves it, and no adapter builds a document any other way.
      */
     const adapters = path.resolve(import.meta.dirname, '..', 'src', 'adapters');
     for (const file of readFileSync(path.join(adapters, '..', 'domain', 'index.ts'), 'utf8')
@@ -721,7 +722,9 @@ describe('the model is not yet connected to anything', () => {
       expect(file).toContain('./document-contribution.js');
     }
     const bridge = source('src/adapters/bridge.ts');
-    expect(bridge).not.toContain('document-contribution');
+    expect(bridge).toContain('document-contribution');
+    // The bridge collects what adapters said; it never resolves a contribution
+    // itself, which would be a second copy of Stage 32's arbitration.
     expect(bridge).not.toContain('resolveDocumentContributions');
   });
 

@@ -95,6 +95,7 @@ const ASTRO_ARCHITECTURE: ArchitectureDefinition = {
     'app.document.metadata': 'src/components/Seo.astro',
     'page.home': 'src/pages/index.astro',
     'page.notFound': 'src/pages/404.astro',
+    'lib.urls': 'src/lib/seo.ts',
     'config.site': 'src/config/site.config.ts',
     'config.framework': 'astro.config.mjs',
     'config.language': 'tsconfig.json',

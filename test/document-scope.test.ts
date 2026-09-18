@@ -754,10 +754,11 @@ describe('the scope resolver is framework- and feature-independent', () => {
     expect(text).not.toContain(': any');
   });
 
-  it('is imported by no adapter, and builds no shell', () => {
+  it('is resolved per target by the bridge, and builds no shell', () => {
+    // Stage 33 asserted nothing imported this. Stage 44 connected it: the
+    // bridge asks for one target at a time and never composes scopes itself.
     const bridge = source('src/adapters/bridge.ts');
-    expect(bridge).not.toContain('document-scope');
-    expect(bridge).not.toContain('resolveDocumentForPage');
+    expect(bridge).toContain('resolveDocumentForPage(documents, target)');
     const text = source(FILE);
     for (const name of ['emitDocumentShell', 'renderHead', 'serialise']) {
       expect(text, `${name} belongs to a later stage`).not.toContain(name);

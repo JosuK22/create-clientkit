@@ -31,16 +31,18 @@ package.json                             base + modes/coming-soon
 public/favicon.svg                       base
 README.md                                base
 src/components/Brand.astro               base
+src/components/DocumentHead.astro        composed document head
+src/components/DocumentHeadPageNotFound.astro composed document head for page.notFound
 src/components/Footer.astro              base
 src/components/Header.astro              base
 src/components/LaunchNotice.astro        base
-src/components/Seo.astro                 base
+src/components/Seo.astro                 base - canonical handed over
 src/components/SocialLinks.astro         base
 src/components/StructuredData.astro      base
 src/config/site.config.ts                base
-src/layouts/BaseLayout.astro             base
+src/layouts/BaseLayout.astro             base + composed document head
 src/lib/seo.ts                           base
-src/pages/404.astro                      base
+src/pages/404.astro                      base + composed document head
 src/pages/index.astro                    base + modes/coming-soon
 src/pages/robots.txt.ts                  base
 src/styles/global.css                    base

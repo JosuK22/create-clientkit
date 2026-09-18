@@ -458,10 +458,21 @@ describe('contributions', () => {
     );
   });
 
-  it('generates no extra file at all', () => {
-    expect(planAstro(['seo']).plan.operations.map((e) => e.path)).toEqual(
-      planAstro([]).plan.operations.map((e) => e.path),
-    );
+  it('generates exactly the composed document components', () => {
+    /*
+     * Until Stage 44 this asserted the feature generated nothing, because the
+     * document pipeline had no consumer. It has one now: selecting SEO states
+     * a document, and a stated document has to be rendered somewhere. The
+     * assertion is therefore that it generates precisely those two components
+     * and nothing else - not that it generates nothing.
+     */
+    const withSeo = planAstro(['seo']).plan.operations.map((e) => e.path);
+    const without = planAstro([]).plan.operations.map((e) => e.path);
+    expect(withSeo.filter((p) => !without.includes(p))).toEqual([
+      'src/components/DocumentHead.astro',
+      'src/components/DocumentHeadPageNotFound.astro',
+    ]);
+    expect(without.filter((p) => !withSeo.includes(p))).toEqual([]);
   });
 
   it('describes the metadata surface by role and slot', () => {
@@ -493,11 +504,16 @@ describe('contributions', () => {
     expect(project.architecture.roles['app.layout']).toBe('src/layouts/BaseLayout.astro');
   });
 
-  it('leaves the layout owned by the framework template', () => {
+  it('leaves the layout as the template wrote it, plus the head slot', () => {
+    // The shell is still the template's file - the composition adds the slot
+    // its own document renders through and changes nothing else about it.
     const layout = planAstro(['seo']).plan.operations.find(
       (entry) => entry.path === 'src/layouts/BaseLayout.astro',
     );
-    expect(layout?.origin).toBe('base');
+    expect(layout?.origin).toBe('base + composed document head');
+    expect(
+      planAstro([]).plan.operations.find((e) => e.path === 'src/layouts/BaseLayout.astro')?.origin,
+    ).toBe('base');
   });
 });
 

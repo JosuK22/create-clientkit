@@ -104,6 +104,18 @@ export const FILE_ROLES = [
    * or which cannot release any, maps nothing and composes nothing.
    */
   'app.document.metadata',
+  /**
+   * The module holding the project's own URL helpers.
+   *
+   * Named because a realized document has to build an absolute address the same
+   * way the rest of the project does. Spelling that arithmetic again in
+   * generated source would give one project two answers for the same URL the
+   * first time either changed.
+   *
+   * Mapping it is optional. An architecture that has no such module realizes no
+   * derivation that needs one, and says so rather than inventing the helpers.
+   */
+  'lib.urls',
   /** Home page. */
   'page.home',
   /** Not-found page. */

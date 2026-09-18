@@ -812,9 +812,13 @@ describe('the IR is semantic and architecture-independent', () => {
     }
   });
 
-  it('is imported by no adapter except the Astro support declaration', () => {
+  it('is built by the bridge and consumed only by a realization', () => {
+    // Stage 38 asserted nothing imported this. Stage 44 connected it, so what
+    // is worth protecting is that the plan is built from a resolved document
+    // and never assembled by hand somewhere else.
     const bridge = source('src/adapters/bridge.ts');
-    expect(bridge).not.toContain('document-emission');
+    expect(bridge).toContain('buildDocumentEmission(resolveDocumentForPage(');
+    expect(bridge).not.toContain('items: [');
   });
 
   it('keeps the Astro declaration free of spelling', () => {

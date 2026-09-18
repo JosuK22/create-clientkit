@@ -4,6 +4,8 @@ import type { Contribution } from '../domain/contributions.js';
 import { emptyContribution } from '../domain/contributions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
+import { EVERY_PAGE, onPage } from '../domain/document-contribution.js';
+import { absolutePageUrl, literal } from '../domain/document-value.js';
 import { resolveSeoContract } from '../domain/seo.js';
 
 /**
@@ -110,6 +112,40 @@ export function createSeoAdapter(): Adapter {
 
       return {
         ...emptyContribution(OWNER),
+
+        /*
+         * What the document should say about its own address.
+         *
+         * Deliberately not `metadataFromContract(contract)`. That helper is the
+         * faithful translation of a contract with no bindings in it, and its own
+         * documentation says a contributor that knows better states a binding
+         * instead. This one knows better: a canonical address follows the URL
+         * the project configures and the page Astro is rendering, and freezing
+         * either into a literal is exactly the failure Stage 34 stopped for.
+         *
+         * Two statements, and the second is the reason scope composition exists.
+         * Every page claims its own absolute address; the not-found page claims
+         * none, because a page asking not to be indexed while naming itself the
+         * definitive copy of something contradicts itself. That is stated at the
+         * page's own scope and specificity settles it - no condition in the
+         * generated source, and no list of pages anywhere.
+         */
+        documents: [
+          {
+            kind: 'metadata',
+            owner: OWNER,
+            reason: 'every page states its own absolute address',
+            scope: EVERY_PAGE,
+            metadata: { state: 'stated', value: { canonical: absolutePageUrl() } },
+          },
+          {
+            kind: 'metadata',
+            owner: OWNER,
+            reason: 'a page that refuses indexing does not claim to be canonical',
+            scope: onPage('page.notFound'),
+            metadata: { state: 'stated', value: { canonical: literal('url', '') } },
+          },
+        ],
 
         config: [
           {

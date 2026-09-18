@@ -5265,3 +5265,182 @@ dependencies, and the version stays 1.0.2.
    next to a hand-written page.
 5. Still no realization: the entries are synthetic, so nothing yet proves a
    _semantic_ document reaches the right page — only that a document does.
+
+### Stage 44 — real DocumentEmissionPlan → Astro realization (landed)
+
+Thirteen stages built a document pipeline and proved each link with synthetic
+data. This is the first stage where a real feature's document reaches a real
+generated project.
+
+#### The production contributor
+
+The SEO feature now states a document. Two statements, both semantic:
+
+```text
+every-page        canonical = absolute-page-url(site.url, page.path)
+page:notFound     canonical = literal('')
+```
+
+Deliberately **not** `metadataFromContract(contract)`. That helper is the
+faithful translation of a contract with no bindings in it, and its own
+documentation says a contributor that knows better states a binding instead.
+This one knows better: a canonical address follows the URL the project
+configures and the page Astro is rendering. ClientKit has the site URL in the
+manifest and could have written the address — writing it is Stage 34's failure
+by a shorter route, so it does not.
+
+The second statement is why scope composition exists. A page asking not to be
+indexed while naming itself the definitive copy of something contradicts itself,
+so the not-found page claims no address — at its own scope, where specificity
+settles it. Nothing in the generated source tests a path, and no list of pages
+exists anywhere.
+
+#### Semantic to emission
+
+Unchanged, and used rather than reimplemented. The bridge collects what the
+adapters said, asks `resolveDocumentForPage` for one target at a time, projects
+each result with `buildDocumentEmission`, and checks it against
+`ASTRO_REALIZATION` before anything is spelled. A test asserts the bridge calls
+those and contains no second copy of arbitration.
+
+Targets come from what was _said_, never from what exists: the site, plus every
+page some contribution scoped itself to. A page nobody says anything specific
+about needs no target, which is exactly what lets a page added after generation
+work.
+
+#### Astro realization
+
+`src/adapters/astro-document-realization.ts` is the translation, and it is three
+closed tables and nothing else:
+
+|                      |                                                                 |
+| -------------------- | --------------------------------------------------------------- |
+| field → markup       | `title`, `description`, `robots`, `canonical`                   |
+| binding → expression | the Stage 42 table, reused unchanged                            |
+| derivation → shape   | one template per derivation, with holes for its typed arguments |
+
+A literal is quoted with `JSON.stringify`, so nothing a contributor states can
+end an expression early or open a tag. A binding is looked up, never built. A
+derivation realizes its arguments first and hands them to its declared shape, so
+nesting works without any of it becoming an evaluator. No `eval`, no `Function`,
+no interpolation of caller input — asserted.
+
+All three derivations are realized. `absolute-page-url` becomes
+`absoluteUrl(siteOrigin(SITE.url), Astro.url.pathname)` — the project's own
+helpers, not arithmetic repeated in generated source, which is also why a
+URL-less project emits no tag: `siteOrigin('')` is `''` and `absoluteUrl` returns
+`''` for an empty origin, decided at the project's build.
+
+A field with no markup shape is refused by name with the reason. `open-graph`
+resolves as one block of six tags, one of which (`og:image`) the template owns
+and the contract does not model; `twitter` and `structured-data` are
+template-owned for the reasons Stage 42 recorded. Nothing is silently dropped.
+
+#### What the generated project gets
+
+```text
+---
+import { SITE } from '../config/site.config.ts';
+import { absoluteUrl, siteOrigin } from '../lib/seo.ts';
+---
+
+{(absoluteUrl(siteOrigin(SITE.url), Astro.url.pathname)) !== '' && <link rel="canonical" href={...} />}
+```
+
+Two kinds of import, from two different places: `SITE` because the value binds
+to it, `absoluteUrl` and `siteOrigin` because the _derivation_ is performed with
+them. Bindings alone were not enough — Stage 41's probe proved that with a
+`ReferenceError` — so an entry now carries both, and the surface de-duplicates
+them into one statement per module.
+
+The not-found component is generated and renders nothing: its claim is a
+statically-known empty literal, so the guard is decided at generation rather
+than shipped as `{"" !== '' && …}` for the project to evaluate forever. The
+entry still exists, because the field was stated and dropping it would leave the
+handover uncovered.
+
+#### Field handover and template ownership
+
+Only `canonical` moves. `Seo.astro` keeps `<title>`, the description, robots,
+the whole Open Graph block including `og:image` and `og:locale`, and every
+Twitter tag including the card upgrade and `twitter:image`. The `canonical`
+const stays in the template too, because `og:url` still reads it — the Stage 42
+dependency closure handling exactly that case. `StructuredData.astro` is
+byte-identical to the shipped file.
+
+#### 404
+
+Measured on a real build and in a browser:
+
+|            | title | description | canonical                       | robots            | og  | twitter | JSON-LD |
+| ---------- | ----- | ----------- | ------------------------------- | ----------------- | --- | ------- | ------- |
+| `/`        | 1     | 1           | `https://acme.example/`         | index, follow     | 5   | 3       | 1       |
+| `/404`     | 1     | 1           | **none**                        | noindex, nofollow | 4   | 3       | 0       |
+| `/contact` | 1     | 1           | `https://acme.example/contact/` | index, follow     | 5   | 3       | 1       |
+
+The 404 has no canonical because the page-scoped statement won, not because
+anything checked a path. It keeps `noindex, nofollow` and no structured data,
+both still template-owned.
+
+#### User-added pages
+
+`/contact` was written by hand after generation and ClientKit has never heard of
+it. It fills no head slot, so it inherits the site-wide document — and its
+canonical is `https://acme.example/contact/`, derived from Astro's own page
+context at the project's build. Nothing enumerated it, and nothing could have.
+
+#### Nothing was frozen
+
+The decisive check: after generation, `site.config.ts` was edited and the
+project rebuilt **without re-running ClientKit**. Every canonical followed:
+
+```text
+https://acme.example/          ->  https://renamed.example/
+https://acme.example/contact/  ->  https://renamed.example/contact/
+/404                           ->  still none
+```
+
+#### V1 preservation
+
+`features: []` composes nothing, so the no-composition path is the identity it
+has been since Stage 40. The four V1 goldens are byte-identical and the checksum
+is unchanged: `812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`.
+
+Four V2 feature snapshots did move, and only these, by eight lines each: with
+SEO selected the project now contains `DocumentHead.astro` and
+`DocumentHeadPageNotFound.astro`, `Seo.astro` is recorded as
+`base - canonical handed over`, and the shell and not-found page as
+`base + composed document head`. That is the whole diff. The measurement those
+snapshots protect did not disappear; it narrowed to exactly what composing is
+allowed to add, and the features that state no document — accessibility and
+structured data — still change nothing.
+
+#### What remains deferred, and why
+
+- **Open Graph**, because the block is six tags and one of them is the
+  template's `og:image`, which no contract models.
+- **Twitter** and **structured data**, template-owned since Stage 42 for
+  behaviour richer than their contracts.
+- **Accessibility**, whose valued fact is `lang={SITE.locale}` — a binding its
+  contract holds only a snapshot of.
+- **title, description and robots**, which are realizable but not composed. See
+  the limitation below.
+
+#### Known limitations
+
+1. Only `canonical` is composed, and the reason is specific: `title`,
+   `description` and `robots` vary per page through the layout's props, and the
+   composed head has no access to them. Composing any of them would give a
+   user-added page the site's title instead of its own. Expressing that needs a
+   binding for a page's own declared metadata, which the vocabulary does not
+   have and this stage did not invent.
+2. A user-added page that passes `noindex={true}` now gets a canonical it would
+   not have had, because the template's canonical suppression reads that prop
+   and the composed one cannot. A mapped page can refuse at its own scope, as
+   the 404 does; a page ClientKit never sees cannot.
+3. Realization covers four of seven fields; the other three refuse by name.
+4. One architecture. Next remains refused for `composed-metadata` and React is
+   untouched; no framework capability changed.
+5. The production pipeline is exercised by one feature. Nothing yet proves two
+   contributors disagreeing at the same scope produce a conflict in a real
+   generated project, though Stage 32 proves it in the domain.

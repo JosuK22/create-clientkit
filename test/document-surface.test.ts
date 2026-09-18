@@ -539,19 +539,35 @@ describe('the semantic layer stayed architecture-independent', () => {
     ]) {
       expect(() => source(file), file).toThrow();
     }
-    // The surface accepts already-realized source; it does not produce any.
-    const text = source('src/adapters/astro-document-surface.ts');
+    /*
+     * The surface accepts already-realized source; it does not produce any.
+     * Still true after Stage 44 - realization lives in its own module and hands
+     * the result here. Comments may name the pipeline they explain, so the
+     * scan is over code with prose stripped.
+     */
+    const text = codeOnly('src/adapters/astro-document-surface.ts');
     for (const token of ['buildDocumentEmission', 'DocumentEmissionPlan', 'bindingsUsedBy']) {
       expect(text, `astro-document-surface.ts does realization: ${token}`).not.toContain(token);
     }
   });
 
-  it('contributes no production document entry', () => {
-    // Nothing in the codebase produces an AstroHeadEntry outside tests, so the
-    // surface is inert in production - which is why generated output is
-    // unchanged.
+  it('composes only what the resolved documents asked for', () => {
+    /*
+     * Until Stage 44 the bridge passed a literal empty list and the surface was
+     * inert. It now passes realized compositions - but only ones a contributor
+     * produced, so a project whose adapters say nothing about the document
+     * still composes nothing and still matches V1 byte for byte.
+     */
     const bridge = source('src/adapters/bridge.ts');
-    expect(bridge).toContain('composeAstroDocument(project.architecture, merged, [])');
+    expect(bridge).toContain('composeAstroDocument(project.architecture, merged, compositions)');
+    expect(bridge).toContain('contributions.flatMap((entry) => entry.documents ?? [])');
+  });
+
+  it('stays inert when no adapter contributes a document', () => {
+    // The V1 shape, asserted through the real planner rather than by reading
+    // the bridge: no feature selected means no contribution, so no component.
+    const paths = planOf(astroManifest()).plan.operations.map((entry) => entry.path);
+    expect(paths).not.toContain('src/components/DocumentHead.astro');
   });
 });
 
