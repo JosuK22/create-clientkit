@@ -5863,3 +5863,162 @@ of it is the one already there.
    would reopen Route A for that framework alone.
 4. The decision rests on Astro's slot semantics in 7.3.2. A future Astro that
    passes arguments to `.astro` slot content would make Route A viable.
+
+### Stage 48 — Next.js document realization capability (investigation; refusal upheld)
+
+Stage 47 settled the rule: a field belongs to document composition when every
+input it needs is a fact the semantic vocabulary can name. This stage asked
+whether Next.js has a document model different enough to move the boundary, and
+answered it against a real generated project.
+
+#### What Next actually offers, measured
+
+A Next project was generated, installed, built and served, and every claim below
+comes from the served HTML.
+
+**Root-layout metadata is genuinely composable and genuinely dynamic.** The
+shipped `app/layout.tsx` exports `metadata` computed from `lib/site.config.ts`,
+so it is already project-owned rather than frozen.
+
+**Canonical is per-route from the root layout, with no route enumeration.**
+Adding `metadataBase` and `alternates: { canonical: './' }` to the _root layout
+only_ produced:
+
+```text
+/          https://acme.example
+/contact   https://acme.example/contact     ← page ClientKit never saw
+/nope      (absent)                          ← not-found sets canonical: null
+```
+
+Next resolved the relative canonical against each route itself. This is the
+capability Astro reaches through `Astro.url.pathname`, arrived at differently.
+
+**Not-found metadata is a real page-scoped surface.** `app/not-found.tsx` with
+`robots: { index: false, follow: false }` and `alternates: { canonical: null }`
+produced `Page not found`, `robots: noindex`, and no canonical — page-scoped
+document semantics without any page list.
+
+**Site configuration stays the project's.** Editing `SITE.name` and `SITE.url`
+after generation and rebuilding with no ClientKit run moved both the title and
+every canonical to the new origin.
+
+**Structured data renders faithfully.** A server component in the layout
+emitting `JSON.stringify(organization)` produced exactly one
+`<script type="application/ld+json">` carrying precisely the
+`OrganizationContract` fields and nothing invented. It lands in the body, which
+is valid and is what Next documents. An earlier count of two was the RSC payload
+echoing the string, not a second element.
+
+#### Where Next is weaker than Astro, measured
+
+**Structured data cannot be suppressed per page from the layout.** The script is
+in the root layout, so it appears on the not-found page too. Astro's 404
+suppresses it through `structuredData={false}`; Next's layout has no equivalent
+without the page opting out of the layout.
+
+**The accessibility contract does not hold.** The contract's own wording is that
+a guarantee is a property that holds on **every page**. Measured per route:
+
+|               | `/`   | `/contact` (user-added) | `/nope` |
+| ------------- | ----- | ----------------------- | ------- |
+| `<html lang>` | ✓     | ✓                       | ✓       |
+| `<title>`     | ✓     | ✓                       | ✓       |
+| viewport      | ✓     | ✓                       | ✓       |
+| `<main>`      | ✓     | **0**                   | **0**   |
+| `<footer>`    | ✓     | **0**                   | **0**   |
+| `<h1>`        | ✓     | ✓ (hand-written)        | ✓       |
+| skip link     | **0** | **0**                   | **0**   |
+
+Astro's `BaseLayout` provides all of these for every page, including pages added
+later, because every page renders through it. Next's root layout provides only
+`lang`; the landmarks live in each page, so a user-added page has none — and the
+skip link is absent from the Next template entirely. Three of the eight
+guarantees fail on a user-added page and one fails everywhere.
+
+#### The blocker that is not about Next at all
+
+Granting `composed-metadata` today would not produce a byte-identical project as
+Stage 22 found; it would **crash**. Measured by running the bridge's own
+document path against the Next architecture:
+
+```text
+Architecture "next-app" does not define a path for the file role
+"app.document.head".
+```
+
+Next maps none of `app.document.head`, `app.document.metadata` or `lib.urls`,
+and the bridge's document path is unconditionally Astro-specific —
+`ASTRO_REALIZATION`, `realizeAstroDocument`, `composeAstroDocument`, with no
+architecture guard. It is safe today only because no Next project can select a
+document-contributing feature, so the list is always empty and every call
+returns early.
+
+So the capability is not merely unearned; the machinery behind it is
+single-architecture, and that is the first thing a Next realization has to
+change.
+
+#### Astro versus Next
+
+| question                              | Astro                                                   | Next.js                                                              |
+| ------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| project metadata surface              | `Seo.astro`, driven by `site.config.ts`                 | `metadata` export in the root layout, driven by `lib/site.config.ts` |
+| page metadata surface                 | layout props from the page's invocation                 | `metadata` export per page, merged by the framework                  |
+| page context available to composition | site-wide position yes, page-targeted no (Stage 46)     | yes, the framework resolves per route                                |
+| canonical realization                 | `absoluteUrl(siteOrigin(SITE.url), Astro.url.pathname)` | `metadataBase` + `alternates.canonical: './'`                        |
+| title realization                     | template-owned (Stage 47)                               | framework-owned — same rule, same conclusion                         |
+| description realization               | template-owned                                          | framework-owned                                                      |
+| robots realization                    | template-owned                                          | framework-owned, and page-settable                                   |
+| structured data realization           | component, per-page suppressible                        | component, **not** per-page suppressible from the layout             |
+| accessibility realization             | all eight guarantees, every page                        | `lang`, title, viewport only; landmarks page-owned; no skip link     |
+| user-added page support               | inherits the shell                                      | inherits the layout's metadata; inherits no structure                |
+| site config mutation                  | followed, measured                                      | followed, measured                                                   |
+| route enumeration required            | no                                                      | no                                                                   |
+| generation-time freezing risk         | none observed                                           | none observed                                                        |
+| composition capability                | granted, and realized                                   | **withheld** — no realization exists and no roles are mapped         |
+
+Not a ranking. Each framework resolves the same document differently, and the
+differences land in different places.
+
+#### Outcome
+
+**B — Next supports some fields, and none of them yet.**
+
+Realizable in principle, on the evidence:
+
+```text
+canonical         yes - per route, dynamic, user-added pages included
+structured-data   yes - faithful to the contract, but site-wide only
+```
+
+Framework-owned, by the Stage 47 rule applied unchanged:
+
+```text
+title  description  robots
+```
+
+Not realizable:
+
+```text
+accessibility - the contract promises every page and Next delivers three of
+                eight guarantees on a page it did not generate
+```
+
+The refusal stands. `composed-metadata` remains withheld from Next, now for a
+reason that has been measured twice: the coverage is genuinely absent for
+accessibility, and the realization machinery is Astro-only.
+
+#### Known limitations
+
+1. No Next realization exists. Everything above is what Next _can_ do, proven by
+   hand-written probes in a real project, not by ClientKit generating it.
+2. The bridge's document path has no architecture guard. Today that is latent;
+   any second realization has to address it first.
+3. Structured data on Next would apply to every page, including not-found. A
+   truthful realization must either accept that or find a per-page mechanism.
+4. The `composed-metadata` doc comment still describes the capability as "a
+   claim about coverage that has been checked". Since Stage 44 it also gates a
+   real composition mechanism. The wording is stale, and was left alone rather
+   than edited during an investigation stage.
+5. Astro's Stage 47 conclusion transferred unchanged: page-owned title,
+   description and robots stay with the framework on both architectures, for the
+   same reason.
