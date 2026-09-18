@@ -6022,3 +6022,126 @@ accessibility, and the realization machinery is Astro-only.
 5. Astro's Stage 47 conclusion transferred unchanged: page-owned title,
    description and robots stay with the framework on both architectures, for the
    same reason.
+
+### Stage 49 — architecture-aware document realization (landed); Next canonical (blocked)
+
+Two objectives, strictly ordered. The first landed. The second did not, and the
+reason was found by implementing it rather than by reasoning about it.
+
+#### The boundary that now exists
+
+Until this stage the bridge named Astro directly — `ASTRO_REALIZATION`,
+`realizeAstroDocument`, `composeAstroDocument` — with no mention of which
+architecture the project was. That was safe by accident: no non-Astro project
+can select a document-contributing feature, so the list was always empty and
+every call returned early. Stage 48 measured what the accident hid, running the
+same path against Next:
+
+```text
+Architecture "next-app" does not define a path for the file role
+"app.document.head"
+```
+
+A role error, from the Astro composer, on a project that is not Astro.
+
+`src/adapters/document-realizers.ts` now holds the choice. A realizer declares
+the architecture it speaks for, the `RealizationSupport` it can spell, and an
+`apply` that takes plans and returns operations — so whatever an architecture
+turns a plan into on the way stays inside that architecture's own modules.
+
+```text
+documents contributed
+   ↓  (none → return the operations, unchanged, choosing nothing)
+select realizer by the resolved architecture's id
+   ↓  (no realizer → refuse, by name)
+build one plan per target, checked against *that* realizer's support
+   ↓
+realizer.apply
+```
+
+No fallback and no nearest match. An architecture with no realization is refused
+rather than handed to whichever one happens to be registered, because the
+alternative is either a role error or — worse — source that happens to parse.
+
+The empty case returns _before_ the choice is made, which is what keeps every
+React and Next project generating: they contribute no document, so they never
+reach the selector.
+
+Astro's behaviour is unchanged: the same functions in the same order, now behind
+the boundary. The V1 goldens are the proof.
+
+#### Why Next canonical did not land
+
+Stage 48 proved Next's canonical surface is real: `metadataBase` plus
+`alternates: { canonical: './' }` in the root layout gives per-route canonicals,
+including for a page ClientKit never saw, and follows a post-generation edit to
+`SITE.url`. None of that changed.
+
+What changed is that implementing it surfaced two facts that were not visible
+from the surface alone.
+
+**Next maps no `page.notFound` role.** Its role map has `app.layout`,
+`page.home`, `config.site` and the rest — but nothing for the not-found page,
+because the Next template ships no `app/not-found.tsx`. The SEO feature's
+document has _two_ statements: every page claims its own address, and the
+not-found page claims none. The second targets a role Next does not have.
+
+**Without a not-found file, the canonical leaks to an internal route.** Measured
+on a real generated, built and served Next project with the layout canonical in
+place and no `app/not-found.tsx`:
+
+```text
+/       <link rel="canonical" href="https://acme.example">
+/nope   <link rel="canonical" href="https://acme.example/_not-found">
+```
+
+A canonical naming Next's internal `/_not-found` as the definitive version of a
+URL that does not exist. That is worse than no canonical, and it is exactly what
+the 404 statement exists to prevent.
+
+So realizing canonical on Next needs `app/not-found.tsx` to exist — which means
+generating a not-found page. That belongs to the `not-found` feature, not to a
+canonical realization, and this stage's scope forbids reaching for it.
+
+The three available moves were each refused:
+
+| move                                                     | why not                                                                                      |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| drop the `page:notFound` statement on Next               | silently discards a semantic statement, and ships the `/_not-found` canonical measured above |
+| generate `app/not-found.tsx` from the canonical realizer | a canonical realization inventing a page is scope this stage forbids                         |
+| register the realizer and leave it unreachable           | the SEO feature requires a capability Next does not have, so it would be code nothing runs   |
+
+#### The capability question, deliberately unanswered
+
+`composed-metadata` remains withheld from Next. The refinement that would let
+SEO reach Next — a narrower capability naming the canonical surface alone — is
+coherent and was designed, but it is only worth introducing alongside a
+realization that can honour the whole of what SEO states. Introducing it now
+would accept the feature and then drop one of its two statements.
+
+One drift was found on the way and is recorded rather than fixed here: SEO
+declares it requires `composed-metadata` "because it writes the title,
+description and canonical link into the head". Since Stage 44 it writes only the
+canonical — title and description are template-owned. The reason is stale even
+though the requirement is still correct.
+
+#### What is unchanged
+
+Astro's realization, ownership, bindings, derivations, templates and page
+metadata: untouched. Generated Astro output byte-identical. Next's title,
+description and robots remain framework-owned by Stage 47's rule. Next
+structured data and accessibility remain refused, on Stage 48's measurements.
+
+**Unchanged.** No template byte edited, no golden moved. The four V1 goldens are
+byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`).
+
+#### Known limitations
+
+1. One realizer is registered. The boundary is exercised by Astro and by three
+   architectures refusing; nothing yet proves two realizers coexisting.
+2. Next canonical is unimplemented. The mechanism is proven, the integration is
+   not.
+3. A page-scoped document statement aimed at a role an architecture does not map
+   has no defined behaviour beyond refusal. That is the shape of the next
+   problem.
+4. SEO's stated reason for requiring `composed-metadata` is stale.

@@ -33,11 +33,9 @@ import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
 import { createAdapterRegistry } from './registry.js';
-import { composeAstroDocument } from './astro-document-surface.js';
-import { realizeAstroDocument } from './astro-document-realization.js';
-import { ASTRO_REALIZATION } from './astro-derivations.js';
 import type { DocumentContribution } from '../domain/document-contribution.js';
 import { assertPlanRealizable, buildDocumentEmission } from '../domain/document-emission.js';
+import { selectDocumentRealizer } from './document-realizers.js';
 import type { DocumentTarget } from '../domain/document-scope.js';
 import { SITE_TARGET, forPage, resolveDocumentForPage } from '../domain/document-scope.js';
 import { resolveProject } from './selection.js';
@@ -856,13 +854,7 @@ export function planManifest(
    * through it prove the default path changes nothing.
    */
   const documents = contributions.flatMap((entry) => entry.documents ?? []);
-  const compositions = documentTargets(documents).map((target) => {
-    const plan = buildDocumentEmission(resolveDocumentForPage(documents, target));
-    assertPlanRealizable(plan, ASTRO_REALIZATION);
-    return realizeAstroDocument(plan);
-  });
-
-  const operations = composeAstroDocument(project.architecture, merged, compositions);
+  const operations = realizeDocuments(project.architecture, merged, documents);
 
   const packageResult = composePackageOperation(project, contributions, operations);
   // Refuses two adapters describing the head differently, before anything is
@@ -916,4 +908,34 @@ function documentTargets(documents: readonly DocumentContribution[]): readonly D
   ].sort();
 
   return [SITE_TARGET, ...roles.map((role) => forPage(role))];
+}
+
+/**
+ * Resolves every target's document and hands the plans to its architecture.
+ *
+ * The one place the pipeline meets an architecture, and it meets it by name:
+ * the realizer is selected from the resolved project rather than assumed, and
+ * each plan is checked against *that* realizer's support before anything is
+ * written.
+ *
+ * With nothing contributed it returns the operations it was given, unchanged
+ * and without selecting anything - which is why a project on an architecture
+ * that has no realization at all still generates, as every React and Next
+ * project does today.
+ */
+function realizeDocuments(
+  architecture: ResolvedProject['architecture'],
+  operations: readonly FileOperation[],
+  documents: readonly DocumentContribution[],
+): readonly FileOperation[] {
+  if (documents.length === 0) return operations;
+
+  const realizer = selectDocumentRealizer(architecture.id);
+  const plans = documentTargets(documents).map((target) => {
+    const plan = buildDocumentEmission(resolveDocumentForPage(documents, target));
+    assertPlanRealizable(plan, realizer.support);
+    return plan;
+  });
+
+  return realizer.apply(architecture, operations, plans);
 }

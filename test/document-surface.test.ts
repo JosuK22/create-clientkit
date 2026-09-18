@@ -558,9 +558,16 @@ describe('the semantic layer stayed architecture-independent', () => {
      * produced, so a project whose adapters say nothing about the document
      * still composes nothing and still matches V1 byte for byte.
      */
+    /*
+     * Since Stage 49 the bridge names no architecture: it collects what was
+     * contributed and hands the plans to whichever realizer the resolved
+     * project selects. The Astro composer is reached through that boundary, so
+     * this asserts the boundary rather than the call it used to make.
+     */
     const bridge = source('src/adapters/bridge.ts');
-    expect(bridge).toContain('composeAstroDocument(project.architecture, merged, compositions)');
+    expect(bridge).toContain('realizeDocuments(project.architecture, merged, documents)');
     expect(bridge).toContain('contributions.flatMap((entry) => entry.documents ?? [])');
+    expect(bridge).not.toContain('composeAstroDocument');
   });
 
   it('stays inert when no adapter contributes a document', () => {
