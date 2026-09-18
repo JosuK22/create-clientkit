@@ -124,7 +124,15 @@ export const CAPABILITIES = [
    * computed contract against the HTML a real `astro build` emitted. Next's
    * `app/layout.tsx` states a title, a description and a language, and nothing
    * verifies anything. So the capability is a claim about **coverage that has
-   * been checked**, not about a composition mechanism.
+   * been checked**.
+   *
+   * Since Stage 44 it is also the gate on a real composition mechanism, which
+   * the wording above outlived: a document contribution reaches an architecture
+   * realizer and becomes file content. Stage 51 is what makes the sentence
+   * separable again. `composed-canonical` now names the mechanism-shaped half -
+   * there is a surface, and a contribution reaches it - leaving this one to
+   * mean what it always measured: the shell covers the rest of the contract,
+   * and that coverage has been verified against built HTML.
    *
    * Withheld from Next because that coverage genuinely is not there, which an
    * experiment confirmed rather than assumed: granting the capability makes all
@@ -137,6 +145,30 @@ export const CAPABILITIES = [
    * not have is one whose contents this generator has any say in.
    */
   'composed-metadata',
+
+  /**
+   * This generator can write the document's canonical address, and the
+   * architecture resolves it per route.
+   *
+   * Narrower than `composed-metadata` on purpose, and the narrowness is the
+   * point. That capability asserts the shell covers what the metadata features
+   * describe - title, description, Open Graph, Twitter, a knowledge-graph
+   * block - which Stage 48 measured Next does not do. This asserts one thing:
+   * there is somewhere to declare a canonical, and the framework works out
+   * which route it belongs to.
+   *
+   * Two architectures provide it for genuinely different reasons. Astro
+   * evaluates an expression per page; Next declares an origin and a relative
+   * address and resolves the route itself. Neither needs a list of routes, and
+   * a capability that described the mechanism rather than the surface would
+   * have been true of only one of them.
+   *
+   * Separate from `composed-metadata` rather than implied by it: a framework
+   * can have a canonical surface without its shell covering the rest, which is
+   * exactly Next's position and was exactly what the broader capability could
+   * not express.
+   */
+  'composed-canonical',
 
   /**
    * The application has a client-rendered root that React context can be

@@ -116,7 +116,7 @@ describe('the realizer is chosen from the resolved architecture', () => {
   });
 
   it('refuses an architecture with no realization, by name', () => {
-    for (const architecture of ['next-app', 'react-standard', 'angular-standard'] as const) {
+    for (const architecture of ['react-standard', 'angular-standard'] as const) {
       const message = refusal(() => selectDocumentRealizer(architecture));
       expect(message, architecture).toContain(`"${architecture}" has no document realization`);
       expect(message, architecture).toContain('no fallback on purpose');
@@ -137,7 +137,9 @@ describe('the realizer is chosen from the resolved architecture', () => {
 
   it('reports which architectures can write a document', () => {
     expect(hasDocumentRealizer('astro-standard')).toBe(true);
-    for (const architecture of ['next-app', 'react-standard', 'angular-standard'] as const) {
+    // Next joined in Stage 51, for the canonical and nothing else.
+    expect(hasDocumentRealizer('next-app')).toBe(true);
+    for (const architecture of ['react-standard', 'angular-standard'] as const) {
       expect(hasDocumentRealizer(architecture), architecture).toBe(false);
     }
   });

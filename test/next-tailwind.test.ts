@@ -395,7 +395,9 @@ describe('adding Tailwind made nothing else compatible', () => {
   });
 
   it('the head features are still refused', () => {
-    for (const feature of ['seo', 'structured-data', 'accessibility'] as const) {
+    // SEO left this list in Stage 51: it asks for the canonical surface Next
+    // has, not the whole metadata surface it does not.
+    for (const feature of ['structured-data', 'accessibility'] as const) {
       expect(
         checkCompatibility(manifestFor({ features: [feature] }), adapters).compatible,
         feature,
@@ -406,7 +408,6 @@ describe('adding Tailwind made nothing else compatible', () => {
   it('Tailwind plus a refused selection is still refused', () => {
     for (const over of [
       { styling: 'tailwind', router: 'react-router' },
-      { styling: 'tailwind', features: ['seo'] },
       { styling: 'tailwind', features: ['client-route-fallback'] },
     ] as Partial<ProjectManifest>[]) {
       expect(checkCompatibility(manifestFor(over), adapters).compatible, JSON.stringify(over)).toBe(

@@ -274,7 +274,9 @@ describe('every refusal comes from the engine, not from a branch', () => {
   it('refuses the head features, because Next composes no head', () => {
     // Each of these produced a byte-identical project before Stage 22 added
     // `composed-metadata`: the contribution was accepted and then dropped.
-    for (const feature of ['seo', 'structured-data', 'accessibility'] as const) {
+    // SEO left this list in Stage 51: it asks for the canonical surface Next
+    // has, not the whole metadata surface it does not.
+    for (const feature of ['structured-data', 'accessibility'] as const) {
       expect(refusalText({ features: [feature] }), feature).toContain('composed-metadata');
     }
   });
@@ -302,10 +304,7 @@ describe('every refusal comes from the engine, not from a branch', () => {
      * "styling:bootstrap" just as readily. So the assertion is about the shape
      * of the explanation, not about whether the word appears.
      */
-    for (const over of [
-      { router: 'react-router' } as const,
-      { features: ['seo'] } as Partial<ProjectManifest>,
-    ]) {
+    for (const over of [{ router: 'react-router' } as const]) {
       const text = refusalText(over).toLowerCase();
       expect(text).toMatch(/requires [a-z-]+ \(|cannot be combined with [a-z-]+ \(/);
       expect(text).not.toContain('does not support');

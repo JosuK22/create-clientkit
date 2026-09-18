@@ -614,12 +614,20 @@ describe('composed-metadata', () => {
     expect(surfacesOf('composed-metadata')).toEqual([{ role: 'app.layout', via: 'data' }]);
   });
 
-  it('is still absent from Next, and the metadata features are still refused', () => {
-    for (const feature of ['seo', 'structured-data', 'accessibility'] as const) {
+  it('is still absent from Next, and the features that need it are still refused', () => {
+    /*
+     * SEO left this list in Stage 51, when it stopped asking for the whole
+     * metadata surface and started asking for the canonical one it actually
+     * composes. The two features that genuinely need the shell to cover their
+     * contracts - a knowledge-graph block, an accessibility guarantee on every
+     * page - are refused exactly as before, and for the same reason.
+     */
+    for (const feature of ['structured-data', 'accessibility'] as const) {
       const report = checkCompatibility(nextManifest({ features: [feature] }), adapters);
       expect(report.compatible, feature).toBe(false);
       expect(JSON.stringify(report.violations), feature).toContain('composed-metadata');
     }
+    expect(checkCompatibility(nextManifest({ features: ['seo'] }), adapters).compatible).toBe(true);
   });
 
   it('is not granted by mapping the layout', () => {
@@ -729,7 +737,6 @@ describe('the supported stacks are unchanged', () => {
 describe('the refusals are unchanged', () => {
   const refused: readonly (readonly [string, ProjectManifest, string])[] = [
     ['next + react-router', nextManifest({ router: 'react-router' }), 'file-based-routing'],
-    ['next + seo', nextManifest({ features: ['seo'] }), 'composed-metadata'],
     [
       'next + structured-data',
       nextManifest({ features: ['structured-data'] }),

@@ -140,13 +140,19 @@ describe('SEO is a feature', () => {
 // ---------------------------------------------------------------------------
 
 describe('SEO requires a capability and names nothing', () => {
-  it('requires exactly a document metadata surface', () => {
-    // `composed-metadata` was split out of `document-metadata` in Stage 22:
-    // a head rendered before the response is sent is not the same as a head
-    // this generator writes into, and Next has the first without the second.
+  it('requires exactly a document head and a canonical surface', () => {
+    /*
+     * `composed-metadata` was split out of `document-metadata` in Stage 22: a
+     * head rendered before the response is sent is not the same as a head this
+     * generator writes into. Stage 51 split again, and for the same kind of
+     * reason. This feature composes a canonical and nothing else - title and
+     * description come from the framework on both architectures - so asking
+     * for the whole metadata surface asked for more than it uses, and kept it
+     * off a framework that has the part it needs.
+     */
     expect(requiredCapabilities(SEO_DECLARATION)).toEqual([
       'document-metadata',
-      'composed-metadata',
+      'composed-canonical',
     ]);
   });
 
@@ -250,7 +256,7 @@ describe('compatibility is decided by capability', () => {
       id: 'nextjs',
       kind: 'framework',
       displayName: 'A framework that is not Astro',
-      provides: ['document-metadata', 'composed-metadata', 'ssr', 'typescript'],
+      provides: ['document-metadata', 'composed-canonical', 'ssr', 'typescript'],
       requires: [],
     };
     expect(evaluateCombination([hypothetical, SEO_DECLARATION]).compatible).toBe(true);

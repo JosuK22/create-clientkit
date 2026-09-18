@@ -77,8 +77,9 @@ const SEO_DECLARATION: AdapterDeclaration = {
        * byte-identical project.
        */
       kind: 'requires',
-      capability: 'composed-metadata',
-      because: 'it writes the title, description and canonical link into the head',
+      capability: 'composed-canonical',
+      because:
+        'it writes the canonical link into the head; the title and description the head also states belong to the framework, not to this feature',
     },
   ],
 };

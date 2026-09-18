@@ -277,8 +277,10 @@ describe('Next remains without the capability', () => {
     expect(adapters.framework('nextjs').declaration.provides).not.toContain('composed-metadata');
   });
 
-  it('refuses all three features, naming the capability', () => {
-    for (const feature of METADATA_FEATURES) {
+  it('refuses the features that need the whole surface, naming the capability', () => {
+    // SEO left this set in Stage 51: it composes a canonical and asks for the
+    // capability that names one.
+    for (const feature of ['structured-data', 'accessibility'] as FeatureId[]) {
       const report = checkCompatibility(
         nextManifest({ features: [feature] as FeatureId[] }),
         adapters,
@@ -289,6 +291,8 @@ describe('Next remains without the capability', () => {
   });
 
   it('refuses every combination of them', () => {
+    // Every combination that still contains a feature needing the whole
+    // metadata surface. SEO alone left the set in Stage 51.
     const combinations: FeatureId[][] = [
       ['seo', 'structured-data'],
       ['seo', 'accessibility'],
@@ -305,7 +309,7 @@ describe('Next remains without the capability', () => {
   });
 
   it('writes nothing when refused', () => {
-    for (const feature of METADATA_FEATURES) {
+    for (const feature of ['structured-data', 'accessibility'] as FeatureId[]) {
       let planned = false;
       try {
         planOf(nextManifest({ features: [feature] as FeatureId[] }));
@@ -382,10 +386,15 @@ describe('the capability contract still holds', () => {
     for (const id of METADATA_FEATURES) {
       const declaration = adapters.feature(id).declaration;
       expect(declaration.provides, id).toEqual([]);
-      expect(JSON.stringify(declaration.requires), id).toContain('composed-metadata');
+      // Each asks for a composition capability; which one depends on how much
+      // of the document it actually composes.
+      expect(JSON.stringify(declaration.requires), id).toMatch(/composed-(metadata|canonical)/);
     }
     expect(adapters.framework('astro').declaration.provides).toContain(
       'composed-metadata' satisfies Capability,
+    );
+    expect(adapters.framework('astro').declaration.provides).toContain(
+      'composed-canonical' satisfies Capability,
     );
   });
 

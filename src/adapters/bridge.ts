@@ -896,7 +896,9 @@ export function planManifest(
  * by the order adapters happened to run. Deterministic ordering, not
  * precedence: scope composition settled that already.
  */
-function documentTargets(documents: readonly DocumentContribution[]): readonly DocumentTarget[] {
+export function documentTargets(
+  documents: readonly DocumentContribution[],
+): readonly DocumentTarget[] {
   if (documents.length === 0) return [];
 
   const roles = [

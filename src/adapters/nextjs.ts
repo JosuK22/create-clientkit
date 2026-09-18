@@ -104,6 +104,7 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
      * accepted and then silently ignored.
      */
     'composed-stylesheet',
+    'composed-canonical',
     /*
      * There is a root above the application that a provider occupies, and the
      * occupant decides whether it is client-rendered.

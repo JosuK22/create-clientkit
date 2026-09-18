@@ -240,8 +240,11 @@ describe('Next declares the capability it actually has', () => {
   it('gained nothing else', () => {
     // Two more since Stage 26 - `client-app-root` and `server-inserted-head` -
     // each earned by architecture rather than asserted. See next-mui.test.ts.
+    // `composed-canonical` joined in Stage 51, earned by a realization that
+    // writes a canonical Next resolves per route.
     expect([...NEXTJS_DECLARATION.provides].sort()).toEqual([
       'client-app-root',
+      'composed-canonical',
       'composed-stylesheet',
       'document-metadata',
       'file-based-routing',
@@ -405,7 +408,6 @@ describe('correcting one capability changed only what it should', () => {
       // missing capability to a conflict with the framework's own routing.
       ['react-router', { router: 'react-router' }, 'file-based-routing'],
       ['client-route-fallback', { features: ['client-route-fallback'] }, 'client-side-routing'],
-      ['seo', { features: ['seo'] }, 'composed-metadata'],
       ['structured-data', { features: ['structured-data'] }, 'composed-metadata'],
       ['accessibility', { features: ['accessibility'] }, 'composed-metadata'],
     ];
@@ -512,10 +514,7 @@ describe('an impossible stack is refused before anything is planned', () => {
      * rather than as an explanation. `resolveProject` runs before any operation
      * exists, which is where these must fail.
      */
-    for (const over of [
-      { router: 'react-router' },
-      { features: ['seo'] },
-    ] as Partial<ProjectManifest>[]) {
+    for (const over of [{ router: 'react-router' }] as Partial<ProjectManifest>[]) {
       expect(() => resolveProject(manifestFor(over), adapters)).toThrow(CliError);
     }
   });

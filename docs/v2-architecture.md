@@ -6241,3 +6241,146 @@ reason: an unmatched path never reaches the application.
 3. The page renders navigation links from `NAV` only. A project that has not
    configured navigation gets a not-found page with a single home link, which is
    the same omission-over-invention rule the rest of the template follows.
+
+### Stage 51 — Next.js canonical document realization (landed)
+
+Stage 49 blocked on this and Stage 50 removed the blocker. What lands here is
+one field, on one architecture, and a capability narrow enough to be true.
+
+#### The same value, two spellings
+
+Astro spells a canonical as an expression the page evaluates:
+
+```astro
+absoluteUrl(siteOrigin(SITE.url), Astro.url.pathname)
+```
+
+Next does not work that way. It takes a declaration — an origin and a relative
+address — and resolves the route itself:
+
+```ts
+metadataBase: SITE.url ? new URL(SITE.url) : null,
+alternates: { canonical: SITE.url ? './' : null },
+```
+
+One `DocumentEmissionPlan` produces both. That is the case for realization being
+a per-architecture concern rather than a shared emitter with a formatting switch:
+the semantic value is identical, and the two architectures do not merely write it
+differently, they express a different kind of thing. Stage 49 built the boundary
+for a second realizer; this is the second realizer.
+
+#### Why a new capability, and why this narrow
+
+Granting Next `composed-metadata` would have been the short path and would have
+been false. Stage 48 measured that Next's shell does not cover title,
+description, Open Graph, Twitter or a knowledge-graph block in any way this
+generator has a say in — which is exactly what that capability asserts. Next has
+one surface: a canonical address the framework resolves per route.
+
+So `composed-canonical` names that surface and nothing else:
+
+|         | `composed-metadata`                                        | `composed-canonical`                                                            |
+| ------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Asserts | the shell covers the contract, verified against built HTML | there is somewhere to declare a canonical, and the framework resolves the route |
+| Astro   | yes                                                        | yes — an expression per page                                                    |
+| Next    | no, and Stage 48 measured why                              | yes — an origin plus a relative address                                         |
+| Gates   | `structured-data`, `accessibility`                         | `seo`                                                                           |
+
+The two are separate rather than one implying the other, because Next is the
+case that proves they come apart: a framework can have a canonical surface
+without its shell covering the rest. `seo` moved onto the narrow one, and its
+stated reason was corrected at the same time — it writes the canonical, and the
+title and description the head also states have belonged to the framework since
+Stage 44. That is the drift Stage 49 recorded as a known limitation, now closed,
+along with the `composed-metadata` doc comment Stage 48 flagged.
+
+#### What the realizer will and will not spell
+
+One field, three shapes, all closed:
+
+```text
+derived(absolute-page-url(site.url, page.path))  ->  metadataBase + './'
+literal('')                                      ->  canonical: null
+literal(url)                                     ->  canonical: <url>
+```
+
+The derivation is matched **as a whole** rather than assembled from its parts.
+Next is not handed an expression to evaluate; it is told which relationship
+holds, and `absolute-page-url` is exactly the relationship `metadataBase` plus a
+relative address expresses. A derivation over other inputs has no declaration
+form and is refused by name.
+
+Every other document field is refused by name too — title, description and
+robots belong to the framework by Stage 47's rule, and Open Graph, Twitter and
+structured data have inputs the vocabulary cannot name. Refusing is what keeps
+the capability honest: a realization that dropped them quietly would let a
+feature be accepted and then ignored, which is the failure the whole capability
+system exists to prevent.
+
+#### The guard that took measuring
+
+The first implementation guarded only `metadataBase`. A project with no
+production URL then emitted relative canonicals — `href="/"`, `href="/contact"` —
+because Next resolves a relative address with or without a base. Not a fabricated
+origin, but not this project's rule either: Astro omits the tag entirely when no
+origin is configured, and a URL-less project should say the same thing on both
+architectures. Guarding the address as well is what makes them agree, and it was
+found by serving the built site rather than by reading the code.
+
+#### Measured, on a real project
+
+A plain Next stack and a Tailwind Next stack, each generated, installed,
+typechecked, `next build`, `next start`, with a `/contact` route added by hand
+after generation:
+
+| Route                      | Status | `<link rel="canonical">`       |
+| -------------------------- | ------ | ------------------------------ |
+| `/`                        | 200    | `https://acme.example`         |
+| `/contact` (added by hand) | 200    | `https://acme.example/contact` |
+| `/nope`                    | 404    | none                           |
+| `/contact/missing`         | 404    | none                           |
+| `/a/b/c`                   | 404    | none                           |
+
+Exactly one canonical element per indexable route, zero on every 404, confirmed
+in the live DOM after hydration as well as in the served HTML. The `/_not-found`
+address Stage 49 saw leak into unmatched routes is gone — that is what
+`canonical: null` on the not-found page buys.
+
+Two further measurements, both without ClientKit present:
+
+- editing `SITE.url` to `https://renamed.example` and rebuilding moves every
+  canonical, including `/contact`'s — the address is project-owned, and the
+  generator wrote a mechanism rather than a value;
+- setting `SITE.url` to `''` and rebuilding produces no canonical on any route,
+  matching Astro.
+
+Across all 12 valid Next stacks (three styling × two UI × two starters), with a
+URL, without one, and without the feature, the declarations are identical and no
+address is ever frozen into the source.
+
+#### What is unchanged
+
+Astro's realization, surface, bindings, derivations and page metadata: untouched,
+and generated Astro output is byte-identical. Next's title, description and
+robots remain framework-owned. `structured-data` and `accessibility` on Next
+remain refused, on Stage 48's measurements, because they ask for
+`composed-metadata` and Next still does not have it.
+
+**Unchanged.** No template byte edited, no golden moved. The four V1 goldens are
+byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+the CLI has no new flags or prompts, and it still has zero runtime dependencies.
+
+#### Known limitations
+
+1. Next states one document field. Six remain refused, and closing any of them
+   is a metadata-model problem rather than a realization one.
+2. A page-scoped canonical can only say "this address" or "no address". There is
+   no way to state a canonical that differs per page by rule, because no
+   derivation expresses one.
+3. `documentTargets` is now exported so the order the realizer receives its
+   plans can be asserted. That order is unobservable in today's output — every
+   target resolves to a distinct file — so the test pins a contract rather than
+   a behaviour. It stops being theoretical the moment two targets share a file.
+4. The not-found page's canonical suppression is spelled `canonical: null`,
+   which is Next's own vocabulary. An architecture whose framework has no such
+   spelling would need a different answer, and none is designed.

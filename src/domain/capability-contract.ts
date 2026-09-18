@@ -247,6 +247,20 @@ export const CAPABILITY_CONTRACTS: Readonly<Record<Capability, CapabilityContrac
       'the document shell states what the metadata features describe. What a feature contributes is values rather than a file, and the shell may ship with the template, so mapping the role is the whole structural requirement',
     surfaces: [{ role: 'app.layout', via: 'data' }],
   },
+
+  'composed-canonical': {
+    category: 'composition',
+    /*
+     * A `data` surface for the same reason `composed-metadata` has one: what a
+     * feature contributes is a value, not a file, and the place it is declared
+     * ships with the template. Mapping the shell is the whole structural
+     * requirement - the architecture's realization decides how a canonical is
+     * spelled there.
+     */
+    because:
+      'the document shell is where a canonical address is declared, and the architecture resolves it for each route. A feature contributes the address as a value rather than a file, so mapping the shell is the whole structural requirement',
+    surfaces: [{ role: 'app.layout', via: 'data' }],
+  },
 };
 
 /** Every capability in the given category, sorted. Used by tests and docs. */

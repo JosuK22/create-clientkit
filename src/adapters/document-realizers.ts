@@ -6,6 +6,7 @@ import { CliError } from '../errors.js';
 import { ASTRO_REALIZATION } from './astro-derivations.js';
 import { realizeAstroDocument } from './astro-document-realization.js';
 import { composeAstroDocument } from './astro-document-surface.js';
+import { NEXT_REALIZATION, applyNextDocument } from './next-document-realization.js';
 
 /**
  * Which architecture writes a resolved document, and how it is chosen.
@@ -80,19 +81,33 @@ export const ASTRO_DOCUMENT_REALIZER: DocumentRealizer = {
 };
 
 /**
+ * Next's realizer: one field, declared rather than evaluated.
+ *
+ * Stage 49 left this architecture deliberately unregistered, because Stage 48
+ * had measured that its canonical surface was real but unreachable - the SEO
+ * feature required a capability Next does not have, so no Next project
+ * contributed a document, so a realizer would have been code nothing ran.
+ *
+ * What changed is the capability, not the measurement. `composed-canonical`
+ * names the narrow thing Next genuinely offers, which is why the same refusal
+ * still stands for everything else: this realizer spells a canonical and
+ * refuses the other six fields by name.
+ */
+export const NEXT_DOCUMENT_REALIZER: DocumentRealizer = {
+  architecture: 'next-app',
+  support: NEXT_REALIZATION,
+  apply: applyNextDocument,
+};
+
+/**
  * Every architecture that can write a document today.
  *
  * A list, not a lookup built from the architecture vocabulary: an architecture
  * absent from here has no realization, which is a fact about what has been
  * built rather than an oversight to be filled in with something plausible.
- *
  * React and Angular are absent because neither has a document realization.
- * Next is absent because Stage 48 measured that its canonical surface is real
- * but nothing can reach it - the SEO feature requires a capability Next does
- * not have, so no Next project contributes a document, so a realizer would be
- * code nothing runs.
  */
-const REALIZERS: readonly DocumentRealizer[] = [ASTRO_DOCUMENT_REALIZER];
+const REALIZERS: readonly DocumentRealizer[] = [ASTRO_DOCUMENT_REALIZER, NEXT_DOCUMENT_REALIZER];
 
 /** Whether this architecture can write a document at all. */
 export function hasDocumentRealizer(architecture: ArchitectureId): boolean {

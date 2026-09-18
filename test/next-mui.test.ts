@@ -198,6 +198,7 @@ describe('Next provides a client application root, and the architecture says so'
     // Stages 22 to 24R's, unchanged.
     expect([...NEXTJS_DECLARATION.provides].sort()).toEqual([
       'client-app-root',
+      'composed-canonical',
       'composed-stylesheet',
       'document-metadata',
       'file-based-routing',
@@ -429,7 +430,9 @@ describe('gaining the capability made nothing else compatible', () => {
   });
 
   it('the head features are still refused', () => {
-    for (const feature of ['seo', 'structured-data', 'accessibility'] as const) {
+    // SEO left this list in Stage 51: it asks for the canonical surface Next
+    // has, not the whole metadata surface it does not.
+    for (const feature of ['structured-data', 'accessibility'] as const) {
       const report = checkCompatibility(
         nextManifest({ uiLibrary: 'none', features: [feature] }),
         adapters,
@@ -459,7 +462,6 @@ describe('gaining the capability made nothing else compatible', () => {
   it('refused combinations still fail before any file exists', () => {
     for (const over of [
       { uiLibrary: 'none', router: 'react-router' },
-      { uiLibrary: 'none', features: ['seo'] },
     ] as Partial<ProjectManifest>[]) {
       expect(() => resolveProject(nextManifest(over), adapters)).toThrow(CliError);
     }
