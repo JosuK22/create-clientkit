@@ -5721,3 +5721,145 @@ Decide between the two routes above before composing any further field. Both are
 semantics decisions with consequences beyond this stage: one changes the page
 contract, the other re-opens Stage 37's deliberate separation of scope from
 derivation.
+
+### Stage 47 — where page-owned metadata lives (decided: Route B)
+
+Stage 46 ended with two routes and a question: when a document contribution
+needs to reach a page whose metadata originates in its layout invocation, where
+should that metadata live? This stage answered it by measurement.
+
+#### Route A, measured three ways, does not exist
+
+Route A needs page props to reach the page-targeted composed component. Astro
+has a documented mechanism for passing data into a slot, and it was tried:
+
+| attempt                                                                              | result                                                    |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `<slot name="head" {title} {description} {noindex} />`                               | args absent — `(none)`, `(none)`, `false`                 |
+| `Astro.slots.render('head', [{ title, description, noindex }])` with `{(args) => …}` | slot rendered into `<head>`, `args` arrived as **`null`** |
+| `Astro.slots.render('head', ['…'])` with `{(t) => …}`                                | `t` arrived as **`undefined`**                            |
+
+The callback runs — its output reaches the head — but Astro does not deliver
+slot arguments to `.astro` slot content. Combined with Stage 46's measurement
+that a page has no `Astro.props` of its own, the only remaining way to give the
+page-targeted component the page's metadata is to write the values a second time
+into the fragment ClientKit inserts, beside the copy already in the layout
+invocation.
+
+Two copies of a value a developer edits is a frozen copy. That is hard stop 3,
+and Route A ends there.
+
+#### Route B, which is the architecture already in place
+
+Route B asks whether page-owned title, description and robots can stay
+template-owned while composition is limited to what belongs to the
+document-generation layer. They can, and they already do — and the reason is
+sharper than "it works today".
+
+A page's title, description and indexing state are **page-owned facts the
+template already resolves correctly**: dynamically, per page, for pages
+ClientKit has never seen, with absence falling through to the site's values at
+the point the template decides. Composing them would move where they are emitted
+and change nothing about what they say. The document layer would gain no
+capability and would acquire a dependency on a channel it cannot reach.
+
+`canonical` is different, and the difference is precise: **both of its inputs
+already exist as bindings** — `site.url` and `page.path` — so the document layer
+can state it truthfully without reaching into the page at all. That is the line.
+
+> A field belongs to document composition when every input it needs is a fact
+> the semantic vocabulary can name. Otherwise it belongs to the template, which
+> is already standing where the value is.
+
+#### Why the page-targeted composition stays
+
+It would be tempting to remove the 404's page-targeted composition by letting
+the site-wide canonical read the page's `noindex` — which the site-wide position
+_can_ see. That would also fix a known limitation, and it was considered.
+
+It is refused because it merges two concepts Stage 37 deliberately separated: a
+canonical address and an indexing directive. The template couples them in its
+own implementation; the semantic model does not, and "this page claims no
+address" is a statement the page makes at its own scope, not a condition
+evaluated inside an expression. Rewriting it as a condition would move a
+semantic decision into an Astro adapter.
+
+#### Answers to the architectural questions
+
+**A. Is page metadata a build-time fact?** Page-owned and build-time, but owned
+by the _generated project's_ build, not ClientKit's. Measured: editing
+`contact.astro` and `404.astro` after generation and rebuilding without
+re-running ClientKit changed the output.
+
+**B. Who owns title qualification?** The template. `page-title-with-site-name`
+has the right shape, but its page-side input cannot be truthfully obtained in
+both composed positions, so the derivation stays unused for this purpose.
+
+**C. Who owns description inheritance?** The template. `description ??
+SITE.description` happens in `Seo.astro`, after the prop channel. Absence stays
+absence in the channel and is resolved once, where the fallback lives. A binding
+must never be defined as "the page's description or the site's".
+
+**D. Who owns indexing state?** Both, independently: `noindex` is the page's,
+`SEO.noindex` is the project's, and the template's `||` combines them without
+either taking precedence. `document.indexingBlocked` names the project half; the
+page half has no binding and gains none here.
+
+**E. Does canonical really need page-targeted composition?** Yes, as long as
+canonical suppression is a page's own statement rather than a condition. That is
+Stage 37's decision and it stands.
+
+#### Measured behaviour, production output
+
+|                           | title                           | description | robots            | canonical                       | JSON-LD | duplicates |
+| ------------------------- | ------------------------------- | ----------- | ----------------- | ------------------------------- | ------- | ---------- |
+| `/` (declares nothing)    | `Acme Website`                  | site's      | index, follow     | `https://acme.example/`         | 1       | none       |
+| `/404`                    | `Page not found - Acme Website` | its own     | noindex, nofollow | absent                          | 0       | none       |
+| `/contact` (hand-written) | `Contact - Acme Website`        | its own     | index, follow     | `https://acme.example/contact/` | 1       | none       |
+
+After editing both pages' metadata and the site name, then rebuilding with no
+ClientKit run: `Nothing here - Renamed Ltd`, `Contact Us - Renamed Ltd`,
+`Get in touch with our team.` — every edit reflected, nothing frozen.
+
+#### Route comparison
+
+| criterion                            | Route A                                               | Route B                     |
+| ------------------------------------ | ----------------------------------------------------- | --------------------------- |
+| preserves page-owned title           | only by copying it                                    | yes, template resolves it   |
+| preserves page-owned description     | only by copying it                                    | yes                         |
+| preserves page-owned noindex         | only by copying it                                    | yes                         |
+| preserves absence                    | no — a copy has no absence                            | yes, measured on `/`        |
+| preserves site fallback              | would have to be re-implemented                       | yes, in `Seo.astro`         |
+| preserves 404 semantics              | yes                                                   | yes, measured               |
+| works for user-added pages           | no — ClientKit cannot write into a page it never sees | yes, measured on `/contact` |
+| requires route knowledge             | no                                                    | no                          |
+| freezes page metadata                | **yes**                                               | no, measured                |
+| requires template mutation           | yes, per page                                         | no                          |
+| preserves V1 checksum                | conditionally                                         | yes                         |
+| requires new domain concept          | page-metadata bindings + prop context                 | none                        |
+| framework-independent                | the concept yes, the mechanism no                     | yes                         |
+| compatible with DocumentEmissionPlan | yes                                                   | yes                         |
+| compatible with bindings             | needs three new ones                                  | yes, unchanged              |
+| compatible with derivations          | yes                                                   | yes, unchanged              |
+| complexity introduced                | prop threading, two context kinds, page rewriting     | none                        |
+| new failure modes                    | copies drifting from the layout invocation            | none                        |
+
+#### Production change
+
+**None.** No binding, no derivation, no template edit, no ownership change. The
+decision is that the current boundary is correct, so the correct implementation
+of it is the one already there.
+
+#### Known limitations
+
+1. `title`, `description` and `robots` are template-owned permanently under this
+   decision, not pending. A feature wishing to _state_ one of them has no way to,
+   and would need Route A's mechanism, which Astro does not provide.
+2. A user-added page that sets `noindex={true}` still receives a composed
+   canonical, because canonical suppression is a page-scoped statement and
+   ClientKit cannot make one for a page it does not know. Unchanged from Stage 44
+   and now explained rather than merely recorded.
+3. One architecture measured. Another framework may deliver slot arguments, which
+   would reopen Route A for that framework alone.
+4. The decision rests on Astro's slot semantics in 7.3.2. A future Astro that
+   passes arguments to `.astro` slot content would make Route A viable.
