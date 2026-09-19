@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { planManifest } from '../src/adapters/bridge.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
 import { assertFlagCombinations, dimensionFlagsUsed, parseCliArgs } from '../src/args.js';
-import { DIMENSION_DEFAULTS, resolveDimensions } from '../src/context/dimensions.js';
+import {
+  assertFrameworkOffers,
+  DIMENSION_DEFAULTS,
+  resolveDimensions,
+} from '../src/context/dimensions.js';
 import { resolveContext } from '../src/context/resolve.js';
 import { manifestFromProjectContext } from '../src/domain/manifest.js';
 import { CliError, EXIT_USAGE } from '../src/errors.js';
@@ -234,7 +238,7 @@ describe('each flag configures its own dimension', () => {
       (await manifestFor(['--framework', 'react', '--architecture', 'react-standard']))
         .architecture,
     ).toBe('react-standard');
-    expect((await manifestFor(['--framework', 'react', '--language', 'js'])).language).toBe('js');
+    expect((await manifestFor(['--framework', 'react', '--language', 'ts'])).language).toBe('ts');
   });
 
   it('accepts the long spelling of a language without inventing a second id', async () => {
@@ -242,8 +246,17 @@ describe('each flag configures its own dimension', () => {
     const spelled = await manifestFor(['--framework', 'react', '--language', 'typescript']);
     expect(spelled).toEqual(canonical);
     expect(spelled.language).toBe('ts');
-    expect((await manifestFor(['--framework', 'react', '--language', 'JavaScript'])).language).toBe(
-      'js',
+  });
+
+  it('normalises a long spelling before deciding whether it is offered', async () => {
+    /*
+     * `JavaScript` still becomes `js` - the alias table is untouched - and the
+     * stack is then refused because no framework offers that language. The two
+     * steps are separate, and the error has to be about the language rather
+     * than about the spelling.
+     */
+    await expect(manifestFor(['--framework', 'react', '--language', 'JavaScript'])).rejects.toThrow(
+      /fixes the language to "ts"/,
     );
   });
 });
@@ -648,12 +661,91 @@ describe('compatibility is decided downstream, and is provably not decided here'
     ).toThrow(CliError);
   });
 
-  it('lets a disagreement between a framework and an explicit build tool reach the engine', async () => {
-    // The CLI takes `--build-tool vite` at face value even though Astro fixes
-    // its own. Quietly correcting it here would hide a conflict the user asked
-    // for and needs to see.
-    const manifest = await manifestFor(['--framework', 'astro', '--build-tool', 'vite']);
-    expect(manifest.buildTool).toBe('vite');
+  it('refuses a dimension the framework does not offer, rather than reporting it back', async () => {
+    /*
+     * This test asserted the opposite through Stage 51, on the reasoning that
+     * taking `--build-tool vite` at face value let the compatibility engine
+     * surface the conflict. Stage 52 measured that it never did: build tools,
+     * languages and routers are not capabilities, so nothing downstream spoke
+     * about them. The CLI exited 0, printed `Build tool  vite  [flag]`, and
+     * generated an ordinary Astro project - the conflict the comment said the
+     * user needed to see was the one thing they were not shown.
+     *
+     * Still not silently corrected. Refused, by name, where the framework's
+     * own declaration is known.
+     */
+    await expect(manifestFor(['--framework', 'astro', '--build-tool', 'vite'])).rejects.toThrow(
+      /astro adapter fixes the build tool to "astro"/,
+    );
+  });
+
+  it('refuses as a usage error, so the shell sees the right code', async () => {
+    // A mutation that dropped `exitCode` survived the whole suite until this
+    // existed: every refusal still failed, just with the generic code. A wrong
+    // flag is the user's to fix, and a script branching on the exit status has
+    // to be able to tell that from an internal failure.
+    for (const argv of [
+      ['--framework', 'astro', '--build-tool', 'vite'],
+      ['--framework', 'astro', '--language', 'js'],
+      ['--framework', 'react', '--router', 'file-based'],
+    ]) {
+      const error = await manifestFor(argv).then(
+        () => undefined,
+        (thrown: CliError) => thrown,
+      );
+      expect(error, argv.join(' ')).toBeInstanceOf(CliError);
+      expect((error as CliError).exitCode, argv.join(' ')).toBe(EXIT_USAGE);
+    }
+  });
+
+  it('checks the architecture too, not only the three dimensions above it', () => {
+    /*
+     * `resolveDimensions` already refuses an architecture the framework does
+     * not define, so the CLI path is guarded twice and a mutation removing this
+     * row survived. The row is not redundant in principle - that check reads
+     * `architectureDefinitions` and this one reads the `architectures`
+     * declaration, and a framework defining two while fixing one would make
+     * them disagree - so it is pinned where it can be reached directly.
+     */
+    const settled = {
+      framework: 'astro' as const,
+      buildTool: 'astro' as const,
+      language: 'ts' as const,
+      styling: 'tailwind' as const,
+      uiLibrary: 'none' as const,
+      router: 'file-based' as const,
+      architecture: 'react-standard' as const,
+      features: [],
+      origins: {},
+    };
+    let error: CliError | undefined;
+    try {
+      assertFrameworkOffers(settled as never, adapters);
+    } catch (thrown) {
+      error = thrown as CliError;
+    }
+    expect(error).toBeInstanceOf(CliError);
+    expect(textOf(error as CliError)).toContain('architecture');
+    expect(textOf(error as CliError)).toContain('astro-standard');
+    expect((error as CliError).exitCode).toBe(EXIT_USAGE);
+  });
+
+  it('names what the framework does offer', async () => {
+    const error = await manifestFor(['--framework', 'react', '--router', 'file-based']).then(
+      () => undefined,
+      (thrown: CliError) => thrown,
+    );
+    expect(error).toBeInstanceOf(CliError);
+    expect(textOf(error as CliError)).toContain('does not offer the router "file-based"');
+    // The choice is stated, so the message is actionable rather than only a no.
+    expect(textOf(error as CliError)).toContain('"none" or "react-router"');
+  });
+
+  it('leaves styling and UI library to the compatibility engine', async () => {
+    // These two genuinely are capabilities, so the disagreement is still
+    // resolved downstream and this layer stays out of it.
+    const manifest = await manifestFor(['--framework', 'nextjs', '--styling', 'tailwind']);
+    expect(manifest.styling).toBe('tailwind');
   });
 
   it('the normaliser holds no capability vocabulary', () => {

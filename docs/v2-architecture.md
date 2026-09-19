@@ -6384,3 +6384,112 @@ the CLI has no new flags or prompts, and it still has zero runtime dependencies.
 4. The not-found page's canonical suppression is spelled `canonical: null`,
    which is Next's own vocabulary. An architecture whose framework has no such
    spelling would need a different answer, and none is designed.
+
+### Stage 52 — supported-stack integration matrix (landed)
+
+An audit stage. Nothing was added; three things that were already claimed turned
+out not to be true, and this is what closing them cost.
+
+#### The matrix is derived, not written
+
+Walking the cross-product of every dimension the registry actually implements —
+three frameworks × three styling systems × two UI libraries × three routers ×
+two languages × two starters × all 32 feature subsets — gives **6,912**
+combinations. Each is resolved through the real dimension resolver and put to
+the real compatibility engine, so the split is the engine's answer rather than a
+list someone maintained:
+
+| Framework | Accepted | Styling                   | UI        | Router             | Features it takes                              |
+| --------- | -------- | ------------------------- | --------- | ------------------ | ---------------------------------------------- |
+| Astro     | 32       | tailwind                  | none      | file-based         | accessibility, not-found, seo, structured-data |
+| Next.js   | 48       | none, bootstrap, tailwind | none, mui | file-based         | not-found, seo                                 |
+| React     | 24       | bootstrap, tailwind       | none, mui | none, react-router | client-route-fallback                          |
+
+**104 accepted, 6,808 refused.** Every accepted combination was then generated
+through `bin/cli.js` — the published entry point, with flags, not an internal
+function. All 104 generated, and all 104 produced a **distinct** file tree: no
+two stacks collapse to the same project.
+
+#### Three defects, all of the same shape
+
+Each was a claim the system made that nothing checked, and each was found by
+running the thing rather than reading it.
+
+**1. A framework's own dimension declarations were not enforced.**
+`--framework astro --build-tool vite` exited 0, printed `Build tool  vite
+[flag]`, and generated an ordinary Astro project. So did `--language js`, on
+every framework — all three fix `ts`, and the flag was advertised in `--help`,
+accepted, reported back and ignored. `fromFramework` returned an explicit value
+unconditionally, and its comment said the compatibility engine would catch the
+disagreement; build tools, languages and routers are not capabilities, so
+nothing ever did.
+
+The fix is `assertFrameworkOffers`, run once on the settled stack rather than
+inside `resolveDimensions` — which is also a probe the interactive flow calls
+after every answer, where a half-answered stack is not yet wrong. Enforcing in
+the probe was tried first and broke the flow; that regression is now a mutation.
+
+**2. Compatibility accepted React with no styling system.** `React + styling:none`
+was reported compatible, and generation then refused on a missing `styles.global`
+role. The architecture had declared `requiredRoles: ['styles.global']` since it
+was written; the compatibility engine has never consulted it. Because the
+interactive menus are built from that same report, the flow _offered_ a choice
+that could not be built. React declares the requirement itself now, and the
+plan-time role guard stays as the structural backstop it always was — the two
+answer different questions, and both are tested.
+
+**3. Astro generated a project that would not build.** `astro + styling:none`
+resolved, planned, generated 22 files, installed cleanly, and then:
+
+```text
+Cannot find module '@tailwindcss/vite' imported from astro.config.mjs
+```
+
+The template is `astro-tailwind`; its config imports that plugin
+unconditionally and the dependency arrives with the styling adapter. There has
+never been a plain-Astro variant, so Astro requires a CSS framework rather than
+gaining a second template. Bootstrap is still refused there for its own,
+unrelated reason.
+
+A visible consequence: Astro is no longer asked about styling. Tailwind is its
+only survivor, and the existing rule — a dimension with one possible answer is
+derived rather than shown as a menu of one — does the rest. React still offers
+the choice and is still asked.
+
+#### What was measured
+
+- **104/104** accepted combinations generate; **104 distinct trees**.
+- **20/20** refusals exit non-zero, name the capability or dimension, write
+  nothing, print no stack trace, use no fallback language, and repeat verbatim.
+- **8/8** representative stacks — every framework, every styling system, MUI,
+  React Router, both starters, four features — install, typecheck and build from
+  an empty directory with no reused `node_modules`, `.next` or `dist`.
+- **6/6** stacks reproduce byte-for-byte across three runs; only `generatedAt`
+  varies, which is by design.
+- **4/4** atomicity checks: a compatibility refusal, a plan refusal and a
+  mid-write application failure each leave no project and no staging tree, and a
+  pre-existing file survives a failed run untouched.
+- **11/11** CLI checks, confirming `flag > config > preset > default`.
+- **8/8** adapter-isolation checks: no adapter reads process or global state,
+  imports UI or logging, or imports another adapter family; two independently
+  built registries resolve identically.
+
+#### What is unchanged
+
+No template byte was edited and no golden moved. The four V1 goldens are
+byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+the version is still 1.0.2, and the CLI still has zero runtime dependencies. The
+capability vocabulary is untouched: `document-metadata`, `composed-metadata` and
+`composed-canonical` still mean three different things, and Next still has the
+third and not the second.
+
+#### Known limitations
+
+1. Both new requirements name `css-framework`, which is what both implemented
+   styling systems provide. The vocabulary has `styling: 'css'` with no adapter
+   behind it; a plain-CSS adapter would supply a stylesheet without being a
+   framework, and both declarations would need widening that day.
+2. Clean install-and-build was run on 8 of the 104 accepted combinations, not
+   all of them. The other 96 are verified as far as generation.
+3. The matrix is derived on one machine and one Node version. CI covers the
+   platform spread for the suite, not for all 104 generations.

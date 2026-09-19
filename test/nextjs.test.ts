@@ -14,6 +14,7 @@ import {
 import { REACT_DECLARATION } from '../src/adapters/react.js';
 import { REACT_ROUTER_DECLARATION } from '../src/adapters/react-router.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
+import { BOOTSTRAP_DECLARATION } from '../src/adapters/bootstrap.js';
 import { checkCompatibility, resolveProject, selectAdapters } from '../src/adapters/selection.js';
 import { parseCliArgs } from '../src/args.js';
 import { resolveContext } from '../src/context/resolve.js';
@@ -318,11 +319,16 @@ describe('every refusal comes from the engine, not from a branch', () => {
     // Router composes only where nothing else already routes - a conflict
     // rather than a missing capability, and why the two diverge on Next
     // despite having had identical requirements.
-    expect(evaluateCombination([REACT_DECLARATION, MUI_DECLARATION]).compatible).toBe(true);
+    // React's own stylesheet requirement is satisfied so that what is being
+    // measured is the library, not React's architecture.
+    expect(
+      evaluateCombination([REACT_DECLARATION, BOOTSTRAP_DECLARATION, MUI_DECLARATION]).compatible,
+    ).toBe(true);
     expect(evaluateCombination([NEXTJS_DECLARATION, MUI_DECLARATION]).compatible).toBe(true);
-    expect(evaluateCombination([REACT_DECLARATION, REACT_ROUTER_DECLARATION]).compatible).toBe(
-      true,
-    );
+    expect(
+      evaluateCombination([REACT_DECLARATION, BOOTSTRAP_DECLARATION, REACT_ROUTER_DECLARATION])
+        .compatible,
+    ).toBe(true);
     expect(evaluateCombination([NEXTJS_DECLARATION, REACT_ROUTER_DECLARATION]).compatible).toBe(
       false,
     );

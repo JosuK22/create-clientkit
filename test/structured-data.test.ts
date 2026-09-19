@@ -148,6 +148,7 @@ describe('structured data is a feature, and a sibling of SEO', () => {
     expect(
       evaluateCombination([
         ASTRO_DECLARATION,
+        TAILWIND_DECLARATION,
         SEO_DECLARATION,
         STRUCTURED_DATA_DECLARATION,
         NOT_FOUND_DECLARATION,
@@ -303,8 +304,10 @@ describe('compatibility is decided by capability', () => {
       evaluateCombination([ASTRO_DECLARATION, TAILWIND_DECLARATION, STRUCTURED_DATA_DECLARATION])
         .compatible,
     ).toBe(true);
-    expect(evaluateCombination([ASTRO_DECLARATION, STRUCTURED_DATA_DECLARATION]).compatible).toBe(
-      true,
+    // Stage 52: Astro needs a styling system of its own, so the claim is made
+    // about this feature's own requirements rather than by emptying the slot.
+    expect(JSON.stringify(STRUCTURED_DATA_DECLARATION.requires)).not.toMatch(
+      /css-framework|composed-stylesheet/,
     );
     // MUI is refused for its own reason - react-runtime - not because of this.
     expect(

@@ -489,19 +489,53 @@ describe('structural isolation', () => {
  */
 describe('an architecture that cannot do without a role says so', () => {
   it('refuses React with no styling system rather than planning a broken project', () => {
+    /*
+     * Still refused, and now refused sooner. Stage 52 measured that the guard
+     * below was the *only* thing refusing this: `checkCompatibility` reported
+     * the same stack compatible, so the interactive flow - which builds its
+     * menus from that report - offered "none" under React and the run died at
+     * plan time. React declares the requirement itself now, so the refusal
+     * reaches the menu rather than only the plan.
+     */
     expect(() => planFor('none')).toThrow(CliError);
-    expect(() => planFor('none')).toThrow(/src\/styles\/index\.css/);
+    expect(() => planFor('none')).toThrow(/will not work/);
   });
 
   it('explains what to do instead of naming an internal role', () => {
-    let hint = '';
+    let text = '';
     try {
       planFor('none');
     } catch (error) {
-      hint = (error as CliError).hint ?? '';
+      text = `${(error as CliError).message}\n${(error as CliError).hint ?? ''}`;
     }
-    expect(hint).toMatch(/styling system/i);
-    expect(hint).toMatch(/none/);
+    expect(text).toMatch(/styling system/i);
+    // Names React as the asker, so the user knows which choice to change.
+    expect(text).toMatch(/React/);
+  });
+
+  it('keeps the plan-time role guard as a structural backstop', () => {
+    /*
+     * The capability requirement above is about a *selection*; this is about a
+     * finished plan. They are not the same question, and the second must not be
+     * deleted because the first now catches the one stack that reached it: an
+     * adapter that claimed a styling capability and then contributed no
+     * stylesheet would sail through compatibility and produce a project whose
+     * entry point imports a file nobody wrote.
+     */
+    const project = resolveProject(manifest('bootstrap'), adapters).project;
+    expect(project.requiredRoles).toContain('styles.global');
+
+    const withoutStylesheet = [
+      { type: 'write' as const, path: 'src/main.tsx', content: '', origin: 'framework:react' },
+    ];
+    let text = '';
+    try {
+      assertRequiredRoles(project, withoutStylesheet);
+    } catch (error) {
+      text = `${(error as CliError).message}\n${(error as CliError).hint ?? ''}`;
+    }
+    expect(text).toContain('styles.global');
+    expect(text).toContain('src/styles/index.css');
   });
 
   it('is satisfied by either styling system, which is the point', () => {

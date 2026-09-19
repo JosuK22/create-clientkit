@@ -52,7 +52,31 @@ const ASTRO_DECLARATION: AdapterDeclaration = {
     'composed-metadata',
     'composed-canonical',
   ],
-  requires: [],
+  requires: [
+    {
+      /*
+       * The template's own `astro.config.mjs` imports `@tailwindcss/vite`, and
+       * the dependency that satisfies that import arrives with the styling
+       * adapter. Nothing said so until Stage 52, which generated every accepted
+       * combination and built a sample of them: `--framework astro --styling
+       * none` resolved, planned, generated 22 files, installed cleanly and then
+       * failed on `astro build` with
+       *
+       *     Cannot find module '@tailwindcss/vite' imported from astro.config.mjs
+       *
+       * The template is `astro-tailwind` and there has never been a plain-Astro
+       * variant of it, so the honest fix is to say what the framework needs
+       * rather than to invent a second template. Bootstrap is still refused
+       * here for its own, unrelated reason: it requires `composed-stylesheet`
+       * and this architecture ships its stylesheet rather than composing one.
+       */
+      kind: 'requires',
+      capability: 'css-framework',
+      because:
+        'the Astro configuration this template ships imports a CSS framework plugin, so a ' +
+        'project generated without one cannot build',
+    },
+  ],
   /** Astro 7's own floor, matching templates/astro-tailwind/template.json. */
   minNode: '>=22.12.0',
 };

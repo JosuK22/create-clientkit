@@ -263,10 +263,21 @@ describe('compatibility is decided by capability', () => {
   });
 
   it('is indifferent to the styling system', () => {
-    for (const styling of [TAILWIND_DECLARATION, undefined]) {
-      const combination = [ASTRO_DECLARATION, NOT_FOUND_DECLARATION, ...(styling ? [styling] : [])];
-      expect(evaluateCombination(combination).compatible).toBe(true);
-    }
+    expect(
+      evaluateCombination([ASTRO_DECLARATION, TAILWIND_DECLARATION, NOT_FOUND_DECLARATION])
+        .compatible,
+    ).toBe(true);
+    /*
+     * The second half of this used to drop the styling declaration entirely.
+     * Stage 52 found that Astro needs one of its own - its shipped config
+     * imports a CSS framework plugin - so an empty styling slot now says
+     * something about Astro rather than about this feature. What the test is
+     * actually claiming is stated directly: the feature names no styling
+     * capability, so it cannot be the thing that refuses one.
+     */
+    expect(JSON.stringify(NOT_FOUND_DECLARATION.requires)).not.toMatch(
+      /css-framework|composed-stylesheet|css-in-js/,
+    );
   });
 
   it('is indifferent to the UI library', () => {
@@ -275,6 +286,7 @@ describe('compatibility is decided by capability', () => {
         REACT_DECLARATION,
         VITE_DECLARATION,
         MUI_DECLARATION,
+        TAILWIND_DECLARATION,
         {
           id: 'nextjs',
           kind: 'framework',

@@ -10,6 +10,7 @@ import { NOT_FOUND_DECLARATION } from '../src/adapters/not-found.js';
 import { REACT_DECLARATION } from '../src/adapters/react.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
 import { SEO_DECLARATION } from '../src/adapters/seo.js';
+import { TAILWIND_DECLARATION } from '../src/adapters/tailwind.js';
 import { checkCompatibility, resolveProject, selectAdapters } from '../src/adapters/selection.js';
 import { VITE_DECLARATION } from '../src/adapters/vite.js';
 import type {
@@ -291,7 +292,10 @@ describe('compatibility is decided by capability', () => {
         },
       ],
     };
-    expect(evaluateCombination([ASTRO_DECLARATION, SEO_DECLARATION, alpha]).compatible).toBe(true);
+    expect(
+      evaluateCombination([ASTRO_DECLARATION, TAILWIND_DECLARATION, SEO_DECLARATION, alpha])
+        .compatible,
+    ).toBe(true);
   });
 
   it('is indifferent to styling and UI libraries', () => {
@@ -299,12 +303,25 @@ describe('compatibility is decided by capability', () => {
       evaluateCombination([ASTRO_DECLARATION, SEO_DECLARATION, MUI_DECLARATION, VITE_DECLARATION])
         .compatible,
     ).toBe(false); // MUI needs react-runtime, which Astro does not provide
-    expect(evaluateCombination([ASTRO_DECLARATION, SEO_DECLARATION]).compatible).toBe(true);
+    // Stage 52: Astro needs a styling system of its own, so indifference is
+    // stated as the feature naming no styling capability rather than as a
+    // combination with the styling slot left empty.
+    expect(
+      evaluateCombination([ASTRO_DECLARATION, TAILWIND_DECLARATION, SEO_DECLARATION]).compatible,
+    ).toBe(true);
+    expect(JSON.stringify(SEO_DECLARATION.requires)).not.toMatch(
+      /css-framework|composed-stylesheet/,
+    );
   });
 
   it('composes with the other feature', () => {
     expect(
-      evaluateCombination([ASTRO_DECLARATION, SEO_DECLARATION, NOT_FOUND_DECLARATION]).compatible,
+      evaluateCombination([
+        ASTRO_DECLARATION,
+        TAILWIND_DECLARATION,
+        SEO_DECLARATION,
+        NOT_FOUND_DECLARATION,
+      ]).compatible,
     ).toBe(true);
   });
 });

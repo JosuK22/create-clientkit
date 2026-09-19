@@ -214,7 +214,12 @@ describe('MUI requires a capability, not an adapter', () => {
       provides: ['vite-plugins'],
       requires: [],
     };
-    const report = evaluateCombination([REACT_DECLARATION, hypothetical, MUI_DECLARATION]);
+    const report = evaluateCombination([
+      REACT_DECLARATION,
+      hypothetical,
+      BOOTSTRAP_DECLARATION,
+      MUI_DECLARATION,
+    ]);
     expect(report.compatible).toBe(true);
   });
 
@@ -230,9 +235,34 @@ describe('MUI requires a capability, not an adapter', () => {
     expect(report.compatible).toBe(true);
   });
 
-  it('MUI is compatible with no styling system at all', () => {
+  it('MUI asks for no styling system of its own', () => {
+    /*
+     * This asserted `compatible` outright until Stage 52, which found that the
+     * stack it was asserting about could not be generated: React's entry point
+     * imports the global stylesheet, nothing contributes one without a styling
+     * system, and the refusal arrived at plan time while compatibility said
+     * yes. React now says so itself.
+     *
+     * The claim this test exists for is untouched and is stated more exactly:
+     * whatever is missing here is React's requirement, never MUI's. MUI brings
+     * its own styles and adds no styling constraint to any stack it joins.
+     */
     const report = evaluateCombination([REACT_DECLARATION, VITE_DECLARATION, MUI_DECLARATION]);
-    expect(report.compatible).toBe(true);
+    expect(report.violations.map((violation) => violation.adapter)).not.toContain(
+      MUI_DECLARATION.id,
+    );
+    expect(
+      MUI_DECLARATION.requires.map((constraint) => JSON.stringify(constraint)).join(),
+    ).not.toContain('css-framework');
+    // And with any styling system present, nothing is missing at all.
+    expect(
+      evaluateCombination([
+        REACT_DECLARATION,
+        VITE_DECLARATION,
+        BOOTSTRAP_DECLARATION,
+        MUI_DECLARATION,
+      ]).compatible,
+    ).toBe(true);
   });
 
   it('a second hypothetical UI library needs no change to React', () => {
@@ -246,7 +276,9 @@ describe('MUI requires a capability, not an adapter', () => {
         { kind: 'requires', capability: 'react-runtime', because: 'it renders React components' },
       ],
     };
-    expect(evaluateCombination([REACT_DECLARATION, alpha]).compatible).toBe(true);
+    expect(evaluateCombination([REACT_DECLARATION, BOOTSTRAP_DECLARATION, alpha]).compatible).toBe(
+      true,
+    );
   });
 });
 
@@ -630,10 +662,22 @@ describe('MUI reaches package.json only through contributions', () => {
 
 describe('selecting a UI library does not weaken anything else', () => {
   it('still refuses React with no styling system', () => {
-    // A UI library must not accidentally satisfy the architecture's stylesheet
-    // requirement: MUI mounts a theme, not a global stylesheet.
+    /*
+     * A UI library must not accidentally satisfy the architecture's stylesheet
+     * requirement: MUI mounts a theme, not a global stylesheet. Unchanged in
+     * substance; only the layer that says so moved. Through Stage 51 this was
+     * the plan-time role guard, and Stage 52 found that compatibility had been
+     * saying the same stack was fine - so the interactive flow offered it.
+     */
     expect(() => planFor('mui', { styling: 'none' })).toThrow(CliError);
-    expect(() => planFor('mui', { styling: 'none' })).toThrow(/styles\.global/);
+    expect(() => planFor('mui', { styling: 'none' })).toThrow(/will not work/);
+    expect(checkCompatibility(manifest('mui', { styling: 'none' }), adapters).compatible).toBe(
+      false,
+    );
+    // Refused for the stylesheet, and not because a UI library was selected.
+    expect(checkCompatibility(manifest('none', { styling: 'none' }), adapters).compatible).toBe(
+      false,
+    );
   });
 
   it('does not substitute a styling system of its own', () => {

@@ -123,16 +123,20 @@ npm create clientkit@latest acme-app \
 | --------------------- | ----------------- | ------------------------------------------------------------------------------- | --------------- |
 | `--framework <id>`    | the framework     | `astro`, `react`, `nextjs`                                                      | `astro`         |
 | `--build-tool <id>`   | the bundler       | `vite` (`astro` and `nextjs` own theirs)                                        | the framework's |
-| `--language <id>`     | the language      | `ts`, `js`                                                                      | the framework's |
-| `--styling <id>`      | how CSS is built  | `tailwind`, `bootstrap`, `none`                                                 | the framework's |
+| `--language <id>`     | the language      | `ts` (every framework fixes it)                                                 | the framework's |
+| `--styling <id>`      | how CSS is built  | `tailwind`, `bootstrap`, `none` (what each framework takes differs)             | the framework's |
 | `--ui-library <id>`   | component library | `mui`, `none`                                                                   | `none`          |
 | `--router <id>`       | routing           | `react-router`, `file-based`, `none`                                            | the framework's |
 | `--architecture <id>` | folder layout     | whatever the framework defines                                                  | the framework's |
 | `--features <a,b>`    | site capabilities | `accessibility`, `client-route-fallback`, `not-found`, `seo`, `structured-data` | none            |
 
-`--language` also accepts `typescript` and `javascript`; both mean the ids
-above. `--features` takes a comma-separated list, rejects an id it does not
-know, and rejects the same id twice rather than quietly collapsing it.
+`--language` also accepts the long spelling `typescript`. `--features` takes a
+comma-separated list, rejects an id it does not know, and rejects the same id
+twice rather than quietly collapsing it.
+
+A dimension the framework fixes is refused rather than accepted and ignored:
+`--framework astro --build-tool vite` names what Astro actually offers instead
+of reporting a build tool the project does not use.
 
 Anything you leave out is filled in for you. Where the framework owns the
 answer — React implies Vite, Astro and Next.js are their own build tools — it is
@@ -154,9 +158,12 @@ x That combination will not work.
     - Search-engine metadata requires document-metadata (the contract has to
       reach the document head before the response is sent, or crawlers never
       see it).
+    - Search-engine metadata requires composed-canonical (it writes the
+      canonical link into the head; the title and description the head also
+      states belong to the framework, not to this feature).
 
-    The selected stack provides: composed-stylesheet, css-framework, jsx,
-    react-runtime, spa-routing, typescript, vite-plugins.
+    The selected stack provides: client-app-root, composed-stylesheet,
+    css-framework, jsx, react-runtime, spa-routing, typescript, vite-plugins.
 ```
 
 That is a real refusal rather than a limitation of the flags: React renders in
@@ -168,16 +175,16 @@ HTTP 404.
 
 #### Known names versus working choices
 
-ClientKit's vocabulary is wider than the table above — it knows `nextjs`,
-`angular`, `chakra` and others. Asking for one reports that no adapter
-implements it rather than silently substituting something that does:
+ClientKit's vocabulary is wider than the table above — it knows `angular`,
+`chakra` and others. Asking for one reports that no adapter implements it
+rather than silently substituting something that does:
 
 ```
-$ npm create clientkit@latest acme-app --framework nextjs
+$ npm create clientkit@latest acme-app --framework angular
 
-x ClientKit does not support framework "nextjs" yet.
-    Implemented frameworks: astro, react. "nextjs" is a known identifier but no
-    adapter implements it.
+x ClientKit does not support framework "angular" yet.
+  Implemented frameworks: astro, nextjs, react. "angular" is a known identifier
+  but no adapter implements it.
 ```
 
 A name ClientKit has never heard of is rejected outright, and never falls back
@@ -202,7 +209,7 @@ npm create clientkit@latest
 2. **Client / site name** — defaults to the title-cased directory name
 3. **Production URL** — optional; skipping it leaves it explicitly unset
 4. **Framework**
-5. **Styling**
+5. **Styling** — only when the framework offers more than one
 6. **Component library** — only when the framework can mount one
 7. **Routing** — only when the framework offers a choice
 8. **Features** — multiple selection, or none
@@ -214,13 +221,18 @@ the starter belongs to a template, and which template that is follows from the
 framework.
 
 **Only questions worth asking are asked.** A dimension with one possible answer
-is derived rather than offered as a menu of one — neither framework currently
-offers a build tool, a language or an architecture worth choosing between, so
-none of the three is asked. A choice that cannot be built alongside what you
-have already picked is not offered either: Bootstrap does not appear under
-Astro, and the client-side fallback appears only once a router does. Those
-decisions come from the same compatibility engine that validates flags, so the
-menus cannot disagree with it.
+is derived rather than offered as a menu of one — no framework currently offers
+a build tool, a language or an architecture worth choosing between, so none of
+the three is asked. A choice that cannot be built alongside what you have
+already picked is not offered either: Bootstrap does not appear under Astro, and
+the client-side fallback appears only once a router does. Those decisions come
+from the same compatibility engine that validates flags, so the menus cannot
+disagree with it.
+
+The same rule is why Astro is not asked about styling. Its configuration imports
+a CSS framework plugin, so an Astro project needs one; Bootstrap cannot supply
+it there, which leaves Tailwind alone and therefore derived. React offers
+Tailwind or Bootstrap and is asked.
 
 Answering the questions and passing the flags are two ways to say the same
 thing, and they produce the same project. A flag you pass is a question you are
@@ -390,7 +402,7 @@ file with a `template` used alongside a stack flag. This is the same rule
 ### Configuration precedence
 
 ```
-CLI flags  >  --from file  >  interactive answers  >  template defaults  >  built-in defaults
+CLI flags  >  --from file  >  --preset  >  interactive answers  >  template defaults  >  built-in defaults
 ```
 
 This holds per value, not per source: a file that sets `framework` and
@@ -435,7 +447,7 @@ the V1 Astro stack and is kept for compatibility.
 | Framework | Stack                                                                                                     | Modes                 |
 | --------- | --------------------------------------------------------------------------------------------------------- | --------------------- |
 | `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                                                                   | `coming-soon`, `full` |
-| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap                                                   | `coming-soon`, `full` |
+| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap, optional Material UI                             | `coming-soon`, `full` |
 | `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, Tailwind, Bootstrap or plain CSS, optional Material UI | `coming-soon`, `full` |
 
 - **`coming-soon`** — a single polished launch page you can put live today.
@@ -443,13 +455,17 @@ the V1 Astro stack and is kept for compatibility.
 
 The Astro stack includes the custom 404, the design system and the full SEO
 layer. What each framework supports differs, and the differences are enforced
-rather than documented. Tailwind composes with all three - through Vite on
-Astro and React, through PostCSS on Next.js - from one styling adapter that
-names no framework, and Bootstrap composes with React and Next.js the same
-way. Next.js declares its own document head and ships no component library or
-client-side router, so MUI, React Router and the SEO, structured-data and
-accessibility features are refused there, each naming the capability that is
-missing.
+rather than documented. Tailwind composes with all three — through Vite on
+Astro and React, through PostCSS on Next.js — from one styling adapter that
+names no framework, and Bootstrap composes with React and Next.js the same way.
+
+Next.js takes Material UI and the `seo` and `not-found` features. It does not
+take React Router, which needs a route table a file-routed framework does not
+have, nor the `structured-data` and `accessibility` features, which need a
+document head this generator writes more of than Next's offers. `seo` works
+there because the one thing it writes — the canonical address — is the one
+thing Next's metadata genuinely exposes. Each refusal names the capability that
+is missing rather than the framework.
 
 ### URL-less
 

@@ -122,7 +122,15 @@ describe('a user who presses Enter through the whole flow gets V1', () => {
       ).toContain(question.initialValue);
     }
     expect(prompter.questions.find((q) => q.dimension === 'framework')?.initialValue).toBe('astro');
-    expect(prompter.questions.find((q) => q.dimension === 'styling')?.initialValue).toBe(
+
+    /*
+     * Styling is no longer among the questions on the default path. Astro
+     * requires a CSS framework since Stage 52 - its config imports one - so
+     * Tailwind is the only survivor and a one-answer dimension is derived. The
+     * default is still asserted, on a framework that genuinely offers a choice.
+     */
+    const { prompter: reactPrompter } = await run(['--framework', 'react']);
+    expect(reactPrompter.questions.find((q) => q.dimension === 'styling')?.initialValue).toBe(
       'tailwind',
     );
   });
@@ -186,9 +194,26 @@ describe('questions with one answer are derived, not asked', () => {
 // ---------------------------------------------------------------------------
 
 describe('impossible combinations are never offered', () => {
-  it('does not offer Bootstrap under Astro', async () => {
+  it('does not ask about styling under Astro, because only one answer survives', async () => {
+    /*
+     * This expected `['tailwind', 'none']` through Stage 51. Stage 52 built the
+     * combinations rather than trusting them and found that `none` produced a
+     * project that would not build - Astro's shipped config imports a CSS
+     * framework plugin whose dependency arrives with the styling adapter - so
+     * Astro now requires one.
+     *
+     * Bootstrap was already refused here, for its own reason, and still is.
+     * With `none` gone too, Tailwind is the only survivor, and the same rule
+     * that hides the component-library question hides this one: a dimension
+     * with one possible answer is derived rather than shown as a menu of one.
+     */
     const { optionsFor } = await menus({ framework: 'astro' });
-    expect(optionsFor('styling')).toEqual(['tailwind', 'none']);
+    expect(optionsFor('styling')).toEqual([]);
+  });
+
+  it('still derives Tailwind for Astro rather than leaving it unset', async () => {
+    const { manifest } = await run(['--framework', 'astro']);
+    expect(manifest.styling).toBe('tailwind');
   });
 
   it('does offer Bootstrap under React', async () => {
@@ -542,11 +567,19 @@ describe('--yes', () => {
 // ---------------------------------------------------------------------------
 
 describe('cancelling', () => {
-  for (const dimension of ['framework', 'styling', 'features']) {
+  /*
+   * Each dimension is cancelled on a stack that actually asks about it. Styling
+   * moved onto React in Stage 52: Astro requires a CSS framework now, so
+   * Tailwind is its only survivor and the question is derived rather than
+   * asked - there is no longer a styling prompt there to cancel at.
+   */
+  for (const [dimension, argv] of [
+    ['framework', ['acme-site']],
+    ['styling', ['acme-site', '--framework', 'react']],
+    ['features', ['acme-site']],
+  ] as const) {
     it(`propagates a cancel at the ${dimension} question`, async () => {
-      await expect(run(['acme-site'], { cancelAt: [dimension] })).rejects.toBeInstanceOf(
-        CancelledError,
-      );
+      await expect(run(argv, { cancelAt: [dimension] })).rejects.toBeInstanceOf(CancelledError);
     });
   }
 

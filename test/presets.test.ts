@@ -525,7 +525,11 @@ describe('choosing a preset interactively', () => {
     expect(prompter.questions.find((q) => q.dimension === 'preset')?.initialValue).toBe('custom');
     // ...and the ordinary questions still follow.
     expect(asked).toContain('framework');
-    expect(asked).toContain('styling');
+    // Styling is asked on a framework that offers a choice. On the default
+    // Astro path it is derived, because Astro requires a CSS framework and
+    // Tailwind is the only one it can take - see Stage 52.
+    const { asked: onReact } = await menus({ framework: 'react' });
+    expect(onReact).toContain('styling');
   });
 
   it('skips the dimensions the chosen preset states', async () => {

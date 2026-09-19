@@ -56,7 +56,33 @@ const REACT_DECLARATION: AdapterDeclaration = {
     // wrap the application in React context has somewhere to do it.
     'client-app-root',
   ],
-  requires: [],
+  requires: [
+    {
+      /*
+       * The structural requirement below, said where the engine can hear it.
+       *
+       * `REACT_ARCHITECTURE.requiredRoles` has named `styles.global` since it
+       * was written, because `main.tsx` imports the stylesheet and a project
+       * without one does not build. Stage 52 measured that the two halves never
+       * met: `checkCompatibility` reported `react + styling:none` compatible,
+       * and generation then refused on the missing role - so the interactive
+       * flow offered a choice that could not be built, and any caller reading
+       * the compatibility report was told something untrue.
+       *
+       * `css-framework` rather than a new capability, because that is what both
+       * implemented styling systems provide and what "a styling system was
+       * selected" means today. A plain-CSS styling adapter would provide the
+       * stylesheet without being a framework, and would need this widened; the
+       * vocabulary has `styling: 'css'` but no adapter, so that day has not
+       * come.
+       */
+      kind: 'requires',
+      capability: 'css-framework',
+      because:
+        'its entry point imports the global stylesheet, and this architecture composes that ' +
+        'stylesheet from a styling system rather than shipping one',
+    },
+  ],
   minNode: '>=20.19.0',
 };
 

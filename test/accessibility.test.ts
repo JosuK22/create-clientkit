@@ -325,8 +325,15 @@ describe('compatibility is decided by capability', () => {
       evaluateCombination([ASTRO_DECLARATION, TAILWIND_DECLARATION, ACCESSIBILITY_DECLARATION])
         .compatible,
     ).toBe(true);
-    expect(evaluateCombination([ASTRO_DECLARATION, ACCESSIBILITY_DECLARATION]).compatible).toBe(
-      true,
+    /*
+     * Indifference used to be shown by dropping the styling declaration. Stage
+     * 52 found that Astro itself needs one - its shipped config imports a CSS
+     * framework plugin - so that combination is now refused for a reason that
+     * has nothing to do with this feature. Said directly instead: the feature
+     * asks for no styling capability at all.
+     */
+    expect(JSON.stringify(ACCESSIBILITY_DECLARATION.requires)).not.toMatch(
+      /css-framework|composed-stylesheet/,
     );
     // MUI is refused for its own reason - react-runtime - not because of this.
     expect(
@@ -343,6 +350,7 @@ describe('compatibility is decided by capability', () => {
     expect(
       evaluateCombination([
         ASTRO_DECLARATION,
+        TAILWIND_DECLARATION,
         SEO_DECLARATION,
         STRUCTURED_DATA_DECLARATION,
         NOT_FOUND_DECLARATION,

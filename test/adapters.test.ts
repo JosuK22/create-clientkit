@@ -52,8 +52,23 @@ describe('Astro adapter declaration', () => {
     expect(ASTRO_DECLARATION.provides).not.toContain('angular-runtime');
   });
 
-  it('asks nothing of the rest of the stack', () => {
-    expect(ASTRO_DECLARATION.requires).toEqual([]);
+  it('asks for exactly one thing, and it is the one its template needs', () => {
+    /*
+     * This asserted `requires: []` through Stage 51. Stage 52 generated every
+     * accepted combination and built a sample: `astro + styling:none` planned,
+     * generated and installed, then failed on `astro build` with
+     *
+     *     Cannot find module '@tailwindcss/vite' imported from astro.config.mjs
+     *
+     * The template is `astro-tailwind` and its config imports that plugin
+     * unconditionally, so asking nothing was not modesty - it was a claim that
+     * happened to be untrue. One requirement, and no more.
+     */
+    expect(ASTRO_DECLARATION.requires).toHaveLength(1);
+    const [only] = ASTRO_DECLARATION.requires;
+    expect(only?.kind).toBe('requires');
+    expect(only).toMatchObject({ capability: 'css-framework' });
+    expect(only?.because.length).toBeGreaterThan(20);
   });
 
   it('carries the Node floor from the template manifest, not the CLI floor', () => {

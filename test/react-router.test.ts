@@ -337,12 +337,17 @@ describe('compatibility is decided by capability', () => {
         REACT_DECLARATION,
         VITE_DECLARATION,
         MUI_DECLARATION,
+        TAILWIND_DECLARATION,
         REACT_ROUTER_DECLARATION,
       ]).compatible,
     ).toBe(true);
     expect(
-      evaluateCombination([REACT_DECLARATION, VITE_DECLARATION, REACT_ROUTER_DECLARATION])
-        .compatible,
+      evaluateCombination([
+        REACT_DECLARATION,
+        VITE_DECLARATION,
+        TAILWIND_DECLARATION,
+        REACT_ROUTER_DECLARATION,
+      ]).compatible,
     ).toBe(true);
   });
 });

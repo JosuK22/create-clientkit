@@ -211,15 +211,58 @@ function known<T extends string>(
 /**
  * What the framework decided, or what the user did.
  *
- * A user value is taken as given even when the framework fixes something else.
- * That is not the CLI being permissive: `--framework astro --build-tool vite`
- * is a real disagreement, and the compatibility engine is what says so, in the
- * vocabulary of capabilities rather than of flags. Silently correcting it here
- * would hide a conflict the user needs to see.
+ * Still permissive, because this function runs on half-answered stacks too.
+ * Whether the framework actually offers the value is `assertFrameworkOffers`,
+ * once the stack is settled.
  */
 function fromFramework<T extends string>(explicit: T | undefined, options: DimensionOptions<T>): T {
   if (explicit !== undefined) return explicit;
   return options.kind === 'fixed' ? options.value : options.default;
+}
+
+/** What a framework offers for one dimension, as the values themselves. */
+function offered<T extends string>(options: DimensionOptions<T>): readonly T[] {
+  return options.kind === 'fixed' ? [options.value] : options.options;
+}
+
+/**
+ * Refuses a settled stack whose framework does not offer what it names.
+ *
+ * Deliberately **not** inside `resolveDimensions`, which is also a probe: the
+ * interactive flow re-resolves after every answer, so a stack that is merely
+ * half-answered - a router chosen before a framework - passes through it
+ * constantly and is not yet wrong. This runs once, on the stack that is about
+ * to become a manifest.
+ */
+export function assertFrameworkOffers(
+  dimensions: ResolvedDimensions,
+  adapters: AdapterRegistry,
+): void {
+  const adapter = adapters.framework(dimensions.framework);
+  const checks = [
+    ['build tool', '--build-tool', dimensions.buildTool, adapter.buildTools],
+    ['language', '--language', dimensions.language, adapter.languages],
+    ['router', '--router', dimensions.router, adapter.routers],
+    ['architecture', '--architecture', dimensions.architecture, adapter.architectures],
+  ] as const;
+
+  for (const [dimension, flag, value, options] of checks) {
+    const choices = offered(options as DimensionOptions<string>);
+    if (choices.includes(value)) continue;
+
+    throw new CliError(
+      options.kind === 'fixed'
+        ? `The ${dimensions.framework} adapter fixes the ${dimension} to "${options.value}".`
+        : `The ${dimensions.framework} adapter does not offer the ${dimension} "${value}".`,
+      {
+        exitCode: EXIT_USAGE,
+        hint:
+          `On ${dimensions.framework}, ${flag} accepts ${choices.map((id) => `"${id}"`).join(' or ')}. ` +
+          'Leave it out to take what the framework ships with, or choose a framework that ' +
+          'offers what you asked for.',
+      },
+    );
+  }
 }
 
 /** Whether a raw input value was actually supplied. */

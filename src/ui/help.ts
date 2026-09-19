@@ -116,7 +116,7 @@ ${presetRows()}
 
         --framework <id>      ${ids.frameworks}  (default: astro)
         --build-tool <id>     chosen by the framework unless it offers you one
-        --language <id>       ts | js  (typescript | javascript also accepted)
+        --language <id>       ts  (typescript also accepted; every framework fixes it)
         --styling <id>        ${ids.styling}  (default: tailwind)
         --ui-library <id>     ${ids.uiLibraries}  (default: none)
         --router <id>         ${ids.routers}

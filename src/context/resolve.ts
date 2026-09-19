@@ -19,6 +19,7 @@ import {
   titleCase,
 } from './defaults.js';
 import {
+  assertFrameworkOffers,
   DIMENSION_FLAGS,
   hasDimensionInput,
   manifestFrom,
@@ -441,6 +442,15 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * ordering to both. There is no interactive branch below this line.
    */
   const dimensions = resolveDimensions(interactiveDimensions.input, adapters, origin);
+
+  /*
+   * The stack is settled here and nowhere earlier, which is why the check is
+   * here. Stage 52 measured that `--framework astro --build-tool vite` exited
+   * 0, reported `vite [flag]` and generated an ordinary Astro project: the
+   * dimensions a framework fixes are not capabilities, so the compatibility
+   * engine below never spoke about them.
+   */
+  assertFrameworkOffers(dimensions, adapters);
 
   /*
    * The half of the attribution only this layer knows.

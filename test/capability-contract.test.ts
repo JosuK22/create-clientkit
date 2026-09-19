@@ -26,7 +26,7 @@ import type { ArchitectureId, FrameworkId } from '../src/domain/dimensions.js';
 import type { ProjectManifest } from '../src/domain/manifest.js';
 import type { ResolvedProject } from '../src/domain/resolved.js';
 import type { ArchitectureDefinition, FileRole } from '../src/domain/roles.js';
-import { planManifest } from '../src/adapters/bridge.js';
+import { assertRequiredRoles, planManifest } from '../src/adapters/bridge.js';
 import type { AdapterRegistry } from '../src/adapters/registry.js';
 import { createAdapterRegistry } from '../src/adapters/registry.js';
 import { checkCompatibility, resolveProject } from '../src/adapters/selection.js';
@@ -662,20 +662,28 @@ describe('a role the architecture cannot place is refused at resolution', () => 
 
   it('keeps the planner guard for the question only a plan can answer', () => {
     /*
-     * Not the same check moved earlier. `styles.global` is mapped by the React
-     * architecture, so nothing above can refuse it; whether anything *filled*
-     * it is a fact about the finished plan, and that guard stays where it is.
+     * Two different questions, and both are still asked.
+     *
+     * "Can these selections work together?" is compatibility, and since Stage
+     * 52 React answers it for the stylesheet: the architecture's entry point
+     * imports one, so React requires a styling system rather than letting the
+     * run reach a plan that cannot be built. That refusal is asserted below.
+     *
+     * "Did the finished plan actually produce the file?" is a different
+     * question that no declaration can answer, and the guard for it stays
+     * exactly where it was. It is reached by handing the planner a plan that is
+     * missing the file, which is what an adapter claiming a styling capability
+     * and then contributing nothing would produce.
      */
     const manifest = reactManifest({ styling: 'none' });
-    expect(() => resolveProject(manifest, adapters)).not.toThrow();
+    expect(checkCompatibility(manifest, adapters).compatible).toBe(false);
 
+    const { project } = resolveProject(reactManifest({ styling: 'bootstrap' }), adapters);
+    expect(project.requiredRoles).toContain('styles.global');
     const message = refusal(() =>
-      planManifest(manifest, {
-        registry: v1Registry,
-        cliVersion: '9.9.9',
-        generatedAt: '2026-01-01T00:00:00.000Z',
-        mode: manifest.starter,
-      }),
+      assertRequiredRoles(project, [
+        { type: 'write', path: 'package.json', content: '{}', origin: 'framework:react' },
+      ]),
     );
     expect(message).toContain('styles.global');
   });

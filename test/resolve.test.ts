@@ -102,16 +102,9 @@ describe('default resolution', () => {
 describe('interactive flow', () => {
   it('skips the directory question when a positional is supplied', async () => {
     const { asked } = await run({ argv: ['acme-website'] });
-    expect(asked).toEqual([
-      'siteName',
-      'url',
-      'preset',
-      'framework',
-      'styling',
-      'features',
-      'mode',
-      'setup',
-    ]);
+    // No styling question on the default Astro path since Stage 52; see the
+    // next test for why.
+    expect(asked).toEqual(['siteName', 'url', 'preset', 'framework', 'features', 'mode', 'setup']);
   });
 
   it('asks the client questions, then the stack, then the starter', async () => {
@@ -130,6 +123,12 @@ describe('interactive flow', () => {
      * asked either, and that one is decided by the compatibility engine rather
      * than by a rule here: MUI needs `react-runtime`, Astro does not provide
      * it, so `none` is the only survivor and a single survivor is a derivation.
+     *
+     * Stage 52 removed `styling` from this list by the same rule, not by a new
+     * one. Astro's shipped config imports a CSS framework plugin, so the
+     * framework requires one; Bootstrap was already refused and `none` now is
+     * too, leaving Tailwind alone and therefore derived. Choose React below and
+     * the question comes back.
      */
     const { asked } = await run({ answers: { dir: 'acme-website' } });
     expect(asked).toEqual([
@@ -138,11 +137,17 @@ describe('interactive flow', () => {
       'url',
       'preset',
       'framework',
-      'styling',
       'features',
       'mode',
       'setup',
     ]);
+  });
+
+  it('asks about styling on a framework that offers a choice', async () => {
+    const { asked } = await run({
+      answers: { dir: 'acme-website', dimensions: { framework: 'react' } },
+    });
+    expect(asked).toContain('styling');
   });
 
   it('uses the prompt answers', async () => {
@@ -385,7 +390,7 @@ describe('--name / --url / --mode (M1 flag parity)', () => {
     });
     // The stack is still unanswered, so it is still asked; the three V1 values
     // are not.
-    expect(asked).toEqual(['preset', 'framework', 'styling', 'features', 'setup']);
+    expect(asked).toEqual(['preset', 'framework', 'features', 'setup']);
   });
 
   it('--name overrides the site name from --from', async () => {
