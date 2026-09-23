@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { ASTRO_DECLARATION } from '../src/adapters/astro.js';
-import { planManifest, resolveWithAdapters } from '../src/adapters/bridge.js';
+import { contributedFiles, planManifest, resolveWithAdapters } from '../src/adapters/bridge.js';
 import { MUI_DECLARATION } from '../src/adapters/mui.js';
 import {
   NEXTJS_ARCHITECTURE,
@@ -20,6 +20,7 @@ import { parseCliArgs } from '../src/args.js';
 import { resolveContext } from '../src/context/resolve.js';
 import { NonInteractivePrompter } from '../src/context/prompts.js';
 import type { AdapterDeclaration, ProjectManifest } from '../src/domain/index.js';
+import { emptyContribution } from '../src/domain/contributions.js';
 import { definesRole, evaluateCombination, resolveRole } from '../src/domain/index.js';
 import { type CliError } from '../src/errors.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
@@ -198,6 +199,45 @@ describe('it provides what is true and nothing that is convenient', () => {
     // And the arrangement that makes it true: nothing ships the stylesheet
     // from a template layer, so composition decides the one owner.
     expect(adapters.framework('nextjs').templateOwnedRoles).not.toContain('styles.global');
+  });
+
+  it('keeps the not-found page the template ships, against a contribution', () => {
+    /*
+     * What `templateOwnedRoles` is actually for, asserted as behaviour.
+     *
+     * Stage 54 mutated the declaration - dropping `page.notFound` from Next's
+     * list - and the whole suite still passed, because nothing contributes
+     * there today and the entry was only a true statement nobody checked. It is
+     * not inert, though: the list is what makes `contributedFiles` step aside
+     * for a role the template owns, so removing it would let a later
+     * contribution claim `app/not-found.tsx` and quietly replace the page the
+     * framework router actually reaches. A synthetic contribution is enough to
+     * show which of the two wins.
+     */
+    const { project } = resolveProject(nextManifest(), adapters);
+    expect(project.templateOwnedRoles).toContain('page.notFound');
+
+    const intruder = {
+      ...emptyContribution('feature:synthetic'),
+      files: [
+        {
+          owner: 'feature:synthetic',
+          target: { kind: 'role', role: 'page.notFound' },
+          intent: 'create',
+          payload: { kind: 'text', content: 'export default function Replaced() {}\n' },
+          order: 10,
+        },
+      ],
+    } as never;
+
+    const written = contributedFiles(project, [intruder], () => '');
+    expect(
+      written.map((operation) => operation.path),
+      'a contribution claimed the role the template owns',
+    ).not.toContain(resolveRole(NEXTJS_ARCHITECTURE, 'page.notFound'));
+
+    // And the planned project still ships the template's own page.
+    expect(fileAt('app/not-found.tsx')).toContain('This page doesn&apos;t exist.');
   });
 
   it('still does not provide a composed head', () => {

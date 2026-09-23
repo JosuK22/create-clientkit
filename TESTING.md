@@ -143,3 +143,69 @@ change that invented an unbuildable stack.
   built cleanly by hand. And removing a finished workspace on Windows can fail
   with `EBUSY` while a just-exited build still holds a handle, which aborted the
   first full attempt three cases in.
+
+## Runtime contract matrix
+
+### 2026-09-24 — create-clientkit@1.0.2
+
+Representative generated projects, built and then **served**, with their real
+URLs fetched and a real browser driven at them.
+
+```sh
+npm run runtime                    # the whole representative matrix
+npm run runtime -- --only nextjs   # one framework, matched on the case id
+```
+
+|                             |                             |
+| --------------------------- | --------------------------- |
+| Runtime cases               | 15                          |
+| Checks                      | 251 / 251                   |
+| Contracts exercised         | 15 of 15                    |
+| Coverage tuples             | 61 / 61                     |
+| HTTP requests               | 54 (35 × 200, 19 × 404)     |
+| Frameworks                  | Astro 7, Next.js 4, React 4 |
+| Leaked servers / workspaces | 0 / 0                       |
+
+Per-case results are in [`docs/runtime-matrix.json`](./docs/runtime-matrix.json),
+including every route fetched with its status, the live-DOM values read, and the
+contracts each case exercised.
+
+### How the 15 were chosen
+
+Not by hand. `test/runtime-cases.ts` takes the accepted set and runs a greedy
+set cover over `dimension:value` tuples — each framework's starters, styling
+systems, component libraries, routers and features, plus the pairs whose runtime
+behaviour genuinely differs with the starter, plus each feature at least once
+_alone_ so a contract is attributable to the feature that produced it. A
+URL-less variant per framework and a hand-added route per file-routed framework
+are appended, because those are states rather than selections. The result covers
+61 of 61 tuples; `test/runtime-cases.test.ts` fails if it ever does not.
+
+### Why this is not in CI
+
+Each case installs a dependency tree, runs a production build, starts the
+framework's own server and launches Chromium — around 60 seconds, so the matrix
+is roughly 15 minutes on one machine and needs a browser. The 17-job CI matrix
+runs on every push across three platforms; multiplying that by a browser-driven
+integration suite is not a trade worth making for a result that moves only when
+an adapter, template or pin moves.
+
+So, as with the build matrix: **CI does not execute the runtime matrix.** What
+CI covers is the selection — that the reduction still touches every supported
+runtime dimension, and that no case claims a contract its stack does not have.
+The serving is on demand.
+
+### Notes
+
+- Each project is served by its own production server — `astro preview`,
+  `next start`, `vite preview` — never a static server of ours, because the 404
+  semantics under test belong to the framework.
+- Ports are assigned by the OS and recorded per case; no fixed port is used.
+- Servers are stopped by process tree _and_ by workspace path. Killing the tree
+  alone is not enough on Windows: `npm run start` launches node and exits, so
+  there is no tree left to walk, and a part-way run was found with three `next`
+  and `vite` servers still listening.
+- A browser 404 for `favicon.ico` is a known, pre-existing property of the
+  templates (they ship `favicon.svg`). Failed resources are attributed by URL
+  rather than by message text, so that one is excluded by name and a genuinely
+  missing asset still fails.

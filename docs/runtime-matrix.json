@@ -1,0 +1,1070 @@
+{
+  "coverage": {
+    "required": [
+      "astro:feature=accessibility",
+      "astro:feature=accessibility@coming-soon",
+      "astro:feature=accessibility@full",
+      "astro:feature=not-found",
+      "astro:feature=not-found@coming-soon",
+      "astro:feature=not-found@full",
+      "astro:feature=seo",
+      "astro:feature=seo@coming-soon",
+      "astro:feature=seo@full",
+      "astro:feature=structured-data",
+      "astro:feature=structured-data@coming-soon",
+      "astro:feature=structured-data@full",
+      "astro:only-feature=accessibility",
+      "astro:only-feature=not-found",
+      "astro:only-feature=seo",
+      "astro:only-feature=structured-data",
+      "astro:router=file-based",
+      "astro:starter=coming-soon",
+      "astro:starter=full",
+      "astro:styling=tailwind",
+      "astro:uiLibrary=none",
+      "nextjs:feature=not-found",
+      "nextjs:feature=not-found@coming-soon",
+      "nextjs:feature=not-found@full",
+      "nextjs:feature=seo",
+      "nextjs:feature=seo@coming-soon",
+      "nextjs:feature=seo@full",
+      "nextjs:only-feature=not-found",
+      "nextjs:only-feature=seo",
+      "nextjs:router=file-based",
+      "nextjs:starter=coming-soon",
+      "nextjs:starter=full",
+      "nextjs:styling=bootstrap",
+      "nextjs:styling=none",
+      "nextjs:styling=tailwind",
+      "nextjs:uiLibrary=mui",
+      "nextjs:uiLibrary=mui@coming-soon",
+      "nextjs:uiLibrary=mui@full",
+      "nextjs:uiLibrary=none",
+      "react:feature=client-route-fallback",
+      "react:feature=client-route-fallback@coming-soon",
+      "react:feature=client-route-fallback@full",
+      "react:only-feature=client-route-fallback",
+      "react:router=none",
+      "react:router=react-router",
+      "react:router=react-router@coming-soon",
+      "react:router=react-router@full",
+      "react:starter=coming-soon",
+      "react:starter=full",
+      "react:styling=bootstrap",
+      "react:styling=tailwind",
+      "react:uiLibrary=mui",
+      "react:uiLibrary=mui@coming-soon",
+      "react:uiLibrary=mui@full",
+      "react:uiLibrary=none",
+      "astro:url=configured",
+      "astro:url=url-less",
+      "nextjs:url=configured",
+      "nextjs:url=url-less",
+      "react:url=configured",
+      "react:url=url-less"
+    ],
+    "covered": [
+      "astro:feature=accessibility",
+      "astro:feature=accessibility@coming-soon",
+      "astro:feature=accessibility@full",
+      "astro:feature=not-found",
+      "astro:feature=not-found@coming-soon",
+      "astro:feature=not-found@full",
+      "astro:feature=seo",
+      "astro:feature=seo@coming-soon",
+      "astro:feature=seo@full",
+      "astro:feature=structured-data",
+      "astro:feature=structured-data@coming-soon",
+      "astro:feature=structured-data@full",
+      "astro:only-feature=accessibility",
+      "astro:only-feature=not-found",
+      "astro:only-feature=seo",
+      "astro:only-feature=structured-data",
+      "astro:router=file-based",
+      "astro:starter=coming-soon",
+      "astro:starter=full",
+      "astro:styling=tailwind",
+      "astro:uiLibrary=none",
+      "astro:url=configured",
+      "astro:url=url-less",
+      "nextjs:feature=not-found",
+      "nextjs:feature=not-found@coming-soon",
+      "nextjs:feature=not-found@full",
+      "nextjs:feature=seo",
+      "nextjs:feature=seo@coming-soon",
+      "nextjs:feature=seo@full",
+      "nextjs:only-feature=not-found",
+      "nextjs:only-feature=seo",
+      "nextjs:router=file-based",
+      "nextjs:starter=coming-soon",
+      "nextjs:starter=full",
+      "nextjs:styling=bootstrap",
+      "nextjs:styling=none",
+      "nextjs:styling=tailwind",
+      "nextjs:uiLibrary=mui",
+      "nextjs:uiLibrary=mui@coming-soon",
+      "nextjs:uiLibrary=mui@full",
+      "nextjs:uiLibrary=none",
+      "nextjs:url=configured",
+      "nextjs:url=url-less",
+      "react:feature=client-route-fallback",
+      "react:feature=client-route-fallback@coming-soon",
+      "react:feature=client-route-fallback@full",
+      "react:only-feature=client-route-fallback",
+      "react:router=none",
+      "react:router=react-router",
+      "react:router=react-router@coming-soon",
+      "react:router=react-router@full",
+      "react:starter=coming-soon",
+      "react:starter=full",
+      "react:styling=bootstrap",
+      "react:styling=tailwind",
+      "react:uiLibrary=mui",
+      "react:uiLibrary=mui@coming-soon",
+      "react:uiLibrary=mui@full",
+      "react:uiLibrary=none",
+      "react:url=configured",
+      "react:url=url-less"
+    ]
+  },
+  "cases": [
+    {
+      "id": "astro_tailwind_none_file-based_coming-soon_accessibility+not-found+seo+structured-data__configured",
+      "framework": "astro",
+      "configuration": {
+        "framework": "astro",
+        "buildTool": "astro",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "astro-standard",
+        "starter": "coming-soon",
+        "features": ["accessibility", "not-found", "seo", "structured-data"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/404",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "54564",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]"
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "seo": "canonical https://acme.example/",
+        "structured-data": "1 Organization block"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "canonical-present",
+        "canonical-added-route",
+        "canonical-absent-on-404",
+        "json-ld-present",
+        "json-ld-absent-on-404",
+        "accessibility-structure",
+        "stylesheet-loads"
+      ],
+      "checks": 27,
+      "result": "pass"
+    },
+    {
+      "id": "nextjs_bootstrap_mui_file-based_coming-soon_not-found+seo__configured",
+      "framework": "nextjs",
+      "configuration": {
+        "framework": "nextjs",
+        "buildTool": "next",
+        "language": "ts",
+        "styling": "bootstrap",
+        "uiLibrary": "mui",
+        "router": "file-based",
+        "architecture": "next-app",
+        "starter": "coming-soon",
+        "features": ["not-found", "seo"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact/missing",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/a/b/c",
+          "status": 404,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "50473",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404",
+        "/contact/missing": "404",
+        "/a/b/c": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]",
+        "notFoundH1": "This page doesn't exist."
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "seo": "canonical https://acme.example"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "canonical-present",
+        "canonical-added-route",
+        "canonical-absent-on-404",
+        "stylesheet-loads",
+        "mui-renders"
+      ],
+      "checks": 23,
+      "result": "pass"
+    },
+    {
+      "id": "react_bootstrap_mui_react-router_coming-soon_client-route-fallback__configured",
+      "framework": "react",
+      "configuration": {
+        "framework": "react",
+        "buildTool": "vite",
+        "language": "ts",
+        "styling": "bootstrap",
+        "uiLibrary": "mui",
+        "router": "react-router",
+        "architecture": "react-standard",
+        "starter": "coming-soon",
+        "features": ["client-route-fallback"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "57947",
+        "/": "200"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[]",
+        "fallbackH1": "This page does not exist"
+      },
+      "features": {},
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "client-fallback-200",
+        "stylesheet-loads",
+        "mui-renders",
+        "router-route-loads"
+      ],
+      "checks": 13,
+      "result": "pass"
+    },
+    {
+      "id": "astro_tailwind_none_file-based_full_accessibility+not-found+seo+structured-data__configured",
+      "framework": "astro",
+      "configuration": {
+        "framework": "astro",
+        "buildTool": "astro",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "astro-standard",
+        "starter": "full",
+        "features": ["accessibility", "not-found", "seo", "structured-data"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/404",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "58936",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]"
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "seo": "canonical https://acme.example/",
+        "structured-data": "1 Organization block"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "canonical-present",
+        "canonical-added-route",
+        "canonical-absent-on-404",
+        "json-ld-present",
+        "json-ld-absent-on-404",
+        "accessibility-structure",
+        "stylesheet-loads"
+      ],
+      "checks": 27,
+      "result": "pass"
+    },
+    {
+      "id": "nextjs_none_mui_file-based_full_not-found__configured",
+      "framework": "nextjs",
+      "configuration": {
+        "framework": "nextjs",
+        "buildTool": "next",
+        "language": "ts",
+        "styling": "none",
+        "uiLibrary": "mui",
+        "router": "file-based",
+        "architecture": "next-app",
+        "starter": "full",
+        "features": ["not-found"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact/missing",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/a/b/c",
+          "status": 404,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "61975",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404",
+        "/contact/missing": "404",
+        "/a/b/c": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[]",
+        "notFoundH1": "This page doesn't exist."
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "mui-renders"
+      ],
+      "checks": 11,
+      "result": "pass"
+    },
+    {
+      "id": "react_tailwind_mui_react-router_full_client-route-fallback__configured",
+      "framework": "react",
+      "configuration": {
+        "framework": "react",
+        "buildTool": "vite",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "mui",
+        "router": "react-router",
+        "architecture": "react-standard",
+        "starter": "full",
+        "features": ["client-route-fallback"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "56687",
+        "/": "200"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[]",
+        "fallbackH1": "This page does not exist"
+      },
+      "features": {},
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "client-fallback-200",
+        "stylesheet-loads",
+        "mui-renders",
+        "router-route-loads"
+      ],
+      "checks": 13,
+      "result": "pass"
+    },
+    {
+      "id": "nextjs_tailwind_none_file-based_full_seo__configured",
+      "framework": "nextjs",
+      "configuration": {
+        "framework": "nextjs",
+        "buildTool": "next",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "next-app",
+        "starter": "full",
+        "features": ["seo"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact/missing",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/a/b/c",
+          "status": 404,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "52472",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404",
+        "/contact/missing": "404",
+        "/a/b/c": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]",
+        "notFoundH1": "This page doesn't exist."
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "seo": "canonical https://acme.example"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "canonical-present",
+        "canonical-added-route",
+        "canonical-absent-on-404",
+        "stylesheet-loads"
+      ],
+      "checks": 21,
+      "result": "pass"
+    },
+    {
+      "id": "react_bootstrap_none_none_coming-soon_none__configured",
+      "framework": "react",
+      "configuration": {
+        "framework": "react",
+        "buildTool": "vite",
+        "language": "ts",
+        "styling": "bootstrap",
+        "uiLibrary": "none",
+        "router": "none",
+        "architecture": "react-standard",
+        "starter": "coming-soon",
+        "features": [],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "49763",
+        "/": "200"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[]"
+      },
+      "features": {},
+      "contracts": ["home-200", "no-runtime-errors", "stylesheet-loads"],
+      "checks": 6,
+      "result": "pass"
+    },
+    {
+      "id": "astro_tailwind_none_file-based_coming-soon_accessibility__configured",
+      "framework": "astro",
+      "configuration": {
+        "framework": "astro",
+        "buildTool": "astro",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "astro-standard",
+        "starter": "coming-soon",
+        "features": ["accessibility"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/404",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "63390",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]"
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "accessibility-structure",
+        "stylesheet-loads"
+      ],
+      "checks": 17,
+      "result": "pass"
+    },
+    {
+      "id": "astro_tailwind_none_file-based_coming-soon_not-found__configured",
+      "framework": "astro",
+      "configuration": {
+        "framework": "astro",
+        "buildTool": "astro",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "astro-standard",
+        "starter": "coming-soon",
+        "features": ["not-found"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/404",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "64403",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]"
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "stylesheet-loads"
+      ],
+      "checks": 10,
+      "result": "pass"
+    },
+    {
+      "id": "astro_tailwind_none_file-based_coming-soon_seo__configured",
+      "framework": "astro",
+      "configuration": {
+        "framework": "astro",
+        "buildTool": "astro",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "astro-standard",
+        "starter": "coming-soon",
+        "features": ["seo"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/404",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "62687",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]"
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "seo": "canonical https://acme.example/"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "canonical-present",
+        "canonical-added-route",
+        "canonical-absent-on-404",
+        "stylesheet-loads"
+      ],
+      "checks": 16,
+      "result": "pass"
+    },
+    {
+      "id": "astro_tailwind_none_file-based_coming-soon_structured-data__configured",
+      "framework": "astro",
+      "configuration": {
+        "framework": "astro",
+        "buildTool": "astro",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "astro-standard",
+        "starter": "coming-soon",
+        "features": ["structured-data"],
+        "url": "configured"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/404",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "53949",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[\"https://acme.example/\"]"
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "structured-data": "1 Organization block"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "json-ld-present",
+        "json-ld-absent-on-404",
+        "stylesheet-loads"
+      ],
+      "checks": 14,
+      "result": "pass"
+    },
+    {
+      "id": "astro_tailwind_none_file-based_coming-soon_accessibility+not-found+seo+structured-data__url-less",
+      "framework": "astro",
+      "configuration": {
+        "framework": "astro",
+        "buildTool": "astro",
+        "language": "ts",
+        "styling": "tailwind",
+        "uiLibrary": "none",
+        "router": "file-based",
+        "architecture": "astro-standard",
+        "starter": "coming-soon",
+        "features": ["accessibility", "not-found", "seo", "structured-data"],
+        "url": "url-less"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/404",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "51521",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[]"
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "seo": "no canonical, no invented origin",
+        "structured-data": "1 Organization block"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "canonical-absent-url-less",
+        "json-ld-present",
+        "json-ld-absent-on-404",
+        "accessibility-structure",
+        "stylesheet-loads"
+      ],
+      "checks": 24,
+      "result": "pass"
+    },
+    {
+      "id": "nextjs_bootstrap_mui_file-based_coming-soon_not-found+seo__url-less",
+      "framework": "nextjs",
+      "configuration": {
+        "framework": "nextjs",
+        "buildTool": "next",
+        "language": "ts",
+        "styling": "bootstrap",
+        "uiLibrary": "mui",
+        "router": "file-based",
+        "architecture": "next-app",
+        "starter": "coming-soon",
+        "features": ["not-found", "seo"],
+        "url": "url-less"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/nope",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact/missing",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/a/b/c",
+          "status": 404,
+          "contentType": "text/html"
+        },
+        {
+          "path": "/contact",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "65057",
+        "/": "200",
+        "/contact": "200",
+        "/nope": "404",
+        "/contact/missing": "404",
+        "/a/b/c": "404"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[]",
+        "notFoundH1": "This page doesn't exist."
+      },
+      "features": {
+        "not-found": "HTTP 404 from the framework router",
+        "seo": "no canonical, no invented origin"
+      },
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "not-found-404",
+        "added-route-200",
+        "canonical-absent-url-less",
+        "stylesheet-loads",
+        "mui-renders"
+      ],
+      "checks": 16,
+      "result": "pass"
+    },
+    {
+      "id": "react_bootstrap_mui_react-router_coming-soon_client-route-fallback__url-less",
+      "framework": "react",
+      "configuration": {
+        "framework": "react",
+        "buildTool": "vite",
+        "language": "ts",
+        "styling": "bootstrap",
+        "uiLibrary": "mui",
+        "router": "react-router",
+        "architecture": "react-standard",
+        "starter": "coming-soon",
+        "features": ["client-route-fallback"],
+        "url": "url-less"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ],
+      "http": {
+        "port": "51916",
+        "/": "200"
+      },
+      "browser": {
+        "title": "Acme Ltd",
+        "h1": "Acme Ltd",
+        "lang": "en",
+        "canonicals": "[]",
+        "fallbackH1": "This page does not exist"
+      },
+      "features": {},
+      "contracts": [
+        "home-200",
+        "no-runtime-errors",
+        "client-fallback-200",
+        "stylesheet-loads",
+        "mui-renders",
+        "router-route-loads"
+      ],
+      "checks": 13,
+      "result": "pass"
+    }
+  ]
+}
