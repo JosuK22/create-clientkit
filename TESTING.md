@@ -79,3 +79,67 @@ Soon home page, which sets `showHeader={false}` because it carries its own
 brand lockup. Reproducible by adding `NAV` entries and rebuilding. Left
 unchanged — it is identical on desktop and is a template behaviour question,
 not a mobile one.
+
+## Full supported-stack integration matrix
+
+### 2026-09-23 — create-clientkit@1.0.2
+
+Every configuration the compatibility engine accepts, taken through the whole
+pipeline a user would: generate, fresh dependency install, typecheck, production
+build.
+
+```sh
+npm run matrix                 # all accepted configurations
+npm run matrix -- --only next  # a subset, matched on the case id
+```
+
+|                  |                                                             |
+| ---------------- | ----------------------------------------------------------- |
+| Enumerated       | 6,912 (every implemented value of every dimension, crossed) |
+| Accepted         | 104                                                         |
+| Generated        | 104 / 104                                                   |
+| Installed        | 104 / 104                                                   |
+| Typechecked      | 104 / 104 (0 not applicable)                                |
+| Production build | 104 / 104                                                   |
+| Wall clock       | 32.7 min at concurrency 2                                   |
+| Node             | 22.15.0, npm, Windows 11                                    |
+
+Per-case results, with the resolved configuration that identifies each one, are
+in [`docs/integration-matrix.json`](./docs/integration-matrix.json).
+
+**The set is not a list.** `scripts/integration-matrix.mts` asks
+`enumerateCombinations` — which asks the real resolver and the real
+compatibility engine — so the matrix cannot drift from what the product
+accepts. `test/accepted-combinations.test.ts` runs on every push and checks that
+enumeration against the engine in both directions, and that all 104 reach a
+plan. That test is the fast half of this invariant; the installs and builds are
+the slow half.
+
+### Why this is not in CI
+
+The 17-job CI matrix runs on every push across three platforms and three Node
+versions. Adding 104 installs and builds to it would add something like half an
+hour per job — hours of runner time per push — for a result that changes only
+when an adapter, a template or a dependency pin changes.
+
+So CI keeps what it had, and this runs on demand. That is a real limitation and
+is stated rather than papered over: **CI does not execute the 104-case
+matrix.** What CI does cover is the contract half — the enumeration, and that
+every accepted configuration plans — which is what would catch a compatibility
+change that invented an unbuildable stack.
+
+### Notes
+
+- Each case gets its own temporary directory and its own dependency tree.
+  Before installing, the harness asserts the generated project contains no
+  `node_modules`, `dist`, `.next`, `.angular`, `.cache`, `.astro` or `build`.
+- The typecheck command is read from each generated project rather than assumed:
+  React and Next.js ship `typecheck`, Astro ships `check`. A project with
+  neither would be recorded `not-applicable`; none currently is.
+- Two harness defects were found and fixed while building this, both of which
+  first looked like product defects. `vite-node` runs with
+  `NODE_ENV=development`, which a child process inherits — under it every
+  Next + MUI build failed prerendering `/_global-error`, while the same project
+  built cleanly by hand. And removing a finished workspace on Windows can fail
+  with `EBUSY` while a just-exited build still holds a handle, which aborted the
+  first full attempt three cases in.

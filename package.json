@@ -45,6 +45,7 @@
     "third-party": "node scripts/generate-third-party.mjs",
     "third-party:check": "node scripts/generate-third-party.mjs --check",
     "check:package": "node scripts/check-package.mjs",
+    "matrix": "vite-node scripts/integration-matrix.mts",
     "smoke": "node scripts/smoke.mjs",
     "smoke:quick": "node scripts/smoke.mjs --quick",
     "smoke:audit": "node scripts/smoke.mjs --audit",
