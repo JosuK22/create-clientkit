@@ -6493,3 +6493,92 @@ third and not the second.
    all of them. The other 96 are verified as far as generation.
 3. The matrix is derived on one machine and one Node version. CI covers the
    platform spread for the suite, not for all 104 generations.
+
+### Stage 55 — the existing-project contract (investigated; no mechanism added)
+
+An investigation stage. The question was what ClientKit promises the second time
+it meets a directory, and the answer turned out to be already written — in
+`validate.ts`, in `apply.ts`, and in one paragraph of the README that is
+accurate. Nothing was implemented.
+
+#### The contract, as measured
+
+Not inferred from the planner: three projects generated, edited the way a
+developer edits them, and re-run through the real binary.
+
+| Scenario                           | Exit | Changed       | Deleted | User files                          |
+| ---------------------------------- | ---- | ------------- | ------- | ----------------------------------- |
+| Second `--yes` run, unmodified     | 1    | 0             | 0       | —                                   |
+| Second `--yes` run, after edits    | 1    | 0             | 0       | all preserved                       |
+| `--yes` with a TTY attached        | 1    | 0             | 0       | all preserved                       |
+| `--dry-run` on an existing project | 0    | 0             | 0       | all preserved                       |
+| Interactive, declined              | 0    | 0             | 0       | all preserved                       |
+| Interactive, confirmed             | 0    | 6 per project | **0**   | `src/custom/UserOwned.ts` preserved |
+
+So: **creation, plus a confirmed merge.** A non-empty directory is refused
+wherever consent cannot be obtained — `--yes` rules out asking, so `--yes`
+refuses. Consent is informed: the run lists what would be replaced, defaults the
+answer to no, and reports the count afterwards. Nothing is ever deleted, and a
+file ClientKit did not generate is never touched.
+
+The count in the message and the number of files whose bytes change differ, and
+both are right: a confirmed merge rewrites all 22 planned files and reports 22,
+while only the 6 the developer had edited actually differ afterwards.
+
+#### What this is not
+
+There is no upgrade command, no migration, and no reconfiguration. Two
+measurements make that concrete rather than a claim:
+
+- **Provenance is written and never read.** `.client-site.json` records the CLI
+  version, template and resolved configuration - its own doc comment says it
+  exists so a future `upgrade` or `add` would not have to guess. Editing it to
+  claim `0.0.1-ancient` changes nothing: the run refuses for the same reason as
+  before and says nothing about versions.
+- **A stack change leaves the old stack behind.** React + MUI + React Router,
+  re-generated without either, keeps `AppProviders.tsx` and `AppRouter.tsx`.
+  `package.json` is correct - neither dependency is listed - so the orphans
+  import packages that are not installed. `vite build` tree-shakes them and
+  succeeds; `tsc --noEmit` fails with two `TS2307`s.
+
+That last one is a limitation, not a defect, and the distinction is the whole
+point of the stage: nothing promises reconfiguration, so nothing is failing to
+deliver it. Removing files from a directory somebody is working in needs a far
+more precise conversation than "continue?", and inventing one here would have
+been building a migration framework because the experiment made room for it.
+
+#### Configuration reproducibility, which is a different thing
+
+The same `--from` file generated into two separate directories produces
+byte-identical trees - same file list, same contents, modulo the project name
+and the generation timestamp. That is configuration reproducibility, and it is
+what makes "generate a new project and move your work across" a real answer
+rather than a shrug.
+
+#### What changed
+
+Thirteen contract tests in `test/existing-project.test.ts`, covering the refusal,
+the dry run, the merge, what survives it, that nothing is deleted, that the
+generated half returns to exactly what a fresh run produces, and that provenance
+is written but not consulted. The last test pins the stale-file limitation, so it
+stays a decision on the record rather than turning into a half-built migration.
+
+README gained a section saying plainly that re-running is not a way to change a
+project's stack, because "confirm a merge" was the one place a reader could
+reasonably have assumed otherwise.
+
+**Unchanged.** No production code. No template byte edited, no golden moved. The
+four V1 goldens are byte-identical
+(`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`), and the
+version is still 1.0.2.
+
+#### Known limitations
+
+1. Re-generating a different stack leaves the previous stack's files. Documented
+   in the README and pinned by a test; a real fix is a migration mechanism and a
+   stage of its own.
+2. Nothing reads `.client-site.json`. A future upgrade path has the information
+   it would need, and no code that uses it.
+3. The interactive confirmation is driven through `runCreate` with the
+   repository's fake prompter, as `test/generate.test.ts` already does. A shell
+   cannot reach that branch without a terminal.

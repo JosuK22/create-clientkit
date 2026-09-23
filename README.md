@@ -560,6 +560,35 @@ non-empty directory without asking. Run it interactively to confirm a merge,
 or choose an empty directory. Files the template does not name are never
 touched.
 
+### Re-running ClientKit on a project it already generated
+
+ClientKit creates projects. There is no upgrade command, no migration and no
+reconfiguration, and re-running it is not a way to change a project's stack.
+
+What actually happens is the merge above, and it is worth being precise about:
+
+- Non-interactively — including `--yes` — an existing non-empty directory is
+  **refused** and nothing is written.
+- `--dry-run` resolves, prints and writes nothing, on an existing project as on
+  a new one.
+- Interactively, the CLI lists the files it would replace and asks, defaulting
+  to no. Confirm and it writes the files a fresh project would have, putting
+  **your edits to those files back to the generated version** — it says how many
+  it replaced afterwards.
+- Files ClientKit did not generate are never touched, and **nothing is ever
+  deleted**.
+
+That last point is the one to plan around. Re-running with a different stack
+adds and overwrites, but leaves the previous stack's files where they are: drop
+`--ui-library mui` and `src/components/ui/AppProviders.tsx` stays, still
+importing a package the new `package.json` no longer lists. The build tree-shakes
+it away and succeeds; `npm run typecheck` does not and fails. Generate a new
+project and move your work across, rather than re-running over the old one.
+
+The generated `.client-site.json` records the CLI version, template and resolved
+configuration. Today nothing reads it back — it is there so that a future
+`upgrade` or `add` command would not have to guess.
+
 **Nothing was written after an error.** By design — generation stages into a
 temporary sibling directory and only moves into place once every file
 succeeds.
