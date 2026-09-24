@@ -5,6 +5,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -75,18 +76,68 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
       mkdirSync(parent, { recursive: true });
       renameSync(stagingDir, targetDir);
     } else {
-      // Merge path: move planned files only. Nothing else in the target is
-      // touched, so unrelated user files always survive.
-      for (const operation of plan.operations) {
-        const from = path.join(stagingDir, ...operation.path.split('/'));
-        const to = path.join(targetDir, ...operation.path.split('/'));
-        if (existsSync(to)) {
-          overwritten.push(operation.path);
-          rmSync(to, { force: true });
+      /*
+       * Merge path: move planned files only. Nothing else in the target is
+       * touched, so unrelated user files always survive.
+       *
+       * Publishing cannot be one rename here - the target already exists and
+       * keeps files this plan does not name - so it is a file at a time, and
+       * that makes a partial failure possible. Each replaced file is therefore
+       * moved aside first and restored if any later move fails, so the target
+       * ends up either fully updated or exactly as it was.
+       *
+       * Without this, a plan that failed on its twentieth file left nineteen
+       * replaced and their originals already deleted. Stage 64 found it by
+       * failing an upgrade on purpose and watching the provenance file - which
+       * sorts early - come back describing a stack the project no longer had.
+       */
+      const backupDir = path.join(stagingDir, '.replaced');
+      const undo: { readonly to: string; readonly backup: string | null }[] = [];
+
+      try {
+        for (const operation of plan.operations) {
+          const from = path.join(stagingDir, ...operation.path.split('/'));
+          const to = path.join(targetDir, ...operation.path.split('/'));
+
+          let backup: string | null = null;
+          if (existsSync(to)) {
+            /*
+             * A directory where a planned file goes is a conflict, not
+             * something to move out of the way. Replacing it would mean
+             * discarding whatever it holds, and ClientKit does not delete a
+             * developer's files - so this refuses before anything is touched.
+             */
+            if (statSync(to).isDirectory()) {
+              throw new CliError(
+                `Cannot write "${operation.path}": a directory exists at that path.`,
+                {
+                  hint: 'Move or remove that directory, then run the command again. Nothing was written.',
+                },
+              );
+            }
+            overwritten.push(operation.path);
+            backup = path.join(backupDir, ...operation.path.split('/'));
+            mkdirSync(path.dirname(backup), { recursive: true });
+            renameSync(to, backup);
+          }
+
+          // Recorded before the move, not after: the operation that fails may
+          // already have moved the original aside, and that one needs putting
+          // back too.
+          undo.push({ to, backup });
+          mkdirSync(path.dirname(to), { recursive: true });
+          renameSync(from, to);
         }
-        mkdirSync(path.dirname(to), { recursive: true });
-        renameSync(from, to);
+      } catch (error) {
+        // Put everything back, newest move first, before the outer handler
+        // reports the failure.
+        for (const step of undo.reverse()) {
+          rmSync(step.to, { recursive: true, force: true });
+          if (step.backup !== null) renameSync(step.backup, step.to);
+        }
+        throw error;
       }
+
       rmSync(stagingDir, { recursive: true, force: true });
     }
 

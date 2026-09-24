@@ -1,6 +1,7 @@
 import { assertFlagCombinations, parseCliArgs } from './args.js';
 import { runCreate } from './commands/create.js';
 import { runList } from './commands/list.js';
+import { runUpgrade } from './commands/upgrade.js';
 import { CancelledError, CliError, EXIT_CANCELLED, EXIT_ERROR, EXIT_OK } from './errors.js';
 import { createRegistry } from './templates/registry.js';
 import { helpText } from './ui/help.js';
@@ -52,6 +53,18 @@ export async function main(argv: readonly string[], options: MainOptions = {}): 
 
     if (flags.listTemplates) {
       return runList(createRegistry(), logger);
+    }
+
+    if (flags.command === 'upgrade') {
+      return await runUpgrade({
+        flags,
+        logger,
+        registry: createRegistry(),
+        cliVersion: CLI_VERSION,
+        cwd,
+        env,
+        isTTY,
+      });
     }
 
     return await runCreate({

@@ -2,7 +2,25 @@ import { parseArgs } from 'node:util';
 
 import { CliError, EXIT_USAGE } from './errors.js';
 
+/**
+ * What the invocation asked for.
+ *
+ * `create` is the default and stays unwritten: `create-clientkit acme-site`
+ * means what it has always meant. `upgrade` has to be typed, because Stage 56
+ * found that an unimplemented one was silently read as a directory name - so
+ * `create-clientkit upgrade ./site` created a project called `upgrade`.
+ *
+ * The cost of the fix is that a directory literally named `upgrade` can no
+ * longer be created by bare name. That is the trade a subcommand always makes,
+ * and `create-clientkit ./upgrade` still works.
+ */
+export type Command = 'create' | 'upgrade';
+
+/** The subcommands that must be typed to be selected. */
+const COMMANDS = ['upgrade'] as const;
+
 export interface ParsedFlags {
+  readonly command: Command;
   readonly positionals: readonly string[];
   readonly help: boolean;
   readonly version: boolean;
@@ -109,9 +127,19 @@ export function parseCliArgs(argv: readonly string[]): ParsedFlags {
   const asList = (key: string): readonly string[] =>
     Array.isArray(values[key]) ? (values[key] as string[]) : [];
 
-  if (parsed.positionals.length > 1) {
+  /*
+   * The command word, if one was typed, is taken off the front before the
+   * directory rule applies - otherwise `upgrade ./site` would look like two
+   * directories and be refused.
+   */
+  const [first, ...rest] = parsed.positionals;
+  const isCommand = first !== undefined && (COMMANDS as readonly string[]).includes(first);
+  const command: Command = isCommand ? (first as Command) : 'create';
+  const positionals = isCommand ? rest : parsed.positionals;
+
+  if (positionals.length > 1) {
     throw new CliError(
-      `Expected at most one target directory, but received ${parsed.positionals.length}.`,
+      `Expected at most one target directory, but received ${positionals.length}.`,
       {
         exitCode: EXIT_USAGE,
         hint: 'Quote the path if it contains spaces: create-clientkit "my site".',
@@ -120,7 +148,8 @@ export function parseCliArgs(argv: readonly string[]): ParsedFlags {
   }
 
   return {
-    positionals: parsed.positionals,
+    command,
+    positionals,
     help: asBool('help'),
     version: asBool('version'),
     listTemplates: asBool('list-templates'),

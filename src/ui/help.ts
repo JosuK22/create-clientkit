@@ -84,6 +84,14 @@ export function helpText(): string {
     flag you pass is a question you are not asked. A JSON file passed with
     --from can supply the same answers, and a flag still beats the file.
 
+    npm create clientkit@latest upgrade <directory>
+
+    Re-generates a ClientKit project's generated files from the stack it
+    recorded, with any flag you pass overriding it. It lists what it would
+    replace and asks first, never deletes anything, and never touches a file
+    it did not plan. Files the new stack no longer generates are reported and
+    left alone. Use --dry-run to see the plan without writing.
+
   Options
         --name <name>     Client / site name
         --url <url>       Production URL (omit if not decided yet)

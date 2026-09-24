@@ -462,6 +462,13 @@ describe('the bridge keeps its direction and its limits', () => {
       // not.
       'context\\interactive.ts',
       'context/interactive.ts',
+      // Stage 64. The upgrade command is the second command to run the adapter
+      // path, for the same reason `create` does: it plans through
+      // `planManifest`, and it asks `planUpgrade` for the two path sets. It
+      // composes those answers and decides none of them - which is why it
+      // computes no path difference of its own, asserted in its own suite.
+      'commands\\upgrade.ts',
+      'commands/upgrade.ts',
     ];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];

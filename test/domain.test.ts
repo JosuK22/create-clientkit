@@ -543,6 +543,13 @@ describe('the domain layer stays pure', () => {
       // into a runtime dependency without failing.
       'generate\\provenance.ts',
       'generate/provenance.ts',
+      // Stage 64. The upgrade command reads the provenance document through the
+      // domain reader and reports the path plan the domain arithmetic produced.
+      // It names the vocabulary in order to pass it along; it settles nothing,
+      // and the refusal cases it prints are the reader's own verdicts rather
+      // than a second opinion about them.
+      'commands\\upgrade.ts',
+      'commands/upgrade.ts',
     ]);
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const v2Directories = new Set(['domain', 'adapters']);
