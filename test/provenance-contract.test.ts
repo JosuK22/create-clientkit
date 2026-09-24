@@ -161,3 +161,77 @@ describe('provenance cannot tell two stacks apart', () => {
     expect(everythingKnownAboutTheStack).toEqual(['react', 'full', []]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Ownership: who writes this file, and on whose behalf
+// ---------------------------------------------------------------------------
+
+describe('provenance is the generator writing about itself', () => {
+  it('is the only operation the CLI claims as its own', () => {
+    /*
+     * The structural fact the Stage 57 decision rests on. Every other file in a
+     * generated project comes from a template layer or an adapter and says so
+     * in its origin - `base`, `base + modes/coming-soon`, `styling:tailwind`.
+     * Exactly one carries `cli`, and it is this one: the project is what the
+     * templates produced, and `.client-site.json` is ClientKit's note about
+     * having produced it.
+     */
+    const operations = generate({}).plan.operations;
+    const byCli = operations.filter((entry) => entry.origin === 'cli').map((entry) => entry.path);
+    expect(byCli).toEqual([PROVENANCE_FILE]);
+    expect(operations.length).toBeGreaterThan(15);
+  });
+
+  it('is synthesised rather than copied from a template', () => {
+    // A template-shipped file arrives as a copy or carries a template origin.
+    // This one is built in the planner, which is why no `templates/**` path
+    // contains it and why its bytes are a function of the context alone.
+    const operation = generate({}).plan.operations.find((entry) => entry.path === PROVENANCE_FILE);
+    expect(operation?.type).toBe('write');
+    expect(operation?.origin).toBe('cli');
+  });
+
+  it('records nothing about the machine that ran the generator', () => {
+    // The allow-list its own doc comment describes: no environment, no
+    // absolute paths, no credentials, no author.
+    const serialised = JSON.stringify(provenanceOf({}));
+    expect(serialised).not.toMatch(/[A-Za-z]:\\|\/Users\/|\/home\//);
+    expect(serialised).not.toContain('author');
+    expect(serialised).not.toContain('targetDir');
+  });
+});
+
+describe('provenance serialisation is deterministic', () => {
+  it('is byte-identical for the same inputs', () => {
+    const first = generate({}).plan.operations.find((e) => e.path === PROVENANCE_FILE);
+    const second = generate({}).plan.operations.find((e) => e.path === PROVENANCE_FILE);
+    expect(first?.type === 'write' ? first.content : '').toBe(
+      second?.type === 'write' ? second.content : '<none>',
+    );
+  });
+
+  it('orders its keys the same way every time', () => {
+    // Key order is part of the bytes, and the bytes are in a golden. Asserted
+    // so a future reader can rely on the shape rather than on luck.
+    const keys = (over: Partial<ProjectManifest>): string[] => Object.keys(provenanceOf(over));
+    expect(keys({ styling: 'bootstrap' })).toEqual(keys({ uiLibrary: 'mui' }));
+    expect(keys({})).toEqual([
+      '$schema',
+      'cliVersion',
+      'template',
+      'mode',
+      'generatedAt',
+      'config',
+    ]);
+  });
+
+  it('varies only with the configuration it is a record of', () => {
+    const base = provenanceOf({});
+    expect(provenanceOf({ starter: 'coming-soon' })).not.toEqual(base);
+    expect(
+      provenanceOf({ features: ['client-route-fallback'], router: 'react-router' }),
+    ).not.toEqual(base);
+    // ...and not with the dimensions it does not record, which is the gap.
+    expect(provenanceOf({ styling: 'bootstrap' })).toEqual(base);
+  });
+});

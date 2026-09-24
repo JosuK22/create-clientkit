@@ -6671,3 +6671,111 @@ happen quietly.
 **Unchanged.** No template byte edited, no golden moved. The four V1 goldens are
 byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
 and the version is still 1.0.2.
+
+### Stage 57 — what `.client-site.json` is (decided: Model B)
+
+Stage 56 stopped because provenance cannot describe a stack. Before deciding
+what provenance should _do_, this decides what it **is**.
+
+#### The decision
+
+**Model B: `.client-site.json` is ClientKit-owned generator metadata whose
+schema may evolve, not immutable V1 template output.**
+
+Not a preference - it follows from what the file is. Four pieces of evidence,
+each checkable:
+
+1. **It is not template content.** Every other file in a generated project is
+   copied or composed from a template layer or an adapter. This one is
+   synthesised in `plan()` and pushed with `origin: 'cli'`. In the V1 golden,
+   21 of 22 files carry a template origin (`base`, `base + modes/coming-soon`)
+   and exactly one carries `cli`. The project is what the templates produced;
+   this file is ClientKit's note about having produced it.
+2. **The golden's own purpose is refactor safety, not a byte promise to users.**
+   `docs/golden-snapshots.md` says it plainly: the snapshots exist so the V2
+   adapter refactor can "prove it did not change **what** is generated". They
+   are the gate on a migration, and they explicitly contemplate change -
+   "re-recording is correct only when a product change to the generated output
+   has been agreed. The snapshot diff is then the review artifact."
+3. **Nothing promises its bytes.** The README describes what the file records.
+   No document claims its schema is fixed, and nothing reads it - Stage 55
+   established that.
+4. **The change it needs is additive and contained.** Measured, not estimated:
+   adding a resolved-stack block produces **+9 lines, -0 lines**, in
+   `.client-site.json` and nowhere else. The other 21 generated files are
+   byte-identical; `cli-resolution.txt` does not contain provenance at all and
+   does not move.
+
+#### Snapshot coverage is not a compatibility contract
+
+The distinction the decision turns on. The V1 checksum observes provenance
+bytes because the golden renders the whole plan - not because those bytes were
+ever promised. A snapshot records what a thing currently does; a compatibility
+contract records what it must keep doing. Conflating them would mean every
+artefact a test happens to observe is frozen by having been observed, which is
+how a safety net becomes a specification nobody agreed to.
+
+So the semantic V1 contract is: **the generated project** - its 21 template-owned
+files, their content, their ordering. Provenance sits beside that as the
+generator's own record.
+
+#### What this stage did not do
+
+It did not add the stack, and did not touch the golden. Adding the field is a
+change to generated output, and `docs/golden-snapshots.md` requires that to be
+an _agreed_ product change reviewed through the snapshot diff. That agreement is
+a release-level act; this stage's instructions make the checksum a hard stop,
+which is the right precedence. The decision is recorded here so the next stage
+can make that change as a sanctioned, reviewable diff of known size rather than
+as a surprise: **+9/-0, one file, three goldens.**
+
+The checksum is therefore unchanged:
+`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`.
+
+#### Schema evolution policy
+
+- **Provenance is additive.** New fields may be added. Existing fields do not
+  change meaning, and are not removed or renamed without a release boundary.
+- **`cliVersion` is the schema discriminator.** It is already written, already
+  exact, and already tells a reader which ClientKit produced the document. A
+  separate `provenanceSchema` counter would be a second version number with no
+  information the first does not carry, and is deliberately not introduced.
+- **One direction of compatibility matters.** A newer CLI must understand an
+  older document. An older CLI reading a newer document is explicitly _not_
+  supported and is not worth engineering: the 1.0.2 CLI does not read
+  provenance at all.
+- **Absence is a refusal, never a default.** A reader that finds no `stack`
+  must refuse the operation that needed it and say so. It must not fall back to
+  resolver defaults - Stage 56 measured where that leads: a project that chose
+  MUI is reconstructed as one that never did.
+
+#### What a future upgrade needs, classified
+
+| Field                                                                                     | Classification                  | Why                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| resolved stack (framework, buildTool, language, styling, uiLibrary, router, architecture) | **required**                    | Without it the old generated set is unknowable. The whole of Stage 56.                                                                                                                                                                       |
+| starter (`mode`)                                                                          | **required** — already recorded | Changes which files exist.                                                                                                                                                                                                                   |
+| features                                                                                  | **required** — already recorded | Changes which files exist.                                                                                                                                                                                                                   |
+| template id/version, framework version                                                    | **useful** — already recorded   | Identifies what was generated from; a version bump is the thing an upgrade is for.                                                                                                                                                           |
+| `cliVersion`                                                                              | **required** — already recorded | The schema discriminator, and the refusal boundary for documents too old to read.                                                                                                                                                            |
+| generated-file list                                                                       | **not required**                | Derivable: given the recorded stack, the planner reproduces the old plan exactly, and the old generated set is that plan's paths. Persisting a file list would duplicate a deterministic computation and go stale against a template change. |
+| site name, URL, locale, package manager                                                   | **useful** — already recorded   | Needed to re-plan without asking again.                                                                                                                                                                                                      |
+| absolute paths, author, environment                                                       | **unsafe to persist**           | Already excluded by the allow-list, and should stay excluded.                                                                                                                                                                                |
+
+The file-list row is the one worth dwelling on, because Stage 56's danger was
+telling a developer their own module was tool-owned. The safer answer is not a
+bigger record but a smaller one: **ownership is derivable from two plans.** A
+path in the old plan and not the new one was generated and is now orphaned; a
+path in neither was written by the developer. That needs the old stack, and
+nothing else.
+
+#### Known limitations
+
+1. Projects generated by 1.0.2 - every project that exists - will never carry a
+   stack. A future upgrade must refuse them by name rather than guess, and that
+   refusal is permanent for those projects.
+2. No reader exists. Adding one before it has a caller would be code nothing
+   runs, which this project has declined to do before (Stage 49). It belongs
+   with the upgrade design.
+3. `args.ts` still allows only one positional, so an `upgrade` command word
+   remains a change to argument parsing.
