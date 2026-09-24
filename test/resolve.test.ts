@@ -7,7 +7,9 @@ import { DEFAULTS, TEMPLATE_ID_PLACEHOLDER } from '../src/context/defaults.js';
 import { NonInteractivePrompter } from '../src/context/prompts.js';
 import { resolveContext, type ResolveOptions } from '../src/context/resolve.js';
 import { CliError } from '../src/errors.js';
-import { emptyRegistry } from '../src/templates/registry.js';
+import { createAdapterRegistry } from '../src/adapters/registry.js';
+import { describeTemplate } from '../src/adapters/template-identity.js';
+import { emptyRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import type { ResolutionResult } from '../src/types.js';
 import {
   FakePrompter,
@@ -19,6 +21,12 @@ import {
 } from './helpers.js';
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
+
+/** Asked of the adapter, not written down, so it cannot drift from the manifest. */
+const ASTRO_TEMPLATE_VERSION = describeTemplate(
+  'astro',
+  createAdapterRegistry(findTemplatesRoot(path.resolve(import.meta.dirname, '..', 'src'))),
+).identity.version;
 
 interface RunOptions {
   argv?: string[];
@@ -76,7 +84,18 @@ describe('default resolution', () => {
     expect(context.site.locale).toBe(DEFAULTS.locale);
     expect(context.site.author).toBeNull();
     expect(context.template.id).toBe(TEMPLATE_ID_PLACEHOLDER);
-    expect(context.template.version).toBeNull();
+    /*
+     * Not from the defaults module, and deliberately so since Stage 62.
+     *
+     * `DEFAULTS.templateVersion` is null, with a comment saying it stays that
+     * way "until a real template registry supplies versions". The framework
+     * adapter now declares its template identity, so the version is known even
+     * here, where the disk registry is empty - which is the point of the
+     * identity contract: knowing which template a framework generates does not
+     * depend on a directory scan having found a manifest.
+     */
+    expect(context.template.version).toBe(ASTRO_TEMPLATE_VERSION);
+    expect(sources['template.version']).toBe('template');
     expect(context.template.mode).toBe(DEFAULTS.mode);
     expect(context.features).toEqual([]);
     expect(context.packageManager).toBe(DEFAULTS.packageManager);

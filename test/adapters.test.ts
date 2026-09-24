@@ -111,7 +111,7 @@ describe('Tailwind is declared as its own dimension', () => {
   });
 
   it('its requirement is satisfied by the Astro stack', () => {
-    const { project } = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
+    const { project } = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT);
     const requirement = TAILWIND_DECLARATION.requires[0]!;
     expect(
       requirement.kind === 'requiresOneOf' &&
@@ -124,7 +124,7 @@ describe('Tailwind is declared as its own dimension', () => {
 
 describe('Astro adapter resolution', () => {
   it('resolves the stack V1 actually generates', () => {
-    const { project } = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
+    const { project } = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT);
     expect(project.selection.framework).toBe('astro');
     expect(project.selection.buildTool).toBe('astro');
     expect(project.selection.language).toBe('ts');
@@ -133,7 +133,7 @@ describe('Astro adapter resolution', () => {
   });
 
   it('resolves Astro source extensions, not React ones', () => {
-    const { project } = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
+    const { project } = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT);
     expect(project.extensions.source).toBe('.ts');
     // .astro, not .tsx - the component extension is a framework decision and
     // this is the assertion that would fail if it were assumed.
@@ -142,14 +142,14 @@ describe('Astro adapter resolution', () => {
   });
 
   it('takes the highest Node floor across adapters', () => {
-    const { project } = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
+    const { project } = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT);
     // The generated site needs 22.12 even though the CLI itself runs on 20.19.
     expect(project.minNode).toBe('>=22.12.0');
   });
 
   it('is deterministic', () => {
-    const a = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
-    const b = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
+    const a = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT);
+    const b = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT);
     expect(a.project.selection).toEqual(b.project.selection);
     expect(a.contributions).toEqual(b.contributions);
     expect([...a.project.capabilities].sort()).toEqual([...b.project.capabilities].sort());
@@ -158,7 +158,7 @@ describe('Astro adapter resolution', () => {
 
 describe('Astro adapter contribution', () => {
   const contributionsOf = (mode: 'coming-soon' | 'full' = 'coming-soon') =>
-    resolveWithAdapters(manifestOf(mode), TEMPLATE_ROOT).contributions;
+    resolveWithAdapters(manifestOf(mode), TEMPLATES_ROOT).contributions;
 
   it('contributes the base layer then the selected starter', () => {
     const layers = contributionsOf().flatMap((c) => c.templateLayers);
@@ -200,7 +200,7 @@ describe('Astro adapter contribution', () => {
   });
 
   it('is a pure function of the resolved project', () => {
-    const { project } = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT);
+    const { project } = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT);
     const adapter = adapters.framework('astro');
     expect(adapter.contribute(project)).toEqual(adapter.contribute(project));
   });
@@ -217,7 +217,7 @@ describe('the generated package is exactly what the adapters contributed', () =>
   // way round: whatever the adapters declared is what the project gets, and
   // nothing else appears. The template is no longer consulted for any of it.
   const declared = () => {
-    const contributions = resolveWithAdapters(manifestOf(), TEMPLATE_ROOT).contributions;
+    const contributions = resolveWithAdapters(manifestOf(), TEMPLATES_ROOT).contributions;
     return contributions.flatMap((c) => c.dependencies);
   };
 
@@ -265,7 +265,7 @@ describe('the generated package is exactly what the adapters contributed', () =>
 
   it('contains exactly the declared scripts', () => {
     const fromAdapters = Object.fromEntries(
-      resolveWithAdapters(manifestOf(), TEMPLATE_ROOT)
+      resolveWithAdapters(manifestOf(), TEMPLATES_ROOT)
         .contributions.flatMap((c) => c.scripts)
         .map((s) => [s.name, s.command]),
     );

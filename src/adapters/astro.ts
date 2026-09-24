@@ -12,6 +12,7 @@ import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
 import type { ArchitectureDefinition } from '../domain/roles.js';
 import { planStarterLayers, selectStarter } from '../domain/starter.js';
+import { readTemplateManifest } from '../templates/registry.js';
 
 /**
  * The Astro framework adapter: the first concrete adapter, and the one whose
@@ -144,6 +145,14 @@ const OWNER = adapterRef(ASTRO_DECLARATION);
 export function createAstroAdapter(templateRoot: string): FrameworkAdapter {
   return {
     declaration: ASTRO_DECLARATION,
+    /*
+     * Read rather than restated, so there is exactly one authoritative Astro
+     * identity. A constant here would be a second copy of a fact that already
+     * has a home, and the two would eventually disagree.
+     */
+    templateManifest: readTemplateManifest(templateRoot),
+    /** The one template a user can select by name: `--template astro-tailwind`. */
+    templateDiscoverable: true,
 
     /** Astro is its own build tool; there is no separate adapter to select. */
     ownsBuildTool: true,

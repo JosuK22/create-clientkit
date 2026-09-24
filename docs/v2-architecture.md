@@ -7385,3 +7385,130 @@ Stage 60's three blockers, resolved:
 
 Still open, and each its own stage: the Astro identity contract (Decision G),
 the planner that computes the two path sets, and the command that presents them.
+
+### Stage 62 — template identity, content and discoverability (landed)
+
+Stage 61 defined this contract and deliberately left it unbuilt, because a trial
+wiring touched 15 tests. This stage builds it. Three things that were one bit
+are now three.
+
+#### What was conflated
+
+`createRegistry` discovers a template by finding `template.json` in its
+directory. So being **identifiable** and being **offered by name** were the same
+condition, and each framework paid for that differently:
+
+```text
+astro    templateManifest: UNDEFINED      template.json on disk  -> discoverable
+nextjs   templateManifest: nextjs         no manifest on disk    -> hidden
+react    templateManifest: react-vite     no manifest on disk    -> hidden
+```
+
+React and Next stayed out of `--list-templates` by having no manifest on disk -
+which is also what left them unidentifiable through the registry. Astro went the
+other way and was identified through `TEMPLATE_ID_PLACEHOLDER`, a constant whose
+own comment calls it _"a reserved identifier, not a template"_.
+
+The consequence was a hole in exactly the wrong place: the map from a recorded
+`stack.framework` to a template identity was partial, and a recorded project is
+the one thing that needs it total.
+
+#### The three properties
+
+| Property            | Question                                                      | Where it lives                                    |
+| ------------------- | ------------------------------------------------------------- | ------------------------------------------------- |
+| **Identity**        | which template does this framework generate, at what version? | `FrameworkAdapter.templateManifest`, now required |
+| **Content**         | where do the files live?                                      | `templates/<id>/`, on disk, for all three         |
+| **Discoverability** | can a user select it by name?                                 | `FrameworkAdapter.templateDiscoverable`, declared |
+
+The abstraction is symmetric; the storage deliberately is not. Astro reads its
+on-disk `template.json`, because that file already exists and is authoritative.
+React and Next declare theirs in code, because giving them a `template.json`
+would change what `--list-templates` prints - and that is a V1 output change, not
+a refactor. Identity is a property of the adapter, not of whether a directory
+scan found a file.
+
+#### One authoritative Astro identity
+
+`createAstroAdapter` reads the manifest rather than restating it:
+
+```ts
+templateManifest: readTemplateManifest(templateRoot),
+```
+
+A constant here would be a second copy of a fact that already has a home, and
+the two would eventually disagree. `test/template-identity.test.ts` asserts the
+adapter's identity equals both `templates/astro-tailwind/template.json` and what
+the V1 disk registry serves, so a version bumped in one place and not the other
+fails rather than drifts.
+
+#### Checking a recorded project
+
+`checkRecordedTemplate` answers the question an upgrade has to ask before it
+trusts a document: _does this project's recorded template belong to the framework
+it says it was built with?_ Stage 59's reader validates fields and deliberately
+not relationships, so a document can pass it and still be internally
+contradictory - the `template.framework = react` beside `stack.framework = astro`
+case Stage 60 raised.
+
+```text
+ok                  the recorded template is the one that framework generates
+unknown-framework   no adapter in this build, or not a known framework at all
+unknown-template    the id is not the template that framework generates
+framework-mismatch  the template block contradicts the stack block
+malformed           absent or non-string where a string was required
+```
+
+Deterministic failure in every disagreeing case, and **no fallback to the
+template this CLI would choose now** - a project generated from one template is
+not upgraded by quietly generating a different one. A test asserts the rejecting
+results carry no `identity`, so a substitution cannot creep back in as a
+convenience.
+
+The version is deliberately **not** compared. A recorded version differing from
+the shipped one is what an upgrade _is_, and Stage 61 settled that ClientKit
+keeps no historical bytes to compare against.
+
+Identity is established from the recorded document and the adapters this build
+ships - never from `package.json`, a directory listing or a generated file. A
+test asserts the module's source contains no filesystem import at all.
+
+#### A defect this surfaced
+
+Making identity required meant the Astro adapter reads a file at construction,
+which immediately failed 16 tests in `test/adapters.test.ts`. The cause was not
+the change: those tests passed `templates/astro-tailwind` to
+`resolveWithAdapters`, whose parameter is the templates **root**. The adapter
+was being built for `templates/astro-tailwind/astro-tailwind`, a directory that
+does not exist, and it had never mattered because nothing in that path touched
+the disk. Corrected to `TEMPLATES_ROOT`; the assertions are on layer _names_, so
+none of them moved.
+
+#### One behaviour deliberately changed
+
+`context.template.version` used to be `null` when resolving against an empty
+registry, from `DEFAULTS.templateVersion` - whose comment says it stays null
+_"until a real template registry supplies versions"_. The adapter now declares
+its identity, so the version is known even with no disk registry at all, and the
+source is reported as `template` rather than `default`.
+
+This is the contract working, not a side effect: knowing which template a
+framework generates should not depend on a directory scan. No generated output
+changed - **golden changes: 0**, checksum still
+`f73e1f8ab5092e3fd522742198e51574d64588109d54151a6cf1d905097dec20` - because the
+CLI path always had a real registry and already reported `template`.
+
+#### What stayed put
+
+`--list-templates` prints exactly what it printed before, and a test now pins
+the two mechanisms together: the set of adapters declaring
+`templateDiscoverable: true` must equal the set the disk registry lists. They
+are independent mechanisms, so without that test they could diverge silently.
+
+`TEMPLATE_ID_PLACEHOLDER` still exists and is still the default template id
+before a framework is chosen. It is no longer how any framework is _identified_,
+which was the part that was wrong.
+
+No upgrade command, no path-set planner, no orphan reporting, no deletion, no
+per-path ownership records, no historical templates. This stage moved identity
+and nothing else.

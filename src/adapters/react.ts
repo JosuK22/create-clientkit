@@ -186,6 +186,12 @@ export function createReactAdapter(templateRoot: string): FrameworkAdapter {
     /** Nothing: the styling adapter supplies the global stylesheet. */
     templateOwnedRoles: [],
     templateManifest: REACT_TEMPLATE_MANIFEST,
+    /**
+     * Not offered by name. React has no public template selection path yet,
+     * and this is now what says so - rather than the absence of a file on
+     * disk saying it as a side effect.
+     */
+    templateDiscoverable: false,
 
     resolve(manifest: ProjectManifest): AdapterResolution {
       return {

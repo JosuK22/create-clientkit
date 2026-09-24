@@ -56,7 +56,7 @@ export function findTemplatesRoot(startDir?: string): string {
   });
 }
 
-function readManifest(templateDir: string): TemplateManifest {
+export function readTemplateManifest(templateDir: string): TemplateManifest {
   const manifestPath = path.join(templateDir, 'template.json');
   let raw: unknown;
   try {
@@ -95,7 +95,7 @@ export function createRegistry(templatesRoot?: string): TemplateRegistry {
   for (const name of entries) {
     const dir = path.join(root, name);
     if (!existsSync(path.join(dir, 'template.json'))) continue;
-    const manifest = readManifest(dir);
+    const manifest = readTemplateManifest(dir);
     manifests.set(manifest.id, manifest);
   }
 

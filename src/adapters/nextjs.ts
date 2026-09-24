@@ -240,6 +240,12 @@ export function createNextjsAdapter(templateRoot: string): FrameworkAdapter {
     architectureDefinitions: [NEXTJS_ARCHITECTURE],
     templateManifest: NEXTJS_TEMPLATE_MANIFEST,
     /**
+     * Not offered by name. Next has no public template selection path yet,
+     * and this is now what says so - rather than the absence of a file on
+     * disk saying it as a side effect.
+     */
+    templateDiscoverable: false,
+    /**
      * Plain CSS, shipped by the template.
      *
      * Not ownership of the dimension - `--styling tailwind` still resolves to

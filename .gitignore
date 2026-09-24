@@ -3,3 +3,7 @@ dist
 *.tsbuildinfo
 *.tgz
 .DS_Store
+
+# Stage briefs are inputs to the work, not part of the published package.
+# No earlier stage's prompt is in the repository either.
+docs/stages/

@@ -191,16 +191,41 @@ export interface FrameworkAdapter extends Adapter {
   /** The architecture definitions this framework offers, keyed by id. */
   readonly architectureDefinitions: readonly ArchitectureDefinition[];
   /**
-   * Template identity, for frameworks whose template directory is not
-   * discoverable by the V1 registry.
+   * The identity of the template this framework generates from.
    *
-   * Astro omits it: its template.json is on disk and the V1 registry already
-   * serves it, so declaring it here would only create something to drift.
-   * React needs it, because giving its directory a template.json would make it
-   * appear in the V1 --list-templates output and announce a framework that has
-   * no public selection path yet.
+   * Required, and required of every framework: a framework that cannot say
+   * which template it generates cannot have a recorded project validated
+   * against it, which is the thing Stage 62 exists to make possible. Astro used
+   * to omit this and be identified through `TEMPLATE_ID_PLACEHOLDER` instead -
+   * a constant whose own comment called it "a reserved identifier, not a
+   * template" - so `stack.framework -> template identity` was a partial
+   * function with one hole in it.
+   *
+   * Where the value comes from is deliberately not fixed here. Astro reads its
+   * on-disk `template.json`, because that file already exists and is
+   * authoritative; React and Next declare theirs in code, because giving them a
+   * `template.json` would change what `--list-templates` prints. The abstraction
+   * is symmetric even though the storage is not, which is the whole point:
+   * identity is a property of the adapter, not of whether a disk scan found a
+   * file.
    */
-  readonly templateManifest?: TemplateManifest;
+  readonly templateManifest: TemplateManifest;
+
+  /**
+   * Whether this framework's template is offered to the user by name.
+   *
+   * Separate from identity, and separate on purpose. Before Stage 62 these were
+   * the same bit: `createRegistry` discovers a template by finding
+   * `template.json` in its directory, so being identifiable and being listed in
+   * `--list-templates` were the same condition, and React and Next stayed
+   * unlisted by having no manifest on disk - which is also what left them
+   * unidentifiable by the registry.
+   *
+   * Declaring it makes the intent legible rather than emergent. A framework can
+   * be a perfectly valid generation target that no one can select by template
+   * name, which is exactly what React and Next are today.
+   */
+  readonly templateDiscoverable: boolean;
 }
 
 export type BuildToolAdapter = Adapter;

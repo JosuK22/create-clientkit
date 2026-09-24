@@ -281,6 +281,25 @@ function syntheticFramework(options: {
     routers: { kind: 'fixed', value: 'file-based' },
     architectures: { kind: 'fixed', value: architecture.id },
     architectureDefinitions: [architecture],
+    // Stage 62 made template identity mandatory on every framework adapter, so
+    // a synthetic one has to declare it too. Not discoverable: this framework
+    // exists for the length of one test and should never be offerable by name.
+    templateManifest: {
+      id: `${options.id}-template`,
+      displayName: `Synthetic ${options.id} template`,
+      description: 'Synthetic template for capability-contract tests.',
+      version: '0.0.0',
+      framework: options.id,
+      frameworkVersion: '0.0.0',
+      minNode: '>=20.9.0',
+      supportedModes: ['coming-soon', 'full'],
+      defaults: {},
+      availableFeatures: [],
+      tokens: [],
+      postSteps: [],
+      nextSteps: [],
+    },
+    templateDiscoverable: false,
     ...(options.templateOwnedRoles ? { templateOwnedRoles: options.templateOwnedRoles } : {}),
     resolve(): AdapterResolution {
       return { extensions: { source: '.ts', component: '.tsx', config: '.ts' } };

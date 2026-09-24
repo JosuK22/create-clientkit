@@ -13,3 +13,8 @@ THIRD-PARTY.md
 # would make them a rendering of the output rather than the output, which is
 # the one property that makes them worth asserting against.
 test/fixtures/
+
+# Stage briefs, kept exactly as they were handed over. Reformatting a
+# specification would make it a rendering of the instruction rather than the
+# instruction, and these are read as evidence of what a stage was asked for.
+docs/stages/
