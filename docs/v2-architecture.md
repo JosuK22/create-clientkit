@@ -6582,3 +6582,92 @@ version is still 1.0.2.
 3. The interactive confirmation is driven through `runCreate` with the
    repository's fake prompter, as `test/generate.test.ts` already does. A shell
    cannot reach that branch without a terminal.
+
+### Stage 56 — explicit upgrade command (blocked)
+
+The stage set out to connect three things the project already has - provenance,
+deterministic planning, atomic merge - into a narrow, non-destructive `upgrade`.
+It stopped before writing the command, because the first of those three does not
+carry what the other two would need.
+
+#### The existing contract
+
+`.client-site.json` is written by every generated project and read by nothing
+(Stage 55). It records:
+
+```text
+$schema  cliVersion  template{id,version,framework,frameworkVersion}
+mode  generatedAt  config{projectName,siteName,siteUrl,locale,packageManager,features}
+```
+
+#### The missing information
+
+No stack. Not the styling system, not the component library, not the router, not
+the architecture or build tool - and no list of the files that were generated.
+
+Measured rather than read off the type: two configurations that differ by two
+real files produce **byte-identical** provenance.
+
+```text
+react + tailwind + mui + react-router  ─┐
+                                        ├─ same .client-site.json
+react + bootstrap                      ─┘
+
+differing files: src/components/ui/AppProviders.tsx
+                 src/routes/AppRouter.tsx
+```
+
+#### The concrete unsafe scenario
+
+Stage 56 requires the command to detect that a transition would orphan files and
+to refuse rather than delete them - the `AppProviders.tsx` case Stage 55 found.
+Answering that needs the _old_ generated set, which means knowing the old stack.
+With provenance alone the command has two options, and both are forbidden:
+
+- **Reconstruct the stack from defaults.** Run `upgrade` with no flags on the
+  MUI project and the recorded configuration comes back as
+  `react + tailwind + none + none`, because that is what the resolver defaults
+  to. The command would then report MUI and the router as being dropped by a
+  change the developer never asked for.
+- **Treat every on-disk file the new plan does not name as an orphan.** That set
+  contains `src/custom/UserOwned.ts` as readily as `AppProviders.tsx`. Telling a
+  developer their own module "would no longer be generated" is the same mistake
+  pointed the other way.
+
+Both are guessing, which is the one thing the stage forbids, and the guess is
+about whether a file belongs to the tool or to the person using it.
+
+#### The smallest architectural decision required
+
+Record the resolved stack in the provenance file - the dimensions the resolver
+already computes - and have `upgrade` refuse any project whose provenance
+predates that, exactly as an unreadable schema is refused.
+
+That decision is not this stage's to take, because it is not free:
+`.client-site.json` is part of generated output, and the four V1 goldens contain
+its bytes. A controlled experiment confirmed it rather than assuming it - adding
+one field to `buildProvenance` failed five golden assertions, including
+`golden: the V2 adapter path reproduces V1 byte for byte`. The change was
+reverted.
+
+So the next stage needs a sanctioned re-baseline of the V1 golden, or an
+explicit decision that provenance may diverge from V1 output. Stage 56's
+instructions made the checksum a hard stop, which is the correct precedence: a
+published project's bytes outrank an unbuilt feature.
+
+A smaller note for whoever picks this up: `args.ts` allows at most one
+positional and the CLI dispatches only `create` and `list`, so `upgrade <dir>`
+would today be parsed as a directory named `upgrade`. Adding a command word is
+straightforward but is a change to argument parsing, not only a new module.
+
+#### What changed
+
+No production code. Five tests in `test/provenance-contract.test.ts` pin the
+recorded fields, the absence of the stack, and the two-stacks-one-provenance
+result, so the blocking fact is a measurement on the record. They are expected
+to fail the day the stack is added, which is the point - that change should not
+happen quietly.
+
+**Unchanged.** No template byte edited, no golden moved. The four V1 goldens are
+byte-identical (`812c438185ecb2317cc5d741e7f83f1a06750f2a83e9b22551205eb60d4dbc0d`),
+and the version is still 1.0.2.
