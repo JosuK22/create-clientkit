@@ -193,3 +193,107 @@ URL-less configuration as a named state rather than a side effect of leaving
 generated site's own pinned dependencies, and that releases are published from
 CI with provenance. Installation states a recommended path instead of listing
 alternatives as equals.
+
+## 1.1.0 — 2026-09-24
+
+The V2 release. `create-clientkit` generated Astro sites; it now generates
+Astro, React and Next.js sites, lets you state the stack rather than accept
+one, and can reconcile a project it generated earlier against what it would
+generate today.
+
+Additive throughout. `npm create clientkit@latest` with no flags produces the
+same Astro project 1.0.2 produced, file for file — the only difference in the
+generated tree is that `.client-site.json` now records the resolved stack, so
+a later upgrade does not have to guess.
+
+### Choosing a stack
+
+Seven dimensions, each with a flag, resolved by a compatibility engine that
+refuses combinations nothing can build rather than generating something broken:
+
+```sh
+npm create clientkit@latest acme-site \
+  --framework react --styling tailwind --ui-library mui --router react-router
+```
+
+| Dimension        | Choices                                              |
+| ---------------- | ---------------------------------------------------- |
+| `--framework`    | `astro`, `react`, `nextjs`                           |
+| `--build-tool`   | derived from the framework (`astro`, `vite`, `next`) |
+| `--language`     | `ts`                                                 |
+| `--styling`      | `tailwind`, `bootstrap`                              |
+| `--ui-library`   | `mui`, `none`                                        |
+| `--router`       | `react-router`, `file-based`, `none`                 |
+| `--architecture` | derived from the framework                           |
+
+`--preset` names a whole starting point, `--features` adds optional overlays
+(SEO, structured data, accessibility, a custom 404, client-route fallback), and
+`--from <file.json>` supplies any of it from a config file. A flag beats the
+file, the file beats a preset, and `--debug` prints where every resolved value
+came from.
+
+**104 combinations are supported**, and each one is generated, installed,
+typechecked and built in CI before a release — not asserted, measured. Anything
+outside that set is refused with a reason rather than attempted.
+
+### Upgrading a project
+
+```sh
+npm create clientkit@latest upgrade ./acme-site
+npm create clientkit@latest upgrade ./acme-site --styling bootstrap --dry-run
+```
+
+`upgrade` re-generates the files ClientKit would generate today for the stack
+your project recorded, with any flag you pass overriding it. The recorded
+configuration is the baseline, so changing one thing means naming one thing.
+
+It lists every file it would replace, every file it would add, and every file
+your new stack no longer generates, and then asks. What it guarantees:
+
+- **Nothing is ever deleted.** Files the new stack no longer generates are
+  reported as orphan candidates and left where they are, for you to remove
+  after looking at them.
+- **Files ClientKit did not plan are never touched**, including your own.
+- **Confirmation is required.** `--yes` is refused rather than treated as
+  consent, so there is no unattended upgrade. `--dry-run` needs no confirmation
+  because it writes nothing.
+- **A failure changes nothing.** Every replaced file is restored if a later
+  write fails, so a project is either fully updated or exactly as it was.
+
+It refuses, without guessing, on a project with no `.client-site.json`, a
+malformed one, one written by a newer ClientKit, one recording no stack, or one
+whose template identity contradicts its stack.
+
+### What upgrade does not do
+
+It is reconciliation, not migration, and the distinction is deliberate rather
+than incomplete:
+
+- **It does not reproduce what an earlier ClientKit generated.** No template
+  version is retained, so both sides of the comparison render against the
+  templates shipped with the version you are running. A file whose content
+  changed between releases is reported as unchanged.
+- **It does not preserve every previous site field.** `site.description` and
+  `site.author` are not recorded in `.client-site.json` — deliberately, since
+  they are client-authored and would otherwise be committed to the client's
+  repository. An upgrade therefore writes ClientKit's default description. The
+  command **warns before asking**, names the wording it would write, and points
+  at `--from`; there is no equivalent warning for the author.
+- **It installs nothing.** A stack change rewrites `package.json`; run the
+  install yourself afterwards.
+- **It never infers ownership from file contents.** What ClientKit may replace
+  comes from the plan and your confirmation, never from a file looking
+  generated.
+
+### One behaviour change
+
+`upgrade` is now a command word, so `create-clientkit upgrade` runs the upgrade
+command instead of creating a directory named `upgrade`. To create a directory
+by that name, write `create-clientkit ./upgrade`.
+
+### Supported environment
+
+Unchanged from 1.0.0: the CLI needs Node 20.19 or newer. Generated sites carry
+their framework's own floor — Astro 7 needs Node 22.12+.
+
+The CLI still ships **zero runtime dependencies**.
