@@ -7874,3 +7874,107 @@ with the one the tests cover.
    reported as unchanged.
 5. **The project name comes from the directory**, as it does on creation, so
    upgrading a renamed directory changes `package.json`'s name.
+
+### Stage 65 — the description an upgrade cannot see (landed)
+
+The last sharp edge in the upgrade contract, closed by saying it out loud
+rather than by changing what provenance records.
+
+#### The gap
+
+Stage 61 decided `.client-site.json` would not record `site.description`:
+ownership never needs it, and it is client-authored prose that would otherwise
+be committed to the client's repository. Stage 64 built the upgrade command on
+that decision and inherited its consequence — an upgrade regenerates the
+description from ClientKit's own default.
+
+What makes it sharp is not the loss but the silence. A description changes
+_content_, and the upgrade's summary is a list of **paths**, so the one thing
+it cannot show is the one thing nobody expects to lose:
+
+```text
+recorded:  site.name, site.url, site.locale, packageManager, stack, mode, features
+not recorded:  site.description, site.author
+```
+
+#### What was added
+
+One warning, shown after the file list and before the question:
+
+```text
+!  This project's site description is not recorded in ClientKit provenance.
+   The upgrade will write "Official website of Acme Ltd." instead, which is
+   ClientKit's default rather than anything this project chose.
+   To keep the existing wording, copy it into a config file and re-run with
+   --from <file.json>.
+```
+
+It names the wording it would write, so the cost is visible rather than
+described. `--dry-run` shows it too and still writes nothing.
+
+#### How it knows
+
+By asking the resolver, not by adding a second mechanism. `resolveContext`
+already marks where every value came from — that is what `--debug` prints — and
+`site.description` is marked `file` only when a config layer supplied one:
+
+```ts
+mark(
+  'site.description',
+  explicit.siteDescription !== undefined
+    ? sourceOf('siteDescription')
+    : templateDefaults.description !== undefined
+      ? 'template'
+      : 'default',
+);
+```
+
+There is no `--description` flag, so `sourceOf` can only return `file`. The
+recorded-provenance layer never sets the field, which means `file` is reachable
+only from the developer's own `--from`. The condition is therefore exactly
+"the developer told us" versus "ClientKit chose", with no description-only
+precedence rule invented to express it.
+
+#### What was deliberately not done
+
+**Provenance is unchanged.** Recording the description would reverse a decision
+made on privacy grounds, change the schema, and move the golden checksum — a
+stage of its own, with migration and compatibility to settle. The warning needs
+none of that.
+
+**The old description is not recovered.** It exists in the generated project,
+in `src/config/site.config.ts`, and reading it back to decide what to write
+would be exactly the content inference Stage 56 refused and Stage 59 was built
+to prevent: a file's contents are not evidence of what a project intended. A
+test asserts the command's source never mentions `site.config`.
+
+#### Release-candidate audit
+
+Run because this closes the last known V2 upgrade edge, not because anything is
+being released.
+
+| Check                | Result                                                    |
+| -------------------- | --------------------------------------------------------- |
+| Package version      | `1.0.2`, unchanged                                        |
+| Runtime dependencies | none, unchanged                                           |
+| Tarball              | 75 entries, 140 KB; no stage briefs, tests or fixtures    |
+| `docs/stages/`       | excluded from both git and the package                    |
+| CLI help             | describes `upgrade`, its safety semantics and `--dry-run` |
+| Golden checksum      | `f73e1f8a…dec20`, unchanged                               |
+
+The documentation audit found three statements the previous stage had made
+false, all in the README's re-run section: _"There is no upgrade command, no
+migration and no reconfiguration"_, _"Today nothing reads it back"_, and the
+advice to _"Generate a new project and move your work across"_ as the only
+answer to a stack change. That section now documents the command that exists —
+including the description warning, `--from`, why `--yes` is refused, and that
+nothing is ever deleted — and keeps the re-run behaviour beside it, because
+`create` over an existing project is still a merge and still behaves exactly as
+it did.
+
+#### The limitation, stated plainly
+
+An upgrade without `--from` still replaces the client's description. The
+warning does not prevent that; it makes it a decision instead of a discovery.
+Recording the description is the only thing that would remove the edge, and
+that is a provenance-schema stage.

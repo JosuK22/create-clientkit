@@ -663,3 +663,192 @@ describe('the command cannot grow the powers it refuses', () => {
     expect(source).not.toContain('statSync');
   });
 });
+
+// ---------------------------------------------------------------------------
+// The description, which the file list cannot show (Stage 65)
+// ---------------------------------------------------------------------------
+
+/**
+ * The last sharp edge in the upgrade contract.
+ *
+ * Stage 61 decided provenance would not record `site.description`: ownership
+ * never needs it, and it is client-authored prose that would otherwise live in
+ * the client's repository. The consequence is that an upgrade regenerates the
+ * description from ClientKit's own default - and because a description changes
+ * *content* rather than which files exist, the path summary is silent about it.
+ *
+ * So it is said out loud, before the question rather than after the write.
+ * Nothing here records the description or tries to recover it: recovering it
+ * would mean reading a generated file and treating its contents as truth,
+ * which is the inference Stage 56 refused and Stage 59 was built to prevent.
+ */
+describe('upgrade says when it is about to write its own description', () => {
+  const CHOSEN = 'Hand-built orreries for discerning collectors.';
+
+  /** A project whose description the client actually chose. */
+  async function withDescription(cwd: string): Promise<string> {
+    const config = path.join(cwd, 'create.json');
+    writeFileSync(
+      config,
+      JSON.stringify({
+        site: {
+          name: 'Acme Ltd',
+          url: 'https://acme.example',
+          description: CHOSEN,
+        },
+        stack: { framework: 'react', styling: 'tailwind' },
+      }),
+      'utf8',
+    );
+    const { logger } = testLogger();
+    const code = await runCreate({
+      flags: parseCliArgs(['site', '--from', config, '--no-git', '--no-install', '--yes']),
+      logger,
+      registry,
+      cliVersion: CLI_VERSION,
+      cwd,
+      env: {},
+      isTTY: false,
+      nodeVersion: process.versions.node,
+    });
+    expect(code).toBe(0);
+    return path.join(cwd, 'site');
+  }
+
+  it('warns when the description is not recorded, before asking anything', async () => {
+    const cwd = scratch();
+    const dir = await withDescription(cwd);
+    // The client's wording is in the generated project, and nowhere in the
+    // document ClientKit will read back.
+    expect(readFileSync(path.join(dir, 'src/config/site.config.ts'), 'utf8')).toContain(CHOSEN);
+    expect(readFileSync(path.join(dir, PROVENANCE_FILE), 'utf8')).not.toContain(CHOSEN);
+
+    const result = await upgrade(cwd, {
+      argv: ['upgrade', 'site', '--dry-run'],
+      isTTY: true,
+    });
+
+    expect(result.code).toBe(0);
+    expect(result.text).toContain('site description is not recorded');
+    expect(result.text).toContain('--from');
+  });
+
+  it('puts the warning before the confirmation, not after the write', async () => {
+    const cwd = scratch();
+    await withDescription(cwd);
+
+    const result = await upgrade(cwd, { argv: ['upgrade', 'site'], confirm: false, isTTY: true });
+
+    // Declined, so nothing was written - and the warning was still shown,
+    // which can only be true if it came first.
+    expect(result.code).toBe(0);
+    expect(result.text).toContain('site description is not recorded');
+    expect(result.text).toContain('Nothing was written');
+  });
+
+  it('names the wording it would write, so the cost is visible', async () => {
+    const cwd = scratch();
+    await withDescription(cwd);
+
+    const result = await upgrade(cwd, {
+      argv: ['upgrade', 'site', '--dry-run'],
+      isTTY: true,
+    });
+
+    // Whatever ClientKit would put there, it says so rather than leaving the
+    // developer to find out afterwards.
+    expect(result.text).toMatch(/will write "[^"]+" instead/);
+    expect(result.text).not.toContain(CHOSEN);
+  });
+
+  it('does not warn when --from supplies a description', async () => {
+    const cwd = scratch();
+    const dir = await withDescription(cwd);
+    const config = path.join(cwd, 'upgrade.json');
+    writeFileSync(config, JSON.stringify({ site: { description: CHOSEN } }), 'utf8');
+
+    const result = await upgrade(cwd, {
+      argv: ['upgrade', 'site', '--from', config],
+      confirm: true,
+      isTTY: true,
+    });
+
+    expect(result.code).toBe(0);
+    expect(result.text).not.toContain('site description is not recorded');
+    // And the supplied wording is what landed.
+    expect(readFileSync(path.join(dir, 'src/config/site.config.ts'), 'utf8')).toContain(CHOSEN);
+  });
+
+  it('keeps the recorded configuration while --from supplies only the description', async () => {
+    // The precedence is the existing one: the file layer fills what it states
+    // and the recorded document still answers for everything else.
+    const cwd = scratch();
+    const dir = await withDescription(cwd);
+    const config = path.join(cwd, 'upgrade.json');
+    writeFileSync(config, JSON.stringify({ site: { description: CHOSEN } }), 'utf8');
+
+    const result = await upgrade(cwd, {
+      argv: ['upgrade', 'site', '--from', config],
+      confirm: true,
+      isTTY: true,
+    });
+    expect(result.code).toBe(0);
+
+    const generatedConfig = readFileSync(path.join(dir, 'src/config/site.config.ts'), 'utf8');
+    expect(generatedConfig).toContain('Acme Ltd');
+    expect(generatedConfig).toContain('https://acme.example');
+  });
+
+  it('confirms the cost it warned about: the chosen wording is gone', async () => {
+    /*
+     * Not a defect being pinned as acceptable - the point of the warning is
+     * that this is exactly what happens, and the developer was told before
+     * they answered. Recording the description instead is a provenance-schema
+     * change and belongs to its own stage.
+     */
+    const cwd = scratch();
+    const dir = await withDescription(cwd);
+
+    const result = await upgrade(cwd, { argv: ['upgrade', 'site'], confirm: true, isTTY: true });
+    expect(result.code).toBe(0);
+
+    expect(readFileSync(path.join(dir, 'src/config/site.config.ts'), 'utf8')).not.toContain(CHOSEN);
+  });
+
+  it('changes nothing when the warning is shown and the answer is no', async () => {
+    const cwd = scratch();
+    const dir = await withDescription(cwd);
+    const before = snapshot(dir);
+
+    const result = await upgrade(cwd, { argv: ['upgrade', 'site'], confirm: false, isTTY: true });
+
+    expect(result.code).toBe(0);
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it('writes nothing on a dry run, twice, with the same output both times', async () => {
+    const cwd = scratch();
+    const dir = await withDescription(cwd);
+    const before = snapshot(dir);
+
+    const first = await upgrade(cwd, { argv: ['upgrade', 'site', '--dry-run'], isTTY: true });
+    const second = await upgrade(cwd, { argv: ['upgrade', 'site', '--dry-run'], isTTY: true });
+
+    expect(first.code).toBe(0);
+    expect(second.text).toBe(first.text);
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it('recovers the old description from nowhere at all', () => {
+    // The refusal that makes the warning necessary rather than lazy: the
+    // previous wording exists only in a generated file, and reading it back to
+    // decide what to write would be exactly the content inference the
+    // architecture forbids.
+    const source = readFileSync(
+      path.resolve(import.meta.dirname, '..', 'src', 'commands', 'upgrade.ts'),
+      'utf8',
+    );
+    expect(source).not.toContain('site.config');
+    expect(source).not.toContain('readdirSync');
+  });
+});

@@ -285,6 +285,35 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   logger.print('');
   logger.print(renderUpgrade(upgradePlan.paths, collisions, adding));
 
+  /*
+   * The one thing the file list cannot show.
+   *
+   * Provenance deliberately does not record the site description - Stage 61
+   * decided that, because ownership never needs it and it is client-authored
+   * prose that would then live in the client's repository. The consequence is
+   * that an upgrade regenerates it from the template's default or from the
+   * site name, and because a description changes *content* rather than which
+   * files exist, the summary above is silent about it.
+   *
+   * So it is said out loud, before the question rather than after the write.
+   * The resolver already knows where the value came from, so this asks it
+   * rather than introducing a second way to find out: `file` means the
+   * developer supplied one through `--from`, and anything else means ClientKit
+   * chose it.
+   */
+  if (resolved.sources['site.description'] !== 'file') {
+    logger.print('');
+    logger.warn('This project’s site description is not recorded in ClientKit provenance.');
+    logger.hint(
+      `The upgrade will write "${resolved.context.site.description}" instead, which is ` +
+        'ClientKit’s default rather than anything this project chose.',
+    );
+    logger.hint(
+      'To keep the existing wording, copy it into a config file and re-run with ' +
+        '--from <file.json>.',
+    );
+  }
+
   if (flags.dryRun) {
     logger.print('');
     logger.info('Dry run: nothing was written.');
