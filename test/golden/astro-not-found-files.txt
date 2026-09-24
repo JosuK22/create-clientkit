@@ -44,6 +44,15 @@ origin  cli
     "framework": "astro",
     "frameworkVersion": "7.3.2"
   },
+  "stack": {
+    "framework": "astro",
+    "buildTool": "vite",
+    "language": "ts",
+    "styling": "tailwind",
+    "uiLibrary": "none",
+    "router": "file-based",
+    "architecture": "astro-standard"
+  },
   "mode": "coming-soon",
   "generatedAt": "2026-01-01T00:00:00.000Z",
   "config": {

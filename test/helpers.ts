@@ -12,6 +12,8 @@ import type { TargetDirFs } from '../src/context/validate.js';
 import { CancelledError, CliError } from '../src/errors.js';
 import type { GenerationPlan } from '../src/generate/files.js';
 import type { PlanFs } from '../src/generate/plan.js';
+import type { ResolvedStack } from '../src/generate/provenance.js';
+import { manifestFromProjectContext } from '../src/domain/manifest.js';
 import type { TemplateManifest } from '../src/templates/manifest.js';
 import type { TemplateRegistry } from '../src/templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../src/types.js';
@@ -334,4 +336,25 @@ export function renderPlan(generated: GenerationPlan, templatesRoot: string): st
   }
 
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * The stack `plan()` now requires, derived the way the bridge derives it.
+ *
+ * `plan()` takes a `ProjectContext` and cannot work the stack out for itself,
+ * so callers supply it. Tests that drive the V1 planner directly use this so
+ * they hand it exactly what `planWithAdapters` would - which is what keeps the
+ * two paths comparable in `golden.test.ts`.
+ */
+export function stackOf(context: ProjectContext): ResolvedStack {
+  const manifest = manifestFromProjectContext(context);
+  return {
+    framework: manifest.framework,
+    buildTool: manifest.buildTool,
+    language: manifest.language,
+    styling: manifest.styling,
+    uiLibrary: manifest.uiLibrary,
+    router: manifest.router,
+    architecture: manifest.architecture,
+  };
 }

@@ -10,7 +10,7 @@ import { plan } from '../src/generate/plan.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import type { GenerationPlan } from '../src/generate/files.js';
 import type { ProjectContext, ResolutionResult, TemplateMode } from '../src/types.js';
-import { emptyFs, makeContext, renderPlan, TEST_CWD, TEST_HOME } from './helpers.js';
+import { emptyFs, makeContext, renderPlan, TEST_CWD, TEST_HOME, stackOf } from './helpers.js';
 
 /**
  * Golden snapshots of what create-clientkit@1.0.2 generates.
@@ -173,7 +173,8 @@ describe('golden: determinism', () => {
   it.each(scenarios.map((s) => [s.name, s.context] as const))(
     'planning %s twice produces identical output',
     (_name, context) => {
-      expect(render(plan(context, { registry }))).toBe(render(plan(context, { registry })));
+      const options = { registry, stack: stackOf(context) };
+      expect(render(plan(context, options))).toBe(render(plan(context, options)));
     },
   );
 
@@ -181,14 +182,18 @@ describe('golden: determinism', () => {
     // plan() sorts by path with localeCompare, which is deliberate and part of
     // the contract. Asserting it here means a change to the sort is reported as
     // an ordering failure rather than only as a large, hard-to-read diff.
-    const generated = plan(scenarios[0]!.context, { registry });
+    const generated = plan(scenarios[0]!.context, {
+      registry,
+      stack: stackOf(scenarios[0]!.context),
+    });
     const paths = generated.operations.map((operation) => operation.path);
     expect(paths).toEqual([...paths].sort((a, b) => a.localeCompare(b)));
   });
 
   it('every operation path is POSIX-separated and relative', () => {
     for (const scenario of scenarios) {
-      for (const operation of plan(scenario.context, { registry }).operations) {
+      for (const operation of plan(scenario.context, { registry, stack: stackOf(scenario.context) })
+        .operations) {
         expect(operation.path, `${scenario.name}: ${operation.path}`).not.toContain('\\');
         expect(path.isAbsolute(operation.path), `${scenario.name}: ${operation.path}`).toBe(false);
       }
@@ -197,7 +202,8 @@ describe('golden: determinism', () => {
 
   it('no generated text content carries CRLF', () => {
     for (const scenario of scenarios) {
-      for (const operation of plan(scenario.context, { registry }).operations) {
+      for (const operation of plan(scenario.context, { registry, stack: stackOf(scenario.context) })
+        .operations) {
         if (operation.type !== 'write') continue;
         expect(operation.content.includes('\r\n'), `${scenario.name}: ${operation.path}`).toBe(
           false,
@@ -237,7 +243,10 @@ describe('golden: the V2 adapter path reproduces V1 byte for byte', () => {
       // was really protecting - that making the package authoritative did not
       // quietly disturb the other twenty operations.
       const viaAdapters = planWithAdapters(scenario.context, { registry }).plan.operations;
-      const viaV1 = plan(scenario.context, { registry }).operations;
+      const viaV1 = plan(scenario.context, {
+        registry,
+        stack: stackOf(scenario.context),
+      }).operations;
 
       const differing = viaAdapters
         .filter((operation) => {
@@ -260,7 +269,9 @@ describe('golden: the V2 adapter path reproduces V1 byte for byte', () => {
         >;
       };
       const composed = pick(planWithAdapters(scenario.context, { registry }).plan.operations);
-      const raw = pick(plan(scenario.context, { registry }).operations);
+      const raw = pick(
+        plan(scenario.context, { registry, stack: stackOf(scenario.context) }).operations,
+      );
 
       // The template supplies identity and nothing else...
       expect(Object.keys(raw)).toEqual([

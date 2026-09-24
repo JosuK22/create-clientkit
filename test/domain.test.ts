@@ -535,6 +535,14 @@ describe('the domain layer stays pure', () => {
       // rank, and that it consults no adapter.
       'context\\explain.ts',
       'context/explain.ts',
+      // Stage 58. Provenance records the resolved stack, and the stack's field
+      // names and value types are domain vocabulary. Writing them out again as
+      // local string unions would be a second description of a model that
+      // already exists, free to drift from it; a `Pick` of the manifest cannot.
+      // It imports the type only - asserted below, so this entry cannot widen
+      // into a runtime dependency without failing.
+      'generate\\provenance.ts',
+      'generate/provenance.ts',
     ]);
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const v2Directories = new Set(['domain', 'adapters']);
@@ -555,5 +563,32 @@ describe('the domain layer stays pure', () => {
     };
     walk(srcDir);
     expect(offenders).toEqual([]);
+  });
+
+  it('lets the generator name the domain vocabulary without depending on it', () => {
+    /*
+     * The narrow half of the Stage 58 exemption above.
+     *
+     * `generate/provenance.ts` needs the stack's field names and value types to
+     * record them, and takes them from the manifest rather than restating them.
+     * What it must not acquire is a *runtime* dependency on the domain layer -
+     * that is what the guard above is protecting, since an erased type import
+     * changes neither the bundle nor a byte of generated output. So every
+     * domain import in that file has to be a type import, and this fails if one
+     * ever is not.
+     */
+    const source = readFileSync(
+      path.resolve(import.meta.dirname, '..', 'src', 'generate', 'provenance.ts'),
+      'utf8',
+    );
+    const domainImports = source
+      .split('\n')
+      .filter((line) => line.includes("from '../domain/"))
+      .map((line) => line.trim());
+
+    expect(domainImports.length).toBeGreaterThan(0);
+    for (const line of domainImports) {
+      expect(line, `not a type-only import: ${line}`).toMatch(/^import type /);
+    }
   });
 });

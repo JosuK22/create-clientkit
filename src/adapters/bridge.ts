@@ -821,6 +821,18 @@ export function planManifest(
     ...(options.fs === undefined ? {} : { fs: options.fs }),
     ...(options.now === undefined ? {} : { now: options.now }),
     layers: layersFrom(contributions),
+    // The resolved stack, straight off the manifest the whole pipeline agreed
+    // on. Not re-derived: this is the same object selection and compatibility
+    // were given.
+    stack: {
+      framework: manifest.framework,
+      buildTool: manifest.buildTool,
+      language: manifest.language,
+      styling: manifest.styling,
+      uiLibrary: manifest.uiLibrary,
+      router: manifest.router,
+      architecture: manifest.architecture,
+    },
   });
 
   const readText = (options.fs ?? realPlanFs).readText;

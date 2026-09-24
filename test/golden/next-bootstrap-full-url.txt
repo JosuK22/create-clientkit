@@ -38,6 +38,15 @@ origin  cli
     "framework": "nextjs",
     "frameworkVersion": "16.3.5"
   },
+  "stack": {
+    "framework": "nextjs",
+    "buildTool": "next",
+    "language": "ts",
+    "styling": "bootstrap",
+    "uiLibrary": "none",
+    "router": "file-based",
+    "architecture": "next-app"
+  },
   "mode": "full",
   "generatedAt": "2026-01-01T00:00:00.000Z",
   "config": {

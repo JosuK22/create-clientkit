@@ -44,6 +44,15 @@ origin  cli
     "framework": "react",
     "frameworkVersion": "19.3.0"
   },
+  "stack": {
+    "framework": "react",
+    "buildTool": "vite",
+    "language": "ts",
+    "styling": "tailwind",
+    "uiLibrary": "mui",
+    "router": "none",
+    "architecture": "react-standard"
+  },
   "mode": "coming-soon",
   "generatedAt": "2026-01-01T00:00:00.000Z",
   "config": {

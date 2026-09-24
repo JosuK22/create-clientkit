@@ -14,7 +14,7 @@ import {
   type FileOperation,
   type GenerationPlan,
 } from './files.js';
-import { buildProvenance, PROVENANCE_FILE } from './provenance.js';
+import { buildProvenance, PROVENANCE_FILE, type ResolvedStack } from './provenance.js';
 import { buildTokenValues, substituteTokens, type TokenValues } from './tokens.js';
 
 /** Read-only filesystem access, injectable so planning can be tested in memory. */
@@ -62,6 +62,19 @@ export interface PlanOptions {
    * whole of the change this stage needed here.
    */
   readonly layers?: readonly PlanLayer[];
+  /**
+   * The stack this project resolved to, recorded in the provenance file.
+   *
+   * Required rather than optional, and supplied by the caller rather than
+   * derived here. The planner sees a `ProjectContext`, which describes the site
+   * and the template but not the stack: deriving one from it would hand back
+   * V1's Astro constants for every project, which is right for exactly one
+   * stack and wrong for every other.
+   *
+   * Required, because a provenance file that sometimes records the stack and
+   * sometimes does not is two formats wearing one name.
+   */
+  readonly stack: ResolvedStack;
 }
 
 /** V1's layer list: the base template, then the selected mode on top. */
@@ -199,7 +212,7 @@ export function plan(context: ProjectContext, options: PlanOptions): GenerationP
   operations.push({
     type: 'write',
     path: PROVENANCE_FILE,
-    content: stringifyJson(buildProvenance(context, manifest)),
+    content: stringifyJson(buildProvenance(context, manifest, options.stack)),
     origin: 'cli',
   });
 

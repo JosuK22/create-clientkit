@@ -14,7 +14,7 @@ import { plan } from '../src/generate/plan.js';
 import { buildTokenValues, findTokens, substituteTokens } from '../src/generate/tokens.js';
 import { type CliError } from '../src/errors.js';
 import { parseManifest } from '../src/templates/manifest.js';
-import { FAKE_MANIFEST, fakeRegistry, makeContext, memoryPlanFs } from './helpers.js';
+import { FAKE_MANIFEST, fakeRegistry, makeContext, memoryPlanFs, stackOf } from './helpers.js';
 
 const ROOT = path.join(path.parse(process.cwd()).root, 'fake-template');
 
@@ -267,7 +267,11 @@ function fakeContext(overrides: Parameters<typeof makeContext>[0] = {}) {
 
 function buildPlan(context = fakeContext()) {
   const fs = memoryPlanFs(TEMPLATE_FILES);
-  const result = plan(context, { registry: fakeRegistry(FAKE_MANIFEST, ROOT), fs });
+  const result = plan(context, {
+    registry: fakeRegistry(FAKE_MANIFEST, ROOT),
+    fs,
+    stack: stackOf(context),
+  });
   return { plan: result, fs };
 }
 
@@ -353,13 +357,18 @@ describe('plan', () => {
       plan(fakeContext({ template: { id: FAKE_MANIFEST.id, version: '1.2.3', mode: 'full' } }), {
         registry: fakeRegistry(manifest, ROOT),
         fs: memoryPlanFs(TEMPLATE_FILES),
+        stack: stackOf(fakeContext()),
       }),
     ).toThrow(/does not support mode "full"/);
   });
 
   it('emits LF content only', () => {
     const fs = memoryPlanFs({ ...TEMPLATE_FILES, [layerPath('base', 'a.md')]: 'x\r\ny\r\n' });
-    const p = plan(fakeContext(), { registry: fakeRegistry(FAKE_MANIFEST, ROOT), fs });
+    const p = plan(fakeContext(), {
+      registry: fakeRegistry(FAKE_MANIFEST, ROOT),
+      fs,
+      stack: stackOf(fakeContext()),
+    });
     for (const operation of p.operations) {
       if (operation.type === 'write') expect(operation.content).not.toContain('\r\n');
     }

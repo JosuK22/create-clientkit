@@ -9,35 +9,24 @@ import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js'
 import { TEST_CWD } from './helpers.js';
 
 /**
- * What `.client-site.json` records, and what it therefore cannot answer.
+ * What `.client-site.json` records, and what it can therefore answer.
  *
- * ## Why this file exists
+ * ## The history this file carries
  *
- * Stage 55 found that provenance is written and never read, and noted that a
- * future `upgrade` command would have the information it needs. Stage 56 set
- * out to write that command and found the second half of the sentence is not
- * true: provenance records *who* generated the project - CLI version, template,
- * mode, site identity, features - and nothing about the **stack**. No styling
- * system, no component library, no router, no architecture, no file list.
+ * Stage 55 found provenance was written and never read. Stage 56 tried to write
+ * an upgrade command against it and could not: it recorded who generated a
+ * project - CLI version, template, mode, site, features - and nothing about the
+ * **stack**, so two configurations that generate different files produced
+ * byte-identical documents. Stage 57 decided what the file is: ClientKit-owned
+ * generator metadata, additively evolvable, not immutable V1 template output.
  *
- * The consequence is not subtle, and the second test below is the whole reason
- * Stage 56 stopped:
+ * Stage 58 is the change that decision sanctioned. The stack is recorded now,
+ * and the tests that used to pin its absence pin its presence instead - which
+ * is the point of having written them that way round.
  *
- *     react + tailwind + mui + react-router
- *     react + bootstrap                        -> byte-identical provenance
- *
- * Those two projects differ by `AppProviders.tsx` and `AppRouter.tsx`. An
- * upgrade command reading only provenance cannot tell which of them it is
- * looking at, so it cannot say which files the old configuration generated, so
- * it cannot report "this file would no longer be generated" - the one thing
- * Stage 56 most needed it to say, and the one thing it must never guess at,
- * because the alternative reading of an unplanned file is that the developer
- * wrote it.
- *
- * These tests pin the fields as they are. They are expected to fail the day
- * someone adds the stack to provenance, which is exactly right: that change
- * moves the bytes of every generated project and therefore the V1 golden, and
- * it should not happen quietly.
+ * Everything else is unchanged and asserted to be: the existing fields, their
+ * order, the allow-list that keeps machine-specific data out, and the fact that
+ * this is the one file in a generated project the CLI writes about itself.
  */
 
 const TEMPLATES_ROOT = findTemplatesRoot(path.resolve(import.meta.dirname, '..', 'src'));
@@ -75,7 +64,20 @@ const generate = (over: Partial<ProjectManifest>) =>
     cliVersion: '9.9.9',
     generatedAt: '2026-01-01T00:00:00.000Z',
     mode: (over.starter ?? 'full') as 'coming-soon' | 'full',
+    // Astro's template lives in the V1 disk registry under its V1 name; React
+    // and Next declare their own on the adapter.
+    ...(over.framework === 'astro' ? { templateId: 'astro-tailwind' } : {}),
   });
+
+interface RecordedStack {
+  framework: string;
+  buildTool: string;
+  language: string;
+  styling: string;
+  uiLibrary: string;
+  router: string;
+  architecture: string;
+}
 
 const provenanceOf = (over: Partial<ProjectManifest>): Record<string, unknown> => {
   const operation = generate(over).plan.operations.find((entry) => entry.path === PROVENANCE_FILE);
@@ -83,17 +85,24 @@ const provenanceOf = (over: Partial<ProjectManifest>): Record<string, unknown> =
   return JSON.parse(operation.content) as Record<string, unknown>;
 };
 
+const stackOf = (over: Partial<ProjectManifest>): RecordedStack =>
+  provenanceOf(over).stack as RecordedStack;
+
 const filesOf = (over: Partial<ProjectManifest>): string[] =>
   generate(over)
     .plan.operations.map((entry) => entry.path)
     .sort();
+
+// ---------------------------------------------------------------------------
+// The schema
+// ---------------------------------------------------------------------------
 
 describe('provenance records how a project was made', () => {
   it('is written by every generated project', () => {
     expect(filesOf({})).toContain(PROVENANCE_FILE);
   });
 
-  it('records the generator, the template and the site, and exactly those', () => {
+  it('records the generator, the template, the stack and the site', () => {
     const provenance = provenanceOf({});
     expect(Object.keys(provenance).sort()).toEqual([
       '$schema',
@@ -101,6 +110,7 @@ describe('provenance records how a project was made', () => {
       'config',
       'generatedAt',
       'mode',
+      'stack',
       'template',
     ]);
     expect(Object.keys(provenance.config as object).sort()).toEqual([
@@ -113,52 +123,122 @@ describe('provenance records how a project was made', () => {
     ]);
   });
 
-  it('records no stack dimension at all', () => {
+  it('keeps every field it recorded before the stack was added', () => {
     /*
-     * Not an oversight to be quietly filled in: this is the fact that blocked
-     * Stage 56. Adding any of these changes the bytes of every generated
-     * project, and the four V1 goldens with them.
+     * The additive half of Stage 57's policy, asserted rather than promised.
+     * Nothing was removed or renamed to make room, so a reader written against
+     * the older shape still finds everything it knew about.
      */
-    const serialised = JSON.stringify(provenanceOf({ styling: 'bootstrap', uiLibrary: 'mui' }));
-    for (const absent of ['styling', 'uiLibrary', 'router', 'architecture', 'buildTool']) {
-      expect(serialised, `provenance now records ${absent}`).not.toContain(`"${absent}"`);
-    }
-    // And nothing records which files were generated.
-    expect(serialised).not.toContain('"files"');
+    const provenance = provenanceOf({});
+    expect(provenance.$schema).toBe('https://create-clientkit.dev/schema/client-site.json');
+    expect(provenance.cliVersion).toBe('9.9.9');
+    expect(provenance.mode).toBe('full');
+    expect(provenance.generatedAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(provenance.template).toEqual({
+      id: 'react-vite',
+      version: expect.any(String),
+      framework: 'react',
+      frameworkVersion: expect.any(String),
+    });
   });
 });
 
-describe('provenance cannot tell two stacks apart', () => {
-  it('is identical for configurations that generate different files', () => {
+// ---------------------------------------------------------------------------
+// The stack
+// ---------------------------------------------------------------------------
+
+describe('provenance records the resolved stack', () => {
+  it('records every dimension the resolver settles', () => {
+    expect(Object.keys(stackOf({})).sort()).toEqual([
+      'architecture',
+      'buildTool',
+      'framework',
+      'language',
+      'router',
+      'styling',
+      'uiLibrary',
+    ]);
+  });
+
+  it('records what the project resolved to, taken from the manifest itself', () => {
+    // The manifest is the object selection and compatibility were given; the
+    // recorded stack is a projection of it, not a second description.
+    const requested = manifestFor({ styling: 'bootstrap', uiLibrary: 'mui' });
+    expect(stackOf({ styling: 'bootstrap', uiLibrary: 'mui' })).toEqual({
+      framework: requested.framework,
+      buildTool: requested.buildTool,
+      language: requested.language,
+      styling: requested.styling,
+      uiLibrary: requested.uiLibrary,
+      router: requested.router,
+      architecture: requested.architecture,
+    });
+  });
+
+  it('does not duplicate the starter or the feature list', () => {
+    /*
+     * Both are already recorded - `mode` and `config.features` - and a document
+     * holding each of them twice would eventually hold two different answers.
+     */
+    const stack = stackOf({
+      starter: 'coming-soon',
+      features: ['client-route-fallback'],
+      router: 'react-router',
+    });
+    expect(stack).not.toHaveProperty('starter');
+    expect(stack).not.toHaveProperty('mode');
+    expect(stack).not.toHaveProperty('features');
+    expect(provenanceOf({ starter: 'coming-soon' }).mode).toBe('coming-soon');
+  });
+
+  it('tells two stacks apart, which is the whole reason it exists', () => {
+    /*
+     * The measurement that blocked Stage 56, inverted. These two configurations
+     * generate different files, and their provenance now says so - which is
+     * what a future upgrade needs in order to name what a new configuration
+     * would no longer generate rather than guess at it.
+     */
     const rich = { styling: 'tailwind', uiLibrary: 'mui', router: 'react-router' } as const;
     const plain = { styling: 'bootstrap', uiLibrary: 'none', router: 'none' } as const;
 
-    expect(provenanceOf(rich)).toEqual(provenanceOf(plain));
+    expect(provenanceOf(rich)).not.toEqual(provenanceOf(plain));
+    expect(stackOf(rich)).not.toEqual(stackOf(plain));
 
     const onlyInRich = filesOf(rich).filter((file) => !filesOf(plain).includes(file));
     expect(onlyInRich).toEqual(['src/components/ui/AppProviders.tsx', 'src/routes/AppRouter.tsx']);
   });
 
-  it('leaves an upgrade unable to name what a new configuration would drop', () => {
-    /*
-     * Stated as the question an upgrade command would have to answer. Given the
-     * provenance of the richer project and a request for the plainer one, the
-     * two files above are what "would no longer be generated" - and nothing in
-     * the recorded provenance distinguishes them from a file the developer
-     * wrote. Until that changes, the only safe answer an upgrade can give is
-     * to refuse.
-     */
-    const recorded = provenanceOf({
+  it('distinguishes a change in any single dimension', () => {
+    const base = stackOf({});
+    for (const [dimension, over] of [
+      ['styling', { styling: 'bootstrap' }],
+      ['uiLibrary', { uiLibrary: 'mui' }],
+      ['router', { router: 'react-router' }],
+    ] as [string, Partial<ProjectManifest>][]) {
+      expect(stackOf(over), dimension).not.toEqual(base);
+    }
+  });
+
+  it('records the Astro stack for an Astro project', () => {
+    // A second framework, so the recorded stack is demonstrably a function of
+    // the project rather than of one adapter's defaults.
+    expect(
+      stackOf({
+        framework: 'astro',
+        buildTool: 'astro',
+        styling: 'tailwind',
+        router: 'file-based',
+        architecture: 'astro-standard',
+      }),
+    ).toEqual({
+      framework: 'astro',
+      buildTool: 'astro',
+      language: 'ts',
       styling: 'tailwind',
-      uiLibrary: 'mui',
-      router: 'react-router',
+      uiLibrary: 'none',
+      router: 'file-based',
+      architecture: 'astro-standard',
     });
-    const everythingKnownAboutTheStack = [
-      (recorded.template as { framework?: string }).framework,
-      recorded.mode,
-      (recorded.config as { features?: string[] }).features,
-    ];
-    expect(everythingKnownAboutTheStack).toEqual(['react', 'full', []]);
   });
 });
 
@@ -169,12 +249,10 @@ describe('provenance cannot tell two stacks apart', () => {
 describe('provenance is the generator writing about itself', () => {
   it('is the only operation the CLI claims as its own', () => {
     /*
-     * The structural fact the Stage 57 decision rests on. Every other file in a
-     * generated project comes from a template layer or an adapter and says so
-     * in its origin - `base`, `base + modes/coming-soon`, `styling:tailwind`.
-     * Exactly one carries `cli`, and it is this one: the project is what the
-     * templates produced, and `.client-site.json` is ClientKit's note about
-     * having produced it.
+     * The structural fact the Stage 57 decision rested on, and the reason
+     * Stage 58 could change these bytes at all. Every other file in a generated
+     * project comes from a template layer or an adapter and says so in its
+     * origin. Exactly one carries `cli`.
      */
     const operations = generate({}).plan.operations;
     const byCli = operations.filter((entry) => entry.origin === 'cli').map((entry) => entry.path);
@@ -183,55 +261,69 @@ describe('provenance is the generator writing about itself', () => {
   });
 
   it('is synthesised rather than copied from a template', () => {
-    // A template-shipped file arrives as a copy or carries a template origin.
-    // This one is built in the planner, which is why no `templates/**` path
-    // contains it and why its bytes are a function of the context alone.
     const operation = generate({}).plan.operations.find((entry) => entry.path === PROVENANCE_FILE);
     expect(operation?.type).toBe('write');
     expect(operation?.origin).toBe('cli');
   });
 
   it('records nothing about the machine that ran the generator', () => {
-    // The allow-list its own doc comment describes: no environment, no
-    // absolute paths, no credentials, no author.
+    // The allow-list its own doc comment describes: no environment, no absolute
+    // paths, no credentials, no author. Adding the stack smuggled none of them
+    // in.
     const serialised = JSON.stringify(provenanceOf({}));
-    expect(serialised).not.toMatch(/[A-Za-z]:\\|\/Users\/|\/home\//);
+    expect(serialised).not.toMatch(/[A-Za-z]:\\\\|\/Users\/|\/home\//);
     expect(serialised).not.toContain('author');
     expect(serialised).not.toContain('targetDir');
   });
 });
 
+// ---------------------------------------------------------------------------
+// Determinism
+// ---------------------------------------------------------------------------
+
 describe('provenance serialisation is deterministic', () => {
   it('is byte-identical for the same inputs', () => {
-    const first = generate({}).plan.operations.find((e) => e.path === PROVENANCE_FILE);
-    const second = generate({}).plan.operations.find((e) => e.path === PROVENANCE_FILE);
-    expect(first?.type === 'write' ? first.content : '').toBe(
-      second?.type === 'write' ? second.content : '<none>',
-    );
+    const content = (): string => {
+      const operation = generate({}).plan.operations.find((e) => e.path === PROVENANCE_FILE);
+      return operation?.type === 'write' ? operation.content : '<none>';
+    };
+    expect(content()).toBe(content());
   });
 
   it('orders its keys the same way every time', () => {
-    // Key order is part of the bytes, and the bytes are in a golden. Asserted
-    // so a future reader can rely on the shape rather than on luck.
     const keys = (over: Partial<ProjectManifest>): string[] => Object.keys(provenanceOf(over));
     expect(keys({ styling: 'bootstrap' })).toEqual(keys({ uiLibrary: 'mui' }));
     expect(keys({})).toEqual([
       '$schema',
       'cliVersion',
       'template',
+      'stack',
       'mode',
       'generatedAt',
       'config',
     ]);
   });
 
-  it('varies only with the configuration it is a record of', () => {
+  it('orders the stack the same way every time', () => {
+    const order = (over: Partial<ProjectManifest>): string[] => Object.keys(stackOf(over));
+    expect(order({})).toEqual([
+      'framework',
+      'buildTool',
+      'language',
+      'styling',
+      'uiLibrary',
+      'router',
+      'architecture',
+    ]);
+    expect(order({ styling: 'bootstrap', uiLibrary: 'mui' })).toEqual(order({}));
+  });
+
+  it('varies with the configuration it is a record of, and with nothing else', () => {
     const base = provenanceOf({});
     expect(provenanceOf({ starter: 'coming-soon' })).not.toEqual(base);
-    expect(
-      provenanceOf({ features: ['client-route-fallback'], router: 'react-router' }),
-    ).not.toEqual(base);
-    // ...and not with the dimensions it does not record, which is the gap.
-    expect(provenanceOf({ styling: 'bootstrap' })).toEqual(base);
+    expect(provenanceOf({ styling: 'bootstrap' })).not.toEqual(base);
+    // The project name is part of the record; the directory it was written to
+    // is not, and does not become part of it.
+    expect(provenanceOf({ targetDir: path.join(TEST_CWD, 'elsewhere') })).toEqual(base);
   });
 });

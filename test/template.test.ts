@@ -10,7 +10,7 @@ import { findTokens } from '../src/generate/tokens.js';
 import { KNOWN_TOKENS } from '../src/templates/manifest.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { isTextFile } from '../src/generate/files.js';
-import { makeContext, tempDir, testLogger } from './helpers.js';
+import { makeContext, tempDir, testLogger, stackOf } from './helpers.js';
 
 const TEMPLATES_ROOT = findTemplatesRoot(path.resolve(import.meta.dirname, '..', 'src'));
 const registry = createRegistry(TEMPLATES_ROOT);
@@ -78,7 +78,10 @@ describe('planning astro-tailwind', () => {
     makeContext({ template: { id: 'astro-tailwind', version: '0.1.0', mode } });
 
   it('produces the expected file set for coming-soon', () => {
-    const result = plan(context('coming-soon'), { registry });
+    const result = plan(context('coming-soon'), {
+      registry,
+      stack: stackOf(context('coming-soon')),
+    });
     expect([...result.operations.map((op) => op.path)].sort()).toEqual([
       '.client-site.json',
       '.gitattributes',
@@ -106,15 +109,22 @@ describe('planning astro-tailwind', () => {
   });
 
   it('produces the same file set for full mode', () => {
-    const comingSoon = plan(context('coming-soon'), { registry }).operations.map((op) => op.path);
-    const full = plan(context('full'), { registry }).operations.map((op) => op.path);
+    const comingSoon = plan(context('coming-soon'), {
+      registry,
+      stack: stackOf(context('coming-soon')),
+    }).operations.map((op) => op.path);
+    const full = plan(context('full'), {
+      registry,
+      stack: stackOf(context('full')),
+    }).operations.map((op) => op.path);
     expect(full).toEqual(comingSoon);
   });
 
   it('overrides the base placeholder page with the mode page', () => {
-    const page = plan(context('full'), { registry }).operations.find(
-      (op) => op.path === 'src/pages/index.astro',
-    );
+    const page = plan(context('full'), {
+      registry,
+      stack: stackOf(context('full')),
+    }).operations.find((op) => op.path === 'src/pages/index.astro');
     const content = page && page.type === 'write' ? page.content : '';
     expect(content).toContain('Work');
     expect(content).not.toContain('This page comes from the template');
@@ -122,7 +132,7 @@ describe('planning astro-tailwind', () => {
 
   it('merges keywords from base and mode without duplicates', () => {
     const read = (mode: 'coming-soon' | 'full') => {
-      const pkg = plan(context(mode), { registry }).operations.find(
+      const pkg = plan(context(mode), { registry, stack: stackOf(context(mode)) }).operations.find(
         (op) => op.path === 'package.json',
       );
       return JSON.parse(pkg && pkg.type === 'write' ? pkg.content : '{}');
@@ -158,13 +168,17 @@ describe('planning astro-tailwind', () => {
   });
 
   it('does not ship an MIT licence into the generated project', () => {
-    const paths = plan(context('full'), { registry }).operations.map((op) => op.path);
+    const paths = plan(context('full'), {
+      registry,
+      stack: stackOf(context('full')),
+    }).operations.map((op) => op.path);
     expect(paths).not.toContain('LICENSE');
   });
 
   it('leaves no unsubstituted tokens anywhere', () => {
     for (const mode of ['coming-soon', 'full'] as const) {
-      for (const operation of plan(context(mode), { registry }).operations) {
+      for (const operation of plan(context(mode), { registry, stack: stackOf(context(mode)) })
+        .operations) {
         if (operation.type !== 'write') continue;
         expect(findTokens(operation.content), `in ${operation.path}`).toEqual([]);
       }
@@ -182,7 +196,7 @@ describe('planning astro-tailwind', () => {
       template: { id: 'astro-tailwind', version: '0.1.0', mode: 'coming-soon' },
       site: { name: 'Acme', url: null, description: 'd', locale: 'en', author: null },
     });
-    const config = plan(noUrl, { registry }).operations.find(
+    const config = plan(noUrl, { registry, stack: stackOf(noUrl) }).operations.find(
       (op) => op.path === 'src/config/site.config.ts',
     );
     const content = config && config.type === 'write' ? config.content : '';
