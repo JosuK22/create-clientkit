@@ -7512,3 +7512,190 @@ which was the part that was wrong.
 No upgrade command, no path-set planner, no orphan reporting, no deletion, no
 per-path ownership records, no historical templates. This stage moved identity
 and nothing else.
+
+### Stage 63 — the old/current path-set planner (landed)
+
+Stage 61 decided what an upgrade may conclude. Stage 62 made template identity
+total. This stage is the arithmetic those two made safe to write, and it is
+deliberately small: the hard part was never the set difference.
+
+#### The contract
+
+```text
+oldPaths          everything the recorded configuration generates
+currentPaths      everything the current configuration generates
+unchanged         old ∩ current
+added             current - old
+orphanCandidates  old - current
+```
+
+> **`orphanCandidates` means paths produced by the recorded stack that are
+> absent from the current plan. It does not mean ClientKit has permission to
+> delete those files.**
+
+That sentence is the reason the field is named the way it is, and the reason
+there is no `deletable`, no `owned` and no `safeToRemove` beside it. Naming one
+would invite a later stage to act on it, and the evidence for it does not exist:
+this layer sees two lists of strings, never a project. `AppProviders.tsx` is
+exactly the kind of file a developer edits after it is generated.
+
+#### Path membership is not file ownership
+
+The distinction Stage 61 drew. The planner may say _this path was produced by
+the recorded configuration and is not produced by the current one_. It may not
+say the file is ClientKit's, that it is unmodified, or that it is safe to
+remove. It does not read file contents to decide ownership, does not check
+whether a path exists on disk, and cannot - a test asserts the arithmetic
+module's source contains no filesystem import at all, and the composing layer
+none of `writeFileSync`, `rmSync`, `unlinkSync`, `mkdirSync` or `execSync`.
+
+#### Why the old plan can be built at all
+
+Stage 60 found that an old _plan_ cannot be reconstructed: the description and
+author are not recorded, and `plan()` refuses without them. Stage 61 measured
+that this does not matter for ownership, because the path set is a function of
+the stack and the mode alone.
+
+So both plans are built from the **same** site configuration - the current one -
+and differ only in stack and mode. Nothing is invented and no site value is
+attributed to the recorded project. A site field cannot produce a false
+difference because it is identical on both sides by construction, which is
+stronger than relying on the invariance measurement alone. The measurement is
+kept anyway, as a regression over all 104 accepted stacks: change project name,
+site name, URL to null, description, locale, author and package manager at once,
+and `added` and `orphanCandidates` must both be empty.
+
+#### Both sides come from today's templates
+
+ClientKit keeps no historical template bytes, so the recorded **stack and mode**
+are rendered against the templates this build ships:
+
+```text
+recorded stack + mode  + current templates  ->  oldPaths
+current stack + mode   + current templates  ->  currentPaths
+```
+
+Path differences are therefore attributable to the configuration changing, never
+to ClientKit's templates having changed between releases. That second kind of
+drift is not detectable here and nothing claims it is. This is
+current-template reconciliation, not historical migration.
+
+#### The gate comes first
+
+Stage 59's reader validates fields and deliberately not relationships, so a
+document can be perfectly readable and still claim a template belonging to
+another framework. `planUpgrade` runs Stage 62's `checkRecordedTemplate` before
+anything is planned, and a failure stops the work:
+
+```text
+unknown-template     the recorded id is not what that framework generates
+framework-mismatch   the template block contradicts the stack block
+unknown-framework    no adapter in this build
+malformed            absent or non-string where a string was required
+```
+
+A refusal carries no `paths` at all, so it cannot be mistaken for "nothing would
+change" - a test asserts that, and another asserts the message explains the real
+problem rather than mentioning orphans. Reporting a stranded file when the
+actual fault is a contradictory document sends a developer looking for the wrong
+thing.
+
+#### What the stack change finds
+
+The Stage 55 case, which that stage measured on disk and could only describe as
+a limitation:
+
+```text
+React + MUI + React Router  ->  React
+    orphanCandidates:
+        src/components/ui/AppProviders.tsx
+        src/routes/AppRouter.tsx
+    added: []
+```
+
+Those are the two files that were left importing packages no longer installed,
+failing `tsc --noEmit` with two `TS2307`s. Detected now with no historical bytes.
+A styling swap on top of the same removal (Tailwind to Bootstrap) adds nothing
+to the list, because styling changes content rather than the file list - which is
+exactly the kind of difference this layer must not report.
+
+#### Mode is part of the configuration, measured
+
+`pathSet = f(stack, mode)`, not `f(stack)`. Of the three frameworks, only Next
+moves a path between modes:
+
+```text
+astro    coming-soon 22 files    full 22 files    no path difference
+react    coming-soon 21 files    full 21 files    no path difference
+nextjs   coming-soon 16 files    full 17 files    full adds components/ui/Section.tsx
+```
+
+The mode tests use Next for that reason - a React test would have passed for the
+wrong reason and kept passing if the mode were dropped entirely. A companion
+test pins Astro and React as mode-insensitive, so the measurement above fails
+rather than going stale if that changes.
+
+#### One redundancy removed
+
+The mode reaching `planManifest` is now derived from `manifest.starter`
+rather than passed beside it. Mutation testing found the two could diverge:
+`selectStarter` picks the layer from the manifest, while the `mode` option
+reaches tokens and provenance content, so a caller could hand over a plan
+whose file list and whose recorded mode disagreed - and this layer, reading
+only paths, would never have noticed. Measured, with the starter held fixed
+and the mode flipped:
+
+```text
+astro   paths identical, content differs in .client-site.json, src/config/site.config.ts
+react   paths identical, content differs in .client-site.json
+nextjs  paths identical, content differs in .client-site.json
+```
+
+Deriving it makes the disagreement unrepresentable rather than merely
+unlikely. The mutation that pointed at it was then withdrawn rather than
+counted, because it cannot change this module output by construction - an
+output-neutral mutation is not an uncaught regression, and recording it as
+either would be false.
+
+#### Determinism
+
+Sorted by UTF-16 code unit via `Array.prototype.sort` with no comparator, which
+is identical on every platform and in every locale. `localeCompare` would not be:
+it can reorder under a different ICU build, and a file list that reorders by
+machine is not a plan anyone can review. Duplicate operations targeting one path
+collapse to one entry, because a path set is a set and layering the same path
+twice is composition working rather than two files; whether a repeated path is
+legitimate layering or a collision is the existing planner's question, settled
+before this is called.
+
+The result carries no timestamp, no absolute path, no CLI version and no machine
+detail - asserted by serialising a plan and checking for each. Paths are POSIX,
+already normalised by `toPosix` inside the planner, so a Windows run matches a
+Linux one.
+
+#### Where it lives
+
+`src/domain/upgrade-paths.ts` holds the arithmetic and takes plain strings, so
+nothing in it can reach a filesystem, a plan or a template. `GenerationPlan`
+carries content, origins and a target directory, none of which this decision may
+depend on, and accepting one would make it possible for it to start.
+
+`src/adapters/upgrade-plan.ts` composes: it gates on identity, substitutes the
+recorded stack and mode into the current manifest, plans both through the
+existing `planManifest`, and hands two string lists to the arithmetic. No second
+configuration resolver, no second generator, and no framework named anywhere in
+it - a test asserts the source contains none of `'astro'`, `'react'` or
+`'nextjs'`, which Stage 62's identity contract is what made possible.
+
+#### Not in this stage
+
+No `upgrade` command, no CLI dispatch change, no prompts, no writes, no
+deletions, no change to `apply()`, no per-path ownership records, no historical
+templates. `.client-site.json` is untouched, and **golden changes: 0** with the
+checksum still
+`f73e1f8ab5092e3fd522742198e51574d64588109d54151a6cf1d905097dec20`.
+
+The planner has no caller. Presenting a path plan to a developer and asking what
+they want done is the next stage's work, and it is the stage where a person
+enters the picture - which is the right place for it, since every decision this
+layer refuses to make is one only they can.
