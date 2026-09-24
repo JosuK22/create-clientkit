@@ -7118,3 +7118,270 @@ In order of how much they settle, not how hard they are:
 Until 1 and 2 are decided, a planner would be a well-tested component that
 returns "nothing to do" for every project that exists, and a dangerous one for
 any project it did not.
+
+### Stage 61 — the upgrade reconstruction contract (decided)
+
+Stage 60 stopped on three blockers. Stage 61 measured what they actually cost
+and found that two of them were blocking the wrong question. Nothing needs
+adding to provenance; the contract needed narrowing instead.
+
+#### The measurement that changed the answer
+
+Stage 60 asked _"can the old plan be rebuilt?"_ and correctly answered no. It is
+the wrong question, because ownership does not need the old plan - it needs the
+old plan's **path set**. Those are not the same object, and they do not depend
+on the same inputs.
+
+Measured over all 104 supported stacks, changing every site field at once -
+project name, site name, URL to null, description, locale, author, package
+manager:
+
+```text
+path set identical under a total site change:  104/104
+distinct path sets across the 104 stacks:       16
+```
+
+**The file list is a function of the stack and the mode. The site configuration
+decides what goes inside those files, never which files exist.** Provenance has
+recorded the stack since Stage 58 and the mode since V1, so everything ownership
+needs is already there.
+
+That is pinned in `test/accepted-combinations.test.ts`, not left as a property
+someone remembers: a template that ever branched on `{{locale}}` to emit a
+different file would break the upgrade contract silently, and now fails a test
+instead.
+
+#### Decision A - provenance field classification
+
+Classification is by the question each field answers, measured by varying it
+alone and counting affected files (`.client-site.json` excluded):
+
+| Field                       | Classification                  | Evidence                                                                                                |
+| --------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `stack` (7 dimensions)      | **REQUIRED FOR RECONSTRUCTION** | the only input that changes the path set; 16 distinct sets across 104 stacks                            |
+| `mode`                      | **REQUIRED FOR RECONSTRUCTION** | selects the `modes/<mode>` layer; affects content in every stack                                        |
+| `template.id`               | **REQUIRED FOR RECONSTRUCTION** | names the content root the layers are read from                                                         |
+| `template.version`          | **OPTIONAL**                    | recorded, read by nothing; see Decision D - it cannot be resolved to bytes                              |
+| `template.framework`        | **DERIVABLE**                   | from `stack.framework` via the adapter registry - see Decision G for the one gap                        |
+| `template.frameworkVersion` | **OPTIONAL**                    | diagnostic; the current template pins its own versions                                                  |
+| `projectName`               | **REQUIRED FOR UPGRADE ONLY**   | 1 file (`package.json`); content, not paths                                                             |
+| `site.name`                 | **REQUIRED FOR UPGRADE ONLY**   | 3 files; content only                                                                                   |
+| `site.url`                  | **REQUIRED FOR UPGRADE ONLY**   | 1 file; content only                                                                                    |
+| `site.locale`               | **REQUIRED FOR UPGRADE ONLY**   | 2 files; content only                                                                                   |
+| `site.description`          | **INTENTIONALLY EXCLUDED**      | 3 files; content only - see Decision B                                                                  |
+| `site.author`               | **INTENTIONALLY EXCLUDED**      | 1 file; content only - see Decision C                                                                   |
+| `features`                  | **REQUIRED FOR UPGRADE ONLY**   | contributes layers; recorded                                                                            |
+| `packageManager`            | **REQUIRED FOR UPGRADE ONLY**   | **0 generated files**; decides the install command, not output                                          |
+| `generatedAt`               | **OPTIONAL**                    | sole source for `{{year}}`, which **no template currently uses**; recorded, so it costs nothing to keep |
+| `cliVersion`                | **REQUIRED FOR UPGRADE ONLY**   | 0 generated files; Stage 57's schema discriminator and Stage 59's version gate                          |
+
+Two entries are worth flagging because the type does not show them.
+`packageManager` and `cliVersion` affect no generated byte. `stack.language` is
+`ts` in 104 of 104 accepted combinations - `js` is in the vocabulary and
+unreachable - so that dimension currently discriminates nothing, and is kept
+because the stack is recorded as a whole rather than as the fields that happen
+to matter today.
+
+#### Decision B - description: Option 2, obtained at upgrade time
+
+Not recorded. Not invented. Supplied by the developer when they upgrade, exactly
+as `create` obtains it today, or read from the same `--from` file.
+
+This is honest precisely because of the measurement above: the description is
+needed to _render new content_, never to _establish ownership_. An upgrade is
+generating files now, for a project as it is now, so taking the value now is not
+a reconstruction at all - and the value the developer supplies is **not** called
+"the old value", because it is not one.
+
+Option 1 (record it) was rejected as unnecessary rather than unsafe: it would
+change the provenance contract, put client-authored prose into a file committed
+to the client's repository, and buy nothing the contract needs. Option 3
+(redefine equivalence to skip description-dependent content) is unnecessary for
+the same reason - there is nothing to skip, because ownership never reads
+content.
+
+#### Decision C - author: intentionally excluded, and the planner does not need it
+
+Answering the stage's six questions from evidence:
+
+1. Required to determine ownership? **No** - 0 paths affected.
+2. Necessary to identify old generated files? **No** - same measurement.
+3. Can the old path set be reconstructed without it? **Yes** - 104/104.
+4. Can it be supplied at upgrade time? **Yes**, like the description.
+5. Recoverable from a project-local source? `package.json` often carries it.
+6. Would reading that violate the Stage 59/60 rule? **Yes.** So ClientKit does
+   not read it.
+
+Point 6 is the one that matters. Reading `package.json` to recover an author
+would be inference about the project from its contents - the precise thing
+Stage 56 refused and Stage 59 was built to prevent. Being easy and usually
+correct does not make it provenance. The existing exclusion in `buildProvenance`
+stands unweakened, and it costs the planner nothing.
+
+#### Decision D - historical templates: Model 2, current-template reconciliation
+
+ClientKit does not retain historical template versions. The upgrade renders
+**both** sides against the templates shipped with the running CLI.
+
+Stage 60 measured this model comparing a recorded configuration against itself
+and got 0 changed, 0 added, 0 orphan - and concluded the comparison was inert.
+That was the degenerate case. The useful case is a _stack change_, where the old
+stack is recorded and the new one is chosen now:
+
+```text
+MUI + React Router  ->  neither      orphan candidates: 2
+    - src/components/ui/AppProviders.tsx
+    - src/routes/AppRouter.tsx
+MUI -> none                          orphan candidates: 1
+none -> MUI                          added: 1
+no stack change                      orphan candidates: 0
+```
+
+Those are exactly the two files Stage 55 found stranded on disk, importing
+packages no longer installed and failing `tsc --noEmit` with two `TS2307`s.
+Current-template reconciliation detects them precisely, with no historical
+bytes, because both sides render against the same templates and the difference
+is attributable to the stack change alone.
+
+**What this model can answer:** what ClientKit would generate today for a
+recorded configuration, and which paths a configuration change orphans.
+
+**What it cannot answer:** _"which files changed because the ClientKit template
+changed between versions?"_ That requires the old bytes, which do not exist. It
+is not called historical diffing anywhere, and the upgrade will not imply it.
+
+Model 1 (retain history) was rejected, though not on size - `templates/` is
+250 KB across 69 files and the published package is 134 KB packed, so keeping
+several versions would cost a few hundred KB, which is affordable. It was
+rejected because every retained version freezes a dependency set
+(`astro@7.3.2`, `next@16.3.5`) that ages into a known-vulnerable pin the CLI
+still ships, and because the extra precision it buys is informational rather
+than safety-critical: ClientKit's permission to touch a file comes from the plan
+and the developer's confirmation, not from knowing which version last wrote it.
+
+Model 3 (store more generation provenance) was rejected as circular. The only
+addition that would help is a per-path record of which layer produced it - which
+is a generated-file list with extra fields, the thing Stage 57 explicitly
+rejected as stale-able. Everything smaller, such as the set of composed layers,
+is already derivable from the recorded stack and mode, so it would add a second
+copy of a fact rather than a new one.
+
+Model 4's contribution is kept: the refusal boundary below.
+
+#### Decision E - what `upgrade` will promise
+
+> **ClientKit re-generates the files it would generate today for this project's
+> recorded stack, using the configuration you supply now. It lists every file it
+> would replace and asks before replacing any of them. It never deletes a file,
+> and it never touches a file it did not plan.**
+>
+> When your stack changes, it also reports which previously generated files the
+> new stack no longer produces - and leaves them exactly where they are, for you
+> to remove.
+>
+> It does not know what a previous version of ClientKit generated, and it does
+> not claim to.
+
+This is **current-state reconciliation plus safe partial upgrade**, in Decision
+E's vocabulary, and deliberately not exact historical migration. The three are
+not mixed: the promise names what it reconciles against, and the last sentence
+forecloses the reading it would otherwise invite.
+
+It is also not a new mechanism. Stage 55 measured this contract already working
+for re-generation: a confirmed merge rewrites the planned files, reports the
+count, deletes nothing, and preserves `src/custom/UserOwned.ts`. Upgrade differs
+from that run in one respect - it reads the recorded stack instead of re-asking
+for it, and can therefore name orphans rather than leaving them silent.
+
+#### Decision F - the ownership contract
+
+What ClientKit must be able to prove before touching a path:
+
+| Action                                   | Required evidence                                                                                               |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Write / replace** a path               | the path is in the **current plan**, and the developer confirmed after seeing the list                          |
+| **Report** a path as an orphan candidate | the path is in the **old path set** (recorded stack + mode, current templates) and absent from the current plan |
+| **Delete** a path                        | **no evidence is sufficient - ClientKit does not delete**                                                       |
+| **Touch** a path in neither plan         | never, under any circumstance                                                                                   |
+
+The old path set is computed, not stored: no ownership database, and no file
+list in provenance. Stage 55's rule survives intact - _a path in the old plan
+and not in the current one is an orphan candidate_ - and Stage 60's objection to
+it dissolves once the comparison is between two **stacks** rather than between a
+configuration and itself.
+
+Deletion stays out because the evidence that a path is an orphan is not evidence
+that its contents are worthless: `AppProviders.tsx` is exactly the kind of file
+a developer edits. Reporting costs nothing and risks nothing. This also keeps
+the measured Stage 55 property - _deleted: 0_ - true by construction rather than
+by care.
+
+One distinction to keep crisp: reading a project's files to _show_ a developer a
+diff is fine, and reading them to _decide ownership_ is forbidden. Ownership
+comes from the plans; the bytes on disk are the developer's business.
+
+#### Decision G - the Astro template contract
+
+The current asymmetry is real and has a real cause:
+
+```text
+astro    templateManifest: UNDEFINED      template.json on disk  -> discoverable
+nextjs   templateManifest: nextjs         no manifest on disk    -> hidden
+react    templateManifest: react-vite     no manifest on disk    -> hidden
+```
+
+`createRegistry` discovers a template by finding `template.json` in its
+directory, so **identity and discoverability are currently the same bit**. React
+and Next stay out of `--list-templates` by having no manifest on disk, which is
+why their identity had to move onto the adapter; Astro is publicly selectable,
+so its manifest stayed on disk and never moved.
+
+The contract, which separates them:
+
+1. **Identity lives on the adapter.** Every framework adapter declares
+   `templateManifest` - id, version, framework, frameworkVersion - so
+   `stack.framework` to template identity is total. Astro's is read from its
+   existing `template.json` rather than restated, keeping one source of truth,
+   and a test asserts the two agree.
+2. **Content lives on disk**, at `templates/<id>/`, for all three. Unchanged.
+3. **Discoverability becomes an explicit property**, not the side effect of a
+   file's existence. A template appears in `--list-templates` and `--template`
+   because it says it is public, not because it has a manifest.
+4. **The planner identifies the template through the adapter**, never through
+   the registry's disk scan. `registryFor()` already implements exactly this -
+   it overlays an adapter-declared manifest onto the base registry - so the
+   mechanism exists and is simply not applied uniformly.
+5. **Compatibility is validated** by checking the recorded `template.id` and
+   `template.framework` against the adapter's declaration for the recorded
+   `stack.framework`. This is what makes `template.framework = react` beside
+   `stack.framework = astro` detectable, and it needs step 1 to be truthful for
+   all three.
+
+**Not implemented here.** A trial wiring of Astro's manifest touched 15 tests in
+`test/adapters.test.ts`, which is a dedicated stage rather than the "tiny
+change" this one permits. It was reverted; the working tree carries none of it.
+The placeholder is not renamed - `TEMPLATE_ID_PLACEHOLDER` stays wrong until the
+contract above replaces it, which is more honest than a cosmetic fix.
+
+#### Provenance impact
+
+**None. `.client-site.json` does not change.** Stage 58 already recorded the one
+thing reconstruction needs. Description and author stay out, on the reasoning in
+Decisions B and C rather than by omission.
+
+**Golden changes: 0**, as follows from changing no generation code.
+
+#### What is now unblocked, and what is not
+
+Stage 60's three blockers, resolved:
+
+1. **Description** - not a blocker. Ownership never reads content; the upgrade
+   obtains the description the same way `create` does.
+2. **Author** - not a blocker, for the same reason, and the privacy exclusion
+   stands unweakened.
+3. **Historical templates** - a real limit, now a documented boundary of the
+   promise rather than an obstacle to it. Configuration drift is detectable;
+   template-version drift is not, and nothing will claim otherwise.
+
+Still open, and each its own stage: the Astro identity contract (Decision G),
+the planner that computes the two path sets, and the command that presents them.

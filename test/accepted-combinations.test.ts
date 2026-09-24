@@ -237,3 +237,96 @@ function readEnumerator(): string {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
+
+// ---------------------------------------------------------------------------
+// What decides the file list (Stage 61)
+// ---------------------------------------------------------------------------
+
+/**
+ * The property the upgrade contract rests on.
+ *
+ * Stage 60 found that an old plan cannot be rebuilt from provenance, because
+ * the site description and author are not recorded. Stage 61 measured what that
+ * actually costs and found: nothing, for the question ownership asks. The *set
+ * of paths* a project generates is a function of the stack and the mode alone.
+ * Site configuration decides what goes inside those files, never which files
+ * exist.
+ *
+ * That is why provenance needs no description to establish ownership, and why
+ * an upgrade can identify orphans from the stack it already records. If a
+ * template ever branched on `{{locale}}` to emit a different file, the contract
+ * would break silently - so it is pinned here rather than left as a property
+ * someone remembers.
+ */
+describe('the generated file list depends on the stack, not the site', () => {
+  const siteVariant = {
+    projectName: 'totally-different',
+    site: {
+      name: 'Zenith Industries',
+      url: null,
+      description: 'An entirely unrelated sentence about something else.',
+      locale: 'fr',
+      author: 'Jane Doe',
+    },
+    packageManager: 'pnpm',
+  };
+
+  const pathsOf = (combination: Combination, over: Partial<typeof siteVariant> = {}) =>
+    planManifest({ ...manifestOf(combination), ...over } as never, {
+      registry: v1Registry,
+      cliVersion: '9.9.9',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      mode: combination.starter as 'coming-soon' | 'full',
+      templateId: templateFor(combination.framework),
+    })
+      .plan.operations.map((entry) => entry.path)
+      .sort();
+
+  it('is unchanged when every site field changes at once', () => {
+    const differing = enumeration.accepted.filter(
+      (combination) =>
+        pathsOf(combination).join('\n') !== pathsOf(combination, siteVariant).join('\n'),
+    );
+    expect(differing.map((c) => c.id)).toEqual([]);
+  });
+
+  it('does depend on the stack, so the invariant above is not vacuous', () => {
+    // If every stack produced the same file list, the test above would pass
+    // for the wrong reason.
+    const distinct = new Set(
+      enumeration.accepted.map((combination) => pathsOf(combination).join('\n')),
+    );
+    expect(distinct.size).toBeGreaterThan(1);
+  });
+
+  it('identifies the orphans a stack change leaves behind', () => {
+    /*
+     * The Stage 55 case, which that stage measured on disk: React + MUI +
+     * React Router, re-generated without either, leaves two files that import
+     * packages no longer installed. Both plans render against the same current
+     * templates, so the difference is attributable to the stack change alone -
+     * no historical template bytes required. This is precisely the subset of
+     * upgrade analysis that current-template reconciliation can answer.
+     */
+    const find = (uiLibrary: string, router: string): Combination | undefined =>
+      enumeration.accepted.find(
+        (c) =>
+          c.framework === 'react' &&
+          c.styling === 'tailwind' &&
+          c.uiLibrary === uiLibrary &&
+          c.router === router &&
+          c.starter === 'full',
+      );
+
+    const before = find('mui', 'react-router');
+    const after = find('none', 'none');
+    expect(before, 'react + tailwind + mui + react-router is a supported stack').toBeDefined();
+    expect(after, 'react + tailwind alone is a supported stack').toBeDefined();
+
+    const oldPaths = new Set(pathsOf(before!));
+    const newPaths = new Set(pathsOf(after!));
+    const orphans = [...oldPaths].filter((p) => !newPaths.has(p)).sort();
+
+    expect(orphans).toEqual(['src/components/ui/AppProviders.tsx', 'src/routes/AppRouter.tsx']);
+  });
+});
