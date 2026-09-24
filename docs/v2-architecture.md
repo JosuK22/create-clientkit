@@ -6952,3 +6952,169 @@ for, so a future fallback to `package.json` would fail rather than pass quietly.
    ClientKit can make those documents say what they never recorded.
 3. `unsupported` is judged on `cliVersion` alone. That is the discriminator
    Stage 57 chose, and it cannot detect a document whose version was edited.
+
+### Stage 60 — upgrade planning (blocked)
+
+The stage set out to build the planner that turns a `usable` provenance document
+into an answer to _"what would change if this project were upgraded?"_. It
+stopped before writing one. Stage 58 closed the gap Stage 56 found; attempting
+the reconstruction surfaced the next three, and two of them are larger.
+
+Nothing was implemented, because the alternative was to invent the missing data
+and the whole architecture is built on refusing to do that.
+
+#### The first step, attempted
+
+The plan is: recorded stack + recorded template + recorded config → the plan the
+old project generated. `ProjectContext` is what `plan()` needs, so the check is
+mechanical - every field it requires, against what the document carries:
+
+| `ProjectContext` field                                    | Recorded?                                             |
+| --------------------------------------------------------- | ----------------------------------------------------- |
+| `projectName`, `site.name`, `site.url`, `site.locale`     | yes                                                   |
+| `template.id`, `template.version`, `mode`                 | yes                                                   |
+| `features`, `packageManager`, `cliVersion`, `generatedAt` | yes                                                   |
+| `targetDir`                                               | supplied by the caller - the directory being upgraded |
+| **`site.description`**                                    | **no**                                                |
+| **`site.author`**                                         | **no**                                                |
+
+#### Blocker 1 - the description is not recorded, and planning cannot proceed without it
+
+Not a degraded reconstruction. `{{description}}` is not in `NULLABLE_TOKENS`, so
+there is no "unset" rendering: a reconstruction that declines to invent one gets
+an exception instead of a plan.
+
+```text
+Token {{description}} resolved to an empty value in base/index.html.
+```
+
+Inventing one is worse than failing, because it fails silently. Measured across
+all 104 supported stacks, with only the description varied:
+
+```text
+description-sensitive files: 232  (in 104/104 combinations)
+    104  README.md
+     56  src/config/site.config.ts
+     48  lib/site.config.ts
+     24  index.html
+```
+
+Every one of those would be reported `changed` - not because ClientKit changed
+anything, but because the planner guessed a sentence. An execution stage acting
+on that would overwrite the client's README with a placeholder.
+
+#### Blocker 2 - the author is not recorded, on purpose
+
+`buildProvenance` says why: _"`author` is excluded because it is personal data
+the generated project already carries in package.json when set."_ That reasoning
+still holds; it simply also makes reconstruction impossible.
+
+```text
+author-sensitive files: 104  (in 104/104 combinations)
+     56  src/config/site.config.ts
+     48  lib/site.config.ts
+```
+
+Being nullable, this one does not throw - it is quietly wrong instead. Even
+handed the exact original description, a reconstruction still mis-renders
+`site.config.ts` in every project, because it has no author to put back.
+
+```text
+invented description, author omitted          → 3 files falsely "changed"
+exactly correct description, author omitted   → 1 file  falsely "changed"
+```
+
+Recording it is not obviously right either: it would put a person's name into a
+file committed to the client's repository, which is the thing the exclusion was
+protecting against. That is a decision, not an oversight to correct in passing -
+so this stage names it rather than settling it.
+
+#### Blocker 3 - there is no old template to plan against
+
+The deeper one, and independent of the other two. Provenance records
+`template.version`, but nothing can act on it: `templates/` holds exactly one
+version of each template, there is no archive of earlier ones, and
+`registry.get()` serves whatever is on disk now. `template.version` is written
+by the generator and read by nothing.
+
+So both sides of the comparison are built from today's bytes. The "old plan" is
+not the old plan; it is the current plan wearing the old configuration. Measured
+over all 104 stacks:
+
+```text
+old plan vs current plan, both from the templates on disk:
+    unchanged: 1956
+    changed:      0
+    added:        0
+    orphan:       0
+```
+
+That is not "nothing has changed yet". It is structural: a file whose content
+ClientKit changes between releases is invisible to this comparison, because both
+sides render the new content. Stage 55's ownership rule - _a path in the old
+plan and not in the current one is an orphan_ - is inert for the same reason,
+since both plans enumerate the same paths by construction. The categories the
+stage asked for can be computed; they can only ever come back empty.
+
+#### A fourth finding: the framework → template mapping is asymmetric
+
+Not blocking, but it is a missing contract and the cross-consistency check the
+stage asked about depends on it.
+
+```text
+astro    templateManifest: UNDEFINED
+nextjs   templateManifest: nextjs / nextjs / v0.1.0
+react    templateManifest: react-vite / react / v0.1.0
+```
+
+Next and React declare template identity on the adapter - deliberately, so they
+stay out of `--list-templates`. Astro declares none, and its id arrives from
+`TEMPLATE_ID_PLACEHOLDER` in `context/defaults.ts`, a constant whose own comment
+calls it _"a reserved identifier, not a template"_. Separately, the id
+provenance records for those two (`react-vite`, `nextjs`) is not resolvable
+through the disk registry at all:
+
+```text
+registry.get('react-vite') → Unknown template "react-vite".
+                             Available templates: astro-tailwind.
+```
+
+Both are navigable - go `stack.framework` → adapter → manifest, and special-case
+Astro - but detecting a document whose `template` block contradicts its `stack`
+block would then rest on a placeholder constant for one framework in three. The
+stage's instruction was to document a missing contract rather than invent a rule
+to satisfy a test, so that is what this is.
+
+#### What was added
+
+Four tests in `test/provenance-contract.test.ts` (16 → 20), pinning the two
+absences the way Stage 56 pinned the stack's: byte-identical provenance for two
+projects whose `README.md`, `index.html` and `site.config.ts` all differ, and
+the exception a reconstruction gets when it declines to invent prose. Adding
+either field to provenance now fails a test, which is the intent - both choices
+have consequences past the schema, and both deserve deciding rather than
+diffing.
+
+No planner, no upgrade command, no file mutation. **Golden changes: 0.**
+
+#### What would unblock it
+
+In order of how much they settle, not how hard they are:
+
+1. **Decide whether provenance records the site prose.** `description` is the
+   blocking one and is ordinary configuration. `author` is a genuine privacy
+   question and may be better answered by re-prompting at upgrade time than by
+   recording it - a planner given the config, rather than deriving all of it,
+   sidesteps both.
+2. **Decide what "the old plan" means without an old template.** Either
+   ClientKit keeps enough of previous template versions to render them, or the
+   comparison is honestly redefined as _current template, old configuration_ -
+   which answers ownership and orphans but cannot answer "what did ClientKit
+   change", and should then not claim to.
+3. **Give Astro a template manifest on its adapter**, so template identity is
+   derived the same way for all three frameworks and a contradiction between
+   `template` and `stack` is detectable from one contract.
+
+Until 1 and 2 are decided, a planner would be a well-tested component that
+returns "nothing to do" for every project that exists, and a dangerous one for
+any project it did not.

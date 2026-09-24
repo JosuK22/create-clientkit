@@ -327,3 +327,96 @@ describe('provenance serialisation is deterministic', () => {
     expect(provenanceOf({ targetDir: path.join(TEST_CWD, 'elsewhere') })).toEqual(base);
   });
 });
+
+// ---------------------------------------------------------------------------
+// What it still does not record (Stage 60)
+// ---------------------------------------------------------------------------
+
+/**
+ * Stage 58 recorded the stack, which was the gap Stage 56 found. Stage 60 tried
+ * to rebuild an old project's plan from provenance and found the next two: the
+ * site description and the author.
+ *
+ * These are written the way Stage 56 wrote its stack tests - pinning an absence
+ * on purpose. Adding either field would fail them, which is the point: both
+ * carry consequences beyond the schema. `author` is personal data that
+ * `buildProvenance` documents as deliberately excluded, and `description` is
+ * free text a client may treat as confidential. Neither should appear in a file
+ * checked into the client's repository because an upgrade planner found it
+ * convenient. The tests make that a decision rather than a diff.
+ */
+describe('provenance does not record the site prose', () => {
+  it('records no description, anywhere in the document', () => {
+    const document = provenanceOf({});
+    const config = document.config as Record<string, unknown>;
+    expect(config).not.toHaveProperty('description');
+    // Not merely absent from `config` - absent from the file.
+    expect(JSON.stringify(document)).not.toContain('Bespoke widgets');
+  });
+
+  it('records no author, anywhere in the document', () => {
+    const document = provenanceOf({
+      site: {
+        name: 'Acme Ltd',
+        url: 'https://acme.example',
+        description: 'Bespoke widgets.',
+        locale: 'en',
+        author: 'Jane Doe',
+      },
+    });
+    const config = document.config as Record<string, unknown>;
+    expect(config).not.toHaveProperty('author');
+    expect(JSON.stringify(document)).not.toContain('Jane Doe');
+  });
+
+  it('is byte-identical for two projects whose generated files differ', () => {
+    /*
+     * The Stage 56 measurement, pointed at what is still missing. Two projects
+     * that a developer would call different - different README, different
+     * index.html, different site.config.ts - and one record that cannot tell
+     * them apart.
+     */
+    const one = { description: 'Bespoke widgets.' };
+    const other = { description: 'A completely different sentence.' };
+    const siteWith = (description: string) => ({
+      name: 'Acme Ltd',
+      url: 'https://acme.example',
+      description,
+      locale: 'en',
+      author: null,
+    });
+
+    expect(provenanceOf({ site: siteWith(one.description) })).toEqual(
+      provenanceOf({ site: siteWith(other.description) }),
+    );
+
+    const contentOf = (description: string): Map<string, string> =>
+      new Map(
+        generate({ site: siteWith(description) })
+          .plan.operations.filter((entry) => entry.type === 'write')
+          .map((entry) => [entry.path, entry.content]),
+      );
+    const a = contentOf(one.description);
+    const b = contentOf(other.description);
+    const differing = [...a].filter(([p, content]) => b.get(p) !== content).map(([p]) => p);
+
+    expect(differing).toEqual(['index.html', 'README.md', 'src/config/site.config.ts']);
+  });
+
+  it('leaves a rebuilt plan no description to use, and planning refuses rather than blanks it', () => {
+    /*
+     * Why the absence blocks an upgrade planner rather than merely degrading
+     * it. `{{description}}` is not in NULLABLE_TOKENS, so there is no
+     * "unset" rendering to fall back on: a reconstruction that does not invent
+     * a description cannot produce a plan at all.
+     */
+    const siteWithout = {
+      name: 'Acme Ltd',
+      url: 'https://acme.example',
+      description: '',
+      locale: 'en',
+      author: null,
+    };
+    expect(() => generate({ site: siteWithout })).toThrow(/\{\{description\}\}/);
+  });
+});
