@@ -285,6 +285,71 @@ describe('publishing survives a path that is briefly busy', () => {
     };
   };
 
+  it('retries exactly the three codes that mean the path is busy', () => {
+    /*
+     * Named literally rather than read off the set under test.
+     *
+     * The first version of these tests iterated `TRANSIENT_RENAME_CODES`, so
+     * deleting a code from it deleted the coverage with it - a mutation that
+     * dropped EACCES survived, because the loop simply stopped checking EACCES.
+     * A test that adapts to the change it is meant to catch is not a test.
+     */
+    expect([...TRANSIENT_RENAME_CODES].sort()).toEqual(['EACCES', 'EBUSY', 'EPERM']);
+  });
+
+  it.each(['EPERM', 'EBUSY', 'EACCES'])('retries %s by name and then succeeds', (code) => {
+    let calls = 0;
+    const rename = (): void => {
+      calls += 1;
+      if (calls <= 2) {
+        const error = new Error(`${code}: simulated`) as NodeJS.ErrnoException;
+        error.code = code;
+        throw error;
+      }
+    };
+    expect(() => renameWithRetry('from', 'to', { rename, delayMs: 0 })).not.toThrow();
+    expect(calls).toBe(3);
+  });
+
+  it.each(['EPERM', 'EBUSY', 'EACCES'])('reports %s unchanged once its budget runs out', (code) => {
+    const rename = (): void => {
+      const error = new Error(`${code}: simulated`) as NodeJS.ErrnoException;
+      error.code = code;
+      throw error;
+    };
+    try {
+      renameWithRetry('from', 'to', { rename, attempts: 2, delayMs: 0 });
+      expect.unreachable(`${code} should have exhausted its retries`);
+    } catch (error) {
+      expect((error as NodeJS.ErrnoException).code).toBe(code);
+    }
+  });
+
+  it('waits between attempts by default, which is the whole point', () => {
+    /*
+     * The retry only helps because it gives OneDrive or Defender time to let
+     * go. Twelve attempts fired back to back would exhaust the budget in
+     * microseconds and fail exactly as before, so the default delay is part of
+     * the contract rather than an implementation detail.
+     */
+    let calls = 0;
+    const rename = (): void => {
+      calls += 1;
+      if (calls === 1) {
+        const error = new Error('EPERM: simulated') as NodeJS.ErrnoException;
+        error.code = 'EPERM';
+        throw error;
+      }
+    };
+
+    const started = Date.now();
+    renameWithRetry('from', 'to', { rename });
+    const elapsed = Date.now() - started;
+
+    expect(calls).toBe(2);
+    expect(elapsed, 'one retry should have waited before trying again').toBeGreaterThanOrEqual(40);
+  });
+
   it('retries a transient failure and then succeeds', () => {
     for (const code of [...TRANSIENT_RENAME_CODES]) {
       const attempt = failing(code, 3);
@@ -400,6 +465,145 @@ describe('publishing survives a path that is briefly busy', () => {
         ),
       ).toThrow(/EROFS/);
       expect(existsSync(target)).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('exhausts retries per code and reports that code, not a substitute', () => {
+    // Each retryable code must survive the whole round trip: retried while it
+    // looks like contention, and still itself when the budget runs out. A
+    // rewritten error would send someone looking for the wrong cause.
+    for (const code of [...TRANSIENT_RENAME_CODES]) {
+      let calls = 0;
+      const rename = (): void => {
+        calls += 1;
+        const error = new Error(`${code}: simulated`) as NodeJS.ErrnoException;
+        error.code = code;
+        throw error;
+      };
+      try {
+        renameWithRetry('from', 'to', { rename, attempts: 3, delayMs: 0 });
+        expect.unreachable(`${code} should have exhausted its retries`);
+      } catch (error) {
+        expect((error as NodeJS.ErrnoException).code, code).toBe(code);
+      }
+      expect(calls, `${code} should have used its whole budget`).toBe(3);
+    }
+  });
+
+  it('attempts a cross-device rename exactly once', () => {
+    /*
+     * EXDEV is the clearest case for failing fast: the source and destination
+     * are on different volumes, and no amount of waiting will change that.
+     * Retrying it would turn an instant, actionable error into a pause.
+     */
+    let calls = 0;
+    const rename = (): void => {
+      calls += 1;
+      const error = new Error('EXDEV: cross-device link not permitted') as NodeJS.ErrnoException;
+      error.code = 'EXDEV';
+      throw error;
+    };
+    expect(() => renameWithRetry('from', 'to', { rename, delayMs: 0 })).toThrow(/EXDEV/);
+    expect(calls).toBe(1);
+  });
+
+  it('leaves no staging directory behind when a retry eventually succeeds', () => {
+    const { dir, cleanup } = tempDir('apply-staging-ok');
+    try {
+      let calls = 0;
+      const rename = (from: string, to: string): void => {
+        calls += 1;
+        if (calls === 1) {
+          const error = new Error('EBUSY: resource busy') as NodeJS.ErrnoException;
+          error.code = 'EBUSY';
+          throw error;
+        }
+        renameSync(from, to);
+      };
+
+      const target = path.join(dir, 'acme-site');
+      apply(
+        {
+          templateId: 'astro-tailwind',
+          templateVersion: '0.1.0',
+          mode: 'coming-soon',
+          targetDir: target,
+          operations: [{ type: 'write', path: 'README.md', content: '# Acme\n', origin: 'base' }],
+        },
+        { rename },
+      );
+
+      expect(calls).toBeGreaterThan(1);
+      expect(readdirSync(dir).filter((entry) => entry.includes('.tmp-'))).toEqual([]);
+      expect(readdirSync(dir).sort()).toEqual(['acme-site']);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('leaves no staging directory behind when every retry fails', () => {
+    /*
+     * The failing path has to clean up too, or a developer who hits real
+     * contention accumulates hidden `.acme-site.tmp-xxxxxx` directories beside
+     * their project, one per attempt.
+     */
+    const { dir, cleanup } = tempDir('apply-staging-fail');
+    try {
+      const rename = (): void => {
+        const error = new Error('EPERM: operation not permitted') as NodeJS.ErrnoException;
+        error.code = 'EPERM';
+        throw error;
+      };
+
+      const target = path.join(dir, 'acme-site');
+      expect(() =>
+        apply(
+          {
+            templateId: 'astro-tailwind',
+            templateVersion: '0.1.0',
+            mode: 'coming-soon',
+            targetDir: target,
+            operations: [{ type: 'write', path: 'README.md', content: '# Acme\n', origin: 'base' }],
+          },
+          { rename },
+        ),
+      ).toThrow(/EPERM/);
+
+      expect(existsSync(target)).toBe(false);
+      expect(readdirSync(dir)).toEqual([]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('still says nothing was written when publication finally fails', () => {
+    // The sentence a user reads when this goes wrong, and the one the original
+    // report quoted back. It must survive the retry landing on top of it.
+    const { dir, cleanup } = tempDir('apply-message');
+    try {
+      const rename = (): void => {
+        const error = new Error('EPERM: operation not permitted') as NodeJS.ErrnoException;
+        error.code = 'EPERM';
+        throw error;
+      };
+      const target = path.join(dir, 'acme-site');
+      try {
+        apply(
+          {
+            templateId: 'astro-tailwind',
+            templateVersion: '0.1.0',
+            mode: 'coming-soon',
+            targetDir: target,
+            operations: [{ type: 'write', path: 'README.md', content: '# Acme\n', origin: 'base' }],
+          },
+          { rename },
+        );
+        expect.unreachable('should have thrown');
+      } catch (error) {
+        expect((error as { hint?: string }).hint).toContain('Nothing was written');
+      }
     } finally {
       cleanup();
     }

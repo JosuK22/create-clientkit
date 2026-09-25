@@ -297,3 +297,54 @@ Unchanged from 1.0.0: the CLI needs Node 20.19 or newer. Generated sites carry
 their framework's own floor — Astro 7 needs Node 22.12+.
 
 The CLI still ships **zero runtime dependencies**.
+
+## 1.1.1 — 2026-09-25
+
+A bug-fix release. Generation into a OneDrive-synchronised folder could fail
+intermittently on Windows, reporting:
+
+```text
+x Generation failed: EPERM: operation not permitted, rename
+  '…\.my-client-site.tmp-5r2eoa' -> '…\my-client-site'
+  Nothing was written to the target directory.
+```
+
+No generated output changes, and nothing in the CLI's behaviour changes except
+that this failure now usually does not happen.
+
+### Windows atomic publish reliability
+
+A project is built in a temporary sibling directory and published by renaming
+that directory into place, so the target is either complete or untouched. That
+final rename can fail transiently on Windows while another process still holds
+a handle on files written moments earlier — OneDrive's sync filter, Microsoft
+Defender's scanner and the Windows Search indexer all open new files shortly
+after they appear. The rename is perfectly legal; the path is briefly busy.
+
+Publish-time renames now retry `EPERM`, `EBUSY` and `EACCES` a bounded number
+of times with a short backoff. Every other error code still fails immediately,
+so a genuinely invalid rename — a cross-device move, a missing source, a
+read-only volume — reports at once rather than after a pause.
+
+Measured against the reported case, generating repeatedly into a real
+OneDrive-synchronised directory: **2 failures in 8 runs before, 0 in 40 after**.
+
+This improves resilience when Windows filesystem processes temporarily hold
+handles during publication. It does not make such failures impossible: if a
+handle is held for longer than the retry budget, generation still fails — and
+still leaves the target directory untouched, which is the guarantee that
+matters.
+
+### Unchanged
+
+The atomic publication model is exactly as it was. Nothing is copied into a
+half-built target, no files are moved individually into place on the fast path,
+and a failed publication still writes nothing and says so.
+
+### Also in this release
+
+Four of the tests that sweep all 104 supported stack combinations sat just
+under the suite's default five-second timeout. They passed on an idle machine
+and timed out under load, which made the release gate fail for no product
+reason. They now carry a time budget that reflects what they actually do; their
+assertions are unchanged.
