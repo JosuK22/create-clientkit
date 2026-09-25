@@ -187,7 +187,16 @@ describe('every case is identifiable and the order is declared', () => {
 // ---------------------------------------------------------------------------
 
 describe('every accepted configuration reaches a plan', () => {
-  it('plans without refusing, for all of them', () => {
+  /*
+   * A generous budget, not a slow test excused.
+   *
+   * This plans all 104 supported combinations. On an idle machine it takes
+   * one to three seconds; under load - a mutation campaign, an integration
+   * matrix - it crosses the 5s default and fails on time rather than on an
+   * assertion. That made the release gate flaky, which is worse than slow:
+   * it teaches people to re-run until green. The assertion is unchanged.
+   */
+  it('plans without refusing, for all of them', { timeout: 60_000 }, () => {
     /*
      * The cheap half of Stage 53's invariant, run on every push. Installing and
      * building all of them is the expensive half and lives in the integration
@@ -211,7 +220,7 @@ describe('every accepted configuration reaches a plan', () => {
     expect(failures).toEqual([]);
   });
 
-  it('plans a distinct file set or content for each configuration', () => {
+  it('plans a distinct file set or content for each configuration', { timeout: 60_000 }, () => {
     // Not a snapshot of any of them: just the assurance that the matrix is 104
     // different projects rather than one project counted 104 times.
     const fingerprints = new Set(
@@ -282,7 +291,7 @@ describe('the generated file list depends on the stack, not the site', () => {
       .plan.operations.map((entry) => entry.path)
       .sort();
 
-  it('is unchanged when every site field changes at once', () => {
+  it('is unchanged when every site field changes at once', { timeout: 60_000 }, () => {
     const differing = enumeration.accepted.filter(
       (combination) =>
         pathsOf(combination).join('\n') !== pathsOf(combination, siteVariant).join('\n'),
@@ -290,7 +299,7 @@ describe('the generated file list depends on the stack, not the site', () => {
     expect(differing.map((c) => c.id)).toEqual([]);
   });
 
-  it('does depend on the stack, so the invariant above is not vacuous', () => {
+  it('does depend on the stack, so the invariant above is not vacuous', { timeout: 60_000 }, () => {
     // If every stack produced the same file list, the test above would pass
     // for the wrong reason.
     const distinct = new Set(

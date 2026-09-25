@@ -1,9 +1,21 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { apply, findCollisions } from '../src/generate/apply.js';
+import {
+  apply,
+  findCollisions,
+  renameWithRetry,
+  TRANSIENT_RENAME_CODES,
+} from '../src/generate/apply.js';
 import type { GenerationPlan } from '../src/generate/files.js';
 import { tempDir } from './helpers.js';
 
@@ -227,5 +239,169 @@ describe('findCollisions', () => {
       'package.json',
       'src/pages/index.astro',
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Publishing a tree while Windows is still holding it (1.1.1)
+// ---------------------------------------------------------------------------
+
+/**
+ * The failure a user hit on 1.1.0, generating into a OneDrive folder:
+ *
+ *     x Generation failed: EPERM: operation not permitted, rename
+ *       '…\.my-client-site.tmp-5r2eoa' -> '…\my-client-site'
+ *       Nothing was written to the target directory.
+ *
+ * The atomicity contract held - nothing was written - but the generation
+ * failed for no reason the user could act on. A rename of a freshly written
+ * tree can fail transiently on Windows while OneDrive's sync filter,
+ * Defender's scanner or the search indexer still holds a handle on files that
+ * appeared a moment ago. The operation is legal; the path is briefly busy.
+ *
+ * Measured before the fix: 2 failures in 8 runs into a OneDrive directory.
+ * After: 0 in 40.
+ *
+ * Only contention is retried. A rename that is genuinely wrong must still fail
+ * at once rather than after a second of hopeful waiting, which is what the
+ * last two tests are for.
+ */
+describe('publishing survives a path that is briefly busy', () => {
+  const failing = (code: string, times: number) => {
+    let calls = 0;
+    const rename = (): void => {
+      calls += 1;
+      if (calls <= times) {
+        const error = new Error(`${code}: simulated`) as NodeJS.ErrnoException;
+        error.code = code;
+        throw error;
+      }
+    };
+    return {
+      rename,
+      get calls() {
+        return calls;
+      },
+    };
+  };
+
+  it('retries a transient failure and then succeeds', () => {
+    for (const code of [...TRANSIENT_RENAME_CODES]) {
+      const attempt = failing(code, 3);
+      expect(() =>
+        renameWithRetry('from', 'to', { rename: attempt.rename, delayMs: 0 }),
+      ).not.toThrow();
+      expect(attempt.calls, `${code} should have been retried`).toBe(4);
+    }
+  });
+
+  it('does not retry a failure that is not contention', () => {
+    // ENOENT means the source is not there. Waiting cannot help, and a user
+    // staring at a hung command is worse than a prompt error.
+    const attempt = failing('ENOENT', 1);
+    expect(() => renameWithRetry('from', 'to', { rename: attempt.rename, delayMs: 0 })).toThrow(
+      /ENOENT/,
+    );
+    expect(attempt.calls).toBe(1);
+  });
+
+  it('gives up eventually rather than retrying for ever', () => {
+    const attempt = failing('EPERM', Number.MAX_SAFE_INTEGER);
+    expect(() =>
+      renameWithRetry('from', 'to', { rename: attempt.rename, attempts: 4, delayMs: 0 }),
+    ).toThrow(/EPERM/);
+    expect(attempt.calls).toBe(4);
+  });
+
+  it('reports the original error when it gives up, not a rewritten one', () => {
+    // The user needs the real code and path to work out what is holding it.
+    const attempt = failing('EBUSY', Number.MAX_SAFE_INTEGER);
+    try {
+      renameWithRetry('from', 'to', { rename: attempt.rename, attempts: 2, delayMs: 0 });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect((error as NodeJS.ErrnoException).code).toBe('EBUSY');
+    }
+  });
+
+  it('does not sleep when the rename works first time', () => {
+    const started = Date.now();
+    renameWithRetry('from', 'to', { rename: () => undefined, delayMs: 5000 });
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it('publishes a project through the retry, not around it', () => {
+    /*
+     * The mutation that matters, and the one the tests above missed: if the
+     * publishing rename goes back to a bare `renameSync`, every test of the
+     * retry still passes while the original OneDrive failure returns.
+     *
+     * So this drives `apply` itself and makes the underlying rename fail the
+     * way Windows fails it. The generation must still succeed, and the
+     * injected rename must have been called more than once - which can only
+     * happen if publishing went through the retry.
+     */
+    const { dir, cleanup } = tempDir('apply-retry');
+    try {
+      let calls = 0;
+      const rename = (from: string, to: string): void => {
+        calls += 1;
+        if (calls === 1) {
+          const error = new Error(
+            'EPERM: operation not permitted, rename',
+          ) as NodeJS.ErrnoException;
+          error.code = 'EPERM';
+          throw error;
+        }
+        renameSync(from, to);
+      };
+
+      const target = path.join(dir, 'acme-site');
+      const result = apply(
+        {
+          templateId: 'astro-tailwind',
+          templateVersion: '0.1.0',
+          mode: 'coming-soon',
+          targetDir: target,
+          operations: [{ type: 'write', path: 'README.md', content: '# Acme\n', origin: 'base' }],
+        },
+        { rename },
+      );
+
+      expect(calls).toBeGreaterThan(1);
+      expect(result.written).toEqual(['README.md']);
+      expect(readFileSync(path.join(target, 'README.md'), 'utf8')).toBe('# Acme\n');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('still fails, writing nothing, when the rename is genuinely refused', () => {
+    // The retry must not turn a real error into a hang or a silent success.
+    const { dir, cleanup } = tempDir('apply-refused');
+    try {
+      const rename = (): void => {
+        const error = new Error('EROFS: read-only file system') as NodeJS.ErrnoException;
+        error.code = 'EROFS';
+        throw error;
+      };
+
+      const target = path.join(dir, 'acme-site');
+      expect(() =>
+        apply(
+          {
+            templateId: 'astro-tailwind',
+            templateVersion: '0.1.0',
+            mode: 'coming-soon',
+            targetDir: target,
+            operations: [{ type: 'write', path: 'README.md', content: '# Acme\n', origin: 'base' }],
+          },
+          { rename },
+        ),
+      ).toThrow(/EROFS/);
+      expect(existsSync(target)).toBe(false);
+    } finally {
+      cleanup();
+    }
   });
 });

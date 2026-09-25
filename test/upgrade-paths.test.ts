@@ -186,7 +186,16 @@ describe('an unchanged configuration plans no change', () => {
     expect(new Set(result.currentPaths).size).toBe(result.currentPaths.length);
   });
 
-  it('holds for every accepted stack', () => {
+  /*
+   * A generous budget, not a slow test excused.
+   *
+   * This plans all 104 supported combinations. On an idle machine it takes
+   * one to three seconds; under load - a mutation campaign, an integration
+   * matrix - it crosses the 5s default and fails on time rather than on an
+   * assertion. That made the release gate flaky, which is worse than slow:
+   * it teaches people to re-run until green. The assertion is unchanged.
+   */
+  it('holds for every accepted stack', { timeout: 60_000 }, () => {
     const wrong: string[] = [];
     for (const combination of enumeration.accepted) {
       const manifest = manifestFor(combination);
@@ -202,36 +211,40 @@ describe('an unchanged configuration plans no change', () => {
 // ---------------------------------------------------------------------------
 
 describe('the path set does not depend on site configuration', () => {
-  it('is identical when every site field changes, across all accepted stacks', () => {
-    /*
-     * Stage 61's measurement, kept as a regression. The upgrade contract rests
-     * on it: if a template ever branched on `{{locale}}` to emit a different
-     * file, ownership would start depending on prose and this planner would
-     * report a stranger's edits as orphans.
-     */
-    const variant = {
-      projectName: 'totally-different',
-      site: {
-        name: 'Zenith Industries',
-        url: null,
-        description: 'An entirely unrelated sentence about something else.',
-        locale: 'fr',
-        author: 'Jane Doe',
-      },
-      packageManager: 'pnpm',
-    };
+  it(
+    'is identical when every site field changes, across all accepted stacks',
+    { timeout: 60_000 },
+    () => {
+      /*
+       * Stage 61's measurement, kept as a regression. The upgrade contract rests
+       * on it: if a template ever branched on `{{locale}}` to emit a different
+       * file, ownership would start depending on prose and this planner would
+       * report a stranger's edits as orphans.
+       */
+      const variant = {
+        projectName: 'totally-different',
+        site: {
+          name: 'Zenith Industries',
+          url: null,
+          description: 'An entirely unrelated sentence about something else.',
+          locale: 'fr',
+          author: 'Jane Doe',
+        },
+        packageManager: 'pnpm',
+      };
 
-    const differing: string[] = [];
-    for (const combination of enumeration.accepted) {
-      const before = manifestFor(combination);
-      const after = manifestOf({ ...before, ...variant } as Partial<ProjectManifest>);
-      const result = between(before, after);
-      if (result.added.length > 0 || result.orphanCandidates.length > 0) {
-        differing.push(combination.id);
+      const differing: string[] = [];
+      for (const combination of enumeration.accepted) {
+        const before = manifestFor(combination);
+        const after = manifestOf({ ...before, ...variant } as Partial<ProjectManifest>);
+        const result = between(before, after);
+        if (result.added.length > 0 || result.orphanCandidates.length > 0) {
+          differing.push(combination.id);
+        }
       }
-    }
-    expect(differing).toEqual([]);
-  });
+      expect(differing).toEqual([]);
+    },
+  );
 
   it('covers the whole accepted matrix rather than one representative', () => {
     expect(enumeration.accepted.length).toBeGreaterThan(100);
@@ -296,7 +309,7 @@ describe('the path set does depend on the stack', () => {
     expect(result.added).toEqual([]);
   });
 
-  it('produces more than one distinct path set across the matrix', () => {
+  it('produces more than one distinct path set across the matrix', { timeout: 60_000 }, () => {
     const sets = new Set(
       enumeration.accepted.map((combination) =>
         between(manifestFor(combination), manifestFor(combination)).currentPaths.join('\n'),

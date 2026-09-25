@@ -24,10 +24,70 @@ export interface ApplyOptions {
   /** Required when the target already contains unrelated files. */
   readonly allowNonEmpty?: boolean;
   readonly onProgress?: (relativePath: string) => void;
+  /**
+   * The raw rename underneath the retry. Production uses `renameSync`.
+   *
+   * Injectable only so a test can make a rename fail the way Windows makes it
+   * fail, which is the one thing a real filesystem will not do on demand. It
+   * is what lets the suite prove that publishing *goes through* the retry
+   * rather than merely that the retry works when called.
+   */
+  readonly rename?: (from: string, to: string) => void;
 }
 
 function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 8);
+}
+
+/**
+ * Renames, retrying the Windows failures that are contention rather than
+ * refusal.
+ *
+ * A rename of a freshly written tree can fail with `EPERM`, `EBUSY` or
+ * `EACCES` on Windows while something else still holds a handle to it -
+ * OneDrive's sync filter, Defender's scanner, or the search indexer, each of
+ * which opens new files moments after they appear. The operation is perfectly
+ * legal; the file is merely busy for a few milliseconds.
+ *
+ * Reported as `EPERM: operation not permitted, rename …` and intermittent -
+ * measured at 2 failures in 8 runs generating into a OneDrive folder. Retrying
+ * with a short backoff takes it to 0 in 40. `rmSync` in this file already gets
+ * the same treatment through its own `maxRetries`, which is where the pattern
+ * comes from; the publish rename simply never got it.
+ *
+ * Only those three codes are retried. Anything else is a real error and is
+ * thrown at once, because a rename that is genuinely wrong should fail fast
+ * rather than after a second of hopeful waiting.
+ */
+export const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+export interface RenameRetryOptions {
+  /** Injectable so a test can fail on demand; production uses `renameSync`. */
+  readonly rename?: (from: string, to: string) => void;
+  readonly attempts?: number;
+  readonly delayMs?: number;
+}
+
+export function renameWithRetry(from: string, to: string, options: RenameRetryOptions = {}): void {
+  const rename = options.rename ?? renameSync;
+  const attempts = options.attempts ?? 12;
+  const delayMs = options.delayMs ?? 60;
+
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      rename(from, to);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code ?? '';
+      if (attempt >= attempts || !TRANSIENT_RENAME_CODES.has(code)) throw error;
+      // Busy-wait: the whole point is to hold the path for a few milliseconds
+      // without yielding to code that might touch the tree in between.
+      const until = Date.now() + delayMs;
+      while (Date.now() < until) {
+        /* deliberately spinning */
+      }
+    }
+  }
 }
 
 /**
@@ -52,6 +112,8 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
     throw new CliError(`Directory "${targetDir}" already exists and is not empty.`);
   }
 
+  const retry = options.rename === undefined ? {} : { rename: options.rename };
+
   const written: string[] = [];
   const overwritten: string[] = [];
 
@@ -74,7 +136,7 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
     if (!targetExists) {
       // Fast path: one rename publishes the whole tree at once.
       mkdirSync(parent, { recursive: true });
-      renameSync(stagingDir, targetDir);
+      renameWithRetry(stagingDir, targetDir, retry);
     } else {
       /*
        * Merge path: move planned files only. Nothing else in the target is
@@ -118,7 +180,7 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
             overwritten.push(operation.path);
             backup = path.join(backupDir, ...operation.path.split('/'));
             mkdirSync(path.dirname(backup), { recursive: true });
-            renameSync(to, backup);
+            renameWithRetry(to, backup, retry);
           }
 
           // Recorded before the move, not after: the operation that fails may
@@ -126,14 +188,14 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
           // back too.
           undo.push({ to, backup });
           mkdirSync(path.dirname(to), { recursive: true });
-          renameSync(from, to);
+          renameWithRetry(from, to, retry);
         }
       } catch (error) {
         // Put everything back, newest move first, before the outer handler
         // reports the failure.
         for (const step of undo.reverse()) {
           rmSync(step.to, { recursive: true, force: true });
-          if (step.backup !== null) renameSync(step.backup, step.to);
+          if (step.backup !== null) renameWithRetry(step.backup, step.to, retry);
         }
         throw error;
       }
