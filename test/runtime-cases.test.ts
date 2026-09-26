@@ -97,6 +97,7 @@ describe('no case claims a contract its stack does not have', () => {
     'accessibility-structure': (entry) => entry.combination.features.includes('accessibility'),
     'stylesheet-loads': (entry) => entry.combination.styling !== 'none',
     'mui-renders': (entry) => entry.combination.uiLibrary === 'mui',
+    'chakra-renders': (entry) => entry.combination.uiLibrary === 'chakra',
     'router-route-loads': (entry) => entry.combination.router === 'react-router',
     'client-fallback-200': (entry) => entry.combination.features.includes('client-route-fallback'),
   };

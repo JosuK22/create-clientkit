@@ -421,8 +421,10 @@ describe('a value the file cannot have', () => {
     expect(error.hint).toContain('no adapter implements it');
   });
 
-  it('reports chakra through the registry too', async () => {
-    const { manifest } = await fromConfig({ stack: { framework: 'react', uiLibrary: 'chakra' } });
+  it('reports angular-material through the registry too', async () => {
+    const { manifest } = await fromConfig({
+      stack: { framework: 'react', uiLibrary: 'angular-material' },
+    });
     // The registry refuses at selection, exactly as it does for the flag.
     expect(() =>
       planManifest(manifest, {

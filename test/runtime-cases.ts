@@ -46,6 +46,7 @@ export type Contract =
   | 'accessibility-structure'
   | 'stylesheet-loads'
   | 'mui-renders'
+  | 'chakra-renders'
   | 'router-route-loads'
   | 'client-fallback-200'
   | 'no-runtime-errors';
@@ -142,6 +143,7 @@ function contractsFor(entry: Combination, url: UrlState, added: readonly string[
 
   if (entry.styling !== 'none') contracts.push('stylesheet-loads');
   if (entry.uiLibrary === 'mui') contracts.push('mui-renders');
+  if (entry.uiLibrary === 'chakra') contracts.push('chakra-renders');
   if (entry.router === 'react-router') contracts.push('router-route-loads');
 
   return contracts;

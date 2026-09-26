@@ -305,7 +305,7 @@ describe('selection', () => {
   });
 
   it('refuses a known but unimplemented UI library, with no fallback', () => {
-    for (const id of ['chakra', 'angular-material'] as const) {
+    for (const id of ['angular-material'] as const) {
       expect(() => adapters.uiLibrary(id)).toThrow(CliError);
       expect(() => resolveProject(manifest(id), adapters)).toThrow(CliError);
     }
@@ -314,7 +314,9 @@ describe('selection', () => {
   it('an unimplemented UI library never becomes MUI', () => {
     let selected: readonly string[];
     try {
-      selected = selectAdapters(manifest('chakra'), adapters).adapters.map((entry) => entry.ref);
+      selected = selectAdapters(manifest('angular-material'), adapters).adapters.map(
+        (entry) => entry.ref,
+      );
     } catch {
       selected = [];
     }
@@ -328,9 +330,9 @@ describe('selection', () => {
   });
 
   it('reports which UI libraries are actually implemented', () => {
-    expect(adapters.implementedUiLibraries()).toEqual(['mui']);
+    expect(adapters.implementedUiLibraries()).toEqual(['chakra', 'mui']);
     expect(adapters.hasUiLibrary('mui')).toBe(true);
-    expect(adapters.hasUiLibrary('chakra')).toBe(false);
+    expect(adapters.hasUiLibrary('angular-material')).toBe(false);
   });
 
   it('carries the choice through to the resolved project', () => {

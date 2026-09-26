@@ -13,6 +13,7 @@ import type {
 import { createAccessibilityAdapter } from './accessibility.js';
 import { createAstroAdapter } from './astro.js';
 import { createBootstrapAdapter } from './bootstrap.js';
+import { createChakraAdapter } from './chakra.js';
 import { createClientRouteFallbackAdapter } from './client-route-fallback.js';
 import { createReactAdapter } from './react.js';
 import { createReactRouterAdapter } from './react-router.js';
@@ -27,10 +28,10 @@ import { createViteAdapter } from './vite.js';
 /**
  * The adapter registry, holding exactly what exists.
  *
- * Three frameworks, one build tool, two styling systems, one UI library, one
+ * Three frameworks, one build tool, two styling systems, two UI libraries, one
  * router and five features - because those are what is implemented. The id
- * unions in `domain/dimensions.ts` name more (`angular`, `chakra`, `scss`,
- * `sitemap`), and asking for any of them fails here rather than resolving to a
+ * unions in `domain/dimensions.ts` name more (`angular`, `angular-material`,
+ * `scss`, `sitemap`), and asking for any of them fails here rather than resolving to a
  * stub or, far worse, quietly falling back to something that happens to work.
  *
  * That distinction is the registry's job and nobody else's: a **domain id** is
@@ -102,7 +103,10 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     ['tailwind', createTailwindAdapter(templatesRoot)],
     ['bootstrap', createBootstrapAdapter(templatesRoot)],
   ]);
-  const uiLibraries = new Map<UiLibraryId, Adapter>([['mui', createMuiAdapter(templatesRoot)]]);
+  const uiLibraries = new Map<UiLibraryId, Adapter>([
+    ['mui', createMuiAdapter(templatesRoot)],
+    ['chakra', createChakraAdapter(templatesRoot)],
+  ]);
   // `starter:*` is not here on purpose. It selects a template layer rather than
   // an adapter - the arrangement V1's `mode` became - and asking the registry
   // for it would report a missing adapter for something that was never one.

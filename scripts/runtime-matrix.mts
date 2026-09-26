@@ -743,6 +743,31 @@ async function inBrowser(
         errors.length === 0,
       );
     }
+    if (contracts.includes('chakra-renders')) {
+      const chakra = await page.evaluate(() => ({
+        // Chakra's tokens are CSS variables the provider writes to the root.
+        tokens:
+          getComputedStyle(document.documentElement)
+            .getPropertyValue('--chakra-colors-gray-500')
+            .trim() !== '',
+        // The provider's own `Box`, styled by Emotion.
+        styled: document.querySelector('.app-providers[class*="css-"]') !== null,
+      }));
+      record(
+        'chakra-renders',
+        'Chakra tokens and Emotion-styled elements are present in the DOM',
+        'present',
+        `tokens ${chakra.tokens ? 'present' : 'absent'}, styled ${chakra.styled ? 'present' : 'absent'}`,
+        chakra.tokens && chakra.styled,
+      );
+      record(
+        'chakra-renders',
+        'no provider or hydration error',
+        'none',
+        errors.length === 0 ? 'none' : errors.slice(0, 2).join(' | '),
+        errors.length === 0,
+      );
+    }
 
     // --- client-side routing ------------------------------------------------
     if (contracts.includes('router-route-loads')) {

@@ -1,0 +1,909 @@
+== PLAN ==
+templateId       nextjs
+templateVersion  0.1.0
+mode             coming-soon
+targetDir        <TARGET_DIR>
+operationCount   16
+
+== ORDER ==
+write  .client-site.json
+copy   .gitattributes
+write  .gitignore
+write  app/layout.tsx
+write  app/not-found.tsx
+write  app/page.tsx
+write  components/providers/AppProviders.tsx
+write  components/providers/UiProviders.tsx
+write  components/ui/Mark.tsx
+write  lib/site.config.ts
+write  next.config.ts
+write  package.json
+write  public/favicon.svg
+write  README.md
+write  styles/globals.css
+write  tsconfig.json
+
+== FILES ==
+
+---- .client-site.json ----
+type    write
+origin  cli
+----
+{
+  "$schema": "https://create-clientkit.dev/schema/client-site.json",
+  "cliVersion": "9.9.9",
+  "template": {
+    "id": "nextjs",
+    "version": "0.1.0",
+    "framework": "nextjs",
+    "frameworkVersion": "16.3.5"
+  },
+  "stack": {
+    "framework": "nextjs",
+    "buildTool": "next",
+    "language": "ts",
+    "styling": "none",
+    "uiLibrary": "chakra",
+    "router": "file-based",
+    "architecture": "next-app"
+  },
+  "mode": "coming-soon",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "config": {
+    "projectName": "acme-app",
+    "siteName": "Acme Ltd",
+    "siteUrl": "https://acme.example",
+    "locale": "en",
+    "packageManager": "npm",
+    "features": []
+  }
+}
+
+
+---- .gitattributes ----
+type    copy
+origin  base
+source  <TEMPLATES>/nextjs/base/_gitattributes
+(binary; copied byte-for-byte, never token-substituted)
+
+---- .gitignore ----
+type    write
+origin  base
+----
+node_modules
+.next
+out
+next-env.d.ts
+*.local
+
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+
+---- app/layout.tsx ----
+type    write
+origin  base
+----
+import type { Metadata } from 'next';
+
+import { Providers } from '../components/providers/AppProviders';
+import { SITE } from '../lib/site.config';
+import '../styles/globals.css';
+
+/**
+ * The root layout: the top of the tree, and the only place `<html>` exists.
+ *
+ * A server component, deliberately, and it stays one. Nothing here needs state,
+ * effects or browser APIs, so nothing here needs to reach the browser as
+ * JavaScript - and marking this file `'use client'` would pull every page under
+ * it into the client bundle to solve a problem it does not have.
+ *
+ * ## The provider boundary
+ *
+ * `Providers` is always here, whether or not anything fills it. A project
+ * with no UI library gets a pass-through that renders its children and nothing
+ * else; a project with one gets that library's providers instead, at the same
+ * place, without this file changing. Where the client boundary goes - if one is
+ * needed at all - is that component's decision, which is what keeps it out of
+ * this one.
+ *
+ * `metadata` is baseline only - a title and a description taken from the one
+ * config file. There is no canonical URL, no Open Graph block and no social
+ * card, because those need a production URL and a considered decision per page,
+ * and inventing either would put claims in the head that nobody made.
+ */
+export const metadata: Metadata = {
+  title: SITE.name,
+  description: SITE.description,
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang={SITE.locale || 'en'}>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+
+
+---- app/not-found.tsx ----
+type    write
+origin  base
+----
+import { CONTACT, NAV } from '../lib/site.config';
+
+/**
+ * The not-found page.
+ *
+ * Next renders this for any path that matches no route, at any depth and
+ * including paths under pages you add later - the framework resolves it, so
+ * there is no list of routes here and nothing to keep in step as the site
+ * grows.
+ *
+ * A server component with no interactivity, like every other page this template
+ * ships. The class names are the shared style contract, so this markup is
+ * identical whether the project was generated with plain CSS or with Tailwind.
+ *
+ * Every optional piece is omitted rather than filled in: an empty
+ * `CONTACT.email` renders no link, and an empty `NAV` renders no suggestions.
+ */
+export default function NotFound() {
+  const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+
+  return (
+    <div className="app-shell">
+      <main className="app-main">
+        <div className="container-page hero">
+          <div className="hero-inner">
+            <p className="eyebrow">404</p>
+
+            <h1 className="page-title">This page doesn&apos;t exist.</h1>
+
+            <p className="lead">
+              The link may be out of date, or the address may have been mistyped.
+            </p>
+
+            <a href="/" className="button-primary">
+              Return home
+            </a>
+
+            {CONTACT.email ? <a href={`mailto:${CONTACT.email}`}>Report a broken link</a> : null}
+
+            {links.length > 0 ? (
+              <nav aria-label="Other pages">
+                <ul>
+                  {links.map((item) => (
+                    <li key={item.href}>
+                      <a href={item.href}>{item.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
+---- app/page.tsx ----
+type    write
+origin  modes/coming-soon
+----
+import { Mark } from '../components/ui/Mark';
+import { CONTACT, SITE } from '../lib/site.config';
+
+/**
+ * The launch page.
+ *
+ * A server component with no interactivity at all: no countdown, no form, no
+ * client bundle. A countdown in particular is a promise with a date attached,
+ * and a launch page that silently passes its own deadline is worse than one
+ * that never made the claim.
+ *
+ * Every optional piece is omitted rather than filled with a placeholder - an
+ * empty `CONTACT.email` renders nothing, not `hello@example.com`.
+ *
+ * The class names are the shared style contract, so this markup is identical
+ * whether the project was generated with plain CSS or with Tailwind.
+ */
+export default function HomePage() {
+  return (
+    <div className="app-shell">
+      <main className="app-main">
+        <div className="container-page hero">
+          <div className="hero-inner">
+            <Mark />
+
+            <p className="eyebrow">Coming soon</p>
+
+            <h1 className="page-title">{SITE.name}</h1>
+
+            {SITE.description ? <p className="lead">{SITE.description}</p> : null}
+
+            {CONTACT.email ? (
+              <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                Get in touch
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
+---- components/providers/AppProviders.tsx ----
+type    write
+origin  composed from ui-library:chakra
+----
+import type { ReactNode } from 'react';
+import { AppProviders } from './UiProviders';
+
+/**
+ * Everything that wraps the whole application.
+ *
+ * Composed from what the selected adapters contribute, outermost first.
+ * Each wrapper declares where it belongs, so the nesting is the same
+ * however the stack was configured.
+ */
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <AppProviders>
+      {children}
+    </AppProviders>
+  );
+}
+
+
+---- components/providers/UiProviders.tsx ----
+type    write
+origin  ui-library:chakra
+----
+'use client';
+
+import { Box, ChakraProvider, createSystem, defaultConfig } from '@chakra-ui/react';
+import createCache from '@emotion/cache';
+import { CacheProvider } from '@emotion/react';
+import { useServerInsertedHTML } from 'next/navigation';
+import { useState, type ReactNode } from 'react';
+
+/**
+ * Chakra UI, mounted above the application.
+ *
+ * ## Why the style cache
+ *
+ * On a framework that renders on the server, Emotion - Chakra's styling engine
+ * - generates styles during that render and has nowhere to put them: they are
+ * emitted where the component sits, which is inside `<body>`. The browser's
+ * first render then disagrees with the server's markup, and every page load
+ * reports a hydration error - with the production build reporting success
+ * throughout.
+ *
+ * The cache below collects those styles instead, and `useServerInsertedHTML`
+ * flushes them into the head before the response is sent. It is only here
+ * because the framework can do that; the client-only variant of this file has
+ * no cache and needs none.
+ *
+ * ## Why the directive
+ *
+ * `ChakraProvider` is React context, so this file has to be part of the client
+ * bundle. In a framework that renders on the server by default it is the
+ * boundary that makes this component legal at all.
+ *
+ * Two things live here, inside the cache:
+ *
+ *   - `ChakraProvider` supplies the styling system every Chakra component
+ *     reads. Without it Chakra components throw rather than render.
+ *   - `Box` is an ordinary Chakra component, rendered so the styling engine is
+ *     exercised on a real element rather than only configured. Its
+ *     `colorPalette` is the accent every Chakra component below inherits -
+ *     `gray` is Chakra's own default, so change it here to recolour them all.
+ *
+ * ## Chakra and your styling system are separate choices
+ *
+ * This file is contributed by the UI library you picked. The global stylesheet
+ * is contributed by the styling system you picked, and it already resets the
+ * browser's defaults. Chakra's own reset (`preflight`) is therefore turned off
+ * below: it lives in a CSS layer declared after your styling system's, so left
+ * on it would override your utility classes - every margin and padding among
+ * them. Chakra's components carry their own styles and do not depend on it.
+ *
+ * ## Making it yours
+ *
+ * Extend `system` below with `theme.tokens`, `theme.semanticTokens` or
+ * `theme.recipes`, and everything under this provider picks them up. This file
+ * is yours now - the generator will not touch it again.
+ */
+
+const system = createSystem(defaultConfig, {
+  preflight: false,
+});
+
+function StyleCache({ children }: { children: ReactNode }) {
+  const [{ cache, flush }] = useState(() => {
+    const cache = createCache({ key: 'css' });
+    // Keeps rules in the cache during a server render instead of emitting
+    // them inline, so they can be flushed into the head below.
+    cache.compat = true;
+    const insert = cache.insert;
+    let pending: string[] = [];
+    cache.insert = (...args) => {
+      const serialized = args[1];
+      if (cache.inserted[serialized.name] === undefined) pending.push(serialized.name);
+      return insert(...args);
+    };
+    const flush = () => {
+      const names = pending;
+      pending = [];
+      return names;
+    };
+    return { cache, flush };
+  });
+
+  useServerInsertedHTML(() => {
+    const names = flush();
+    if (names.length === 0) return null;
+    let styles = '';
+    for (const name of names) {
+      const rules = cache.inserted[name];
+      if (typeof rules === 'string') styles += rules;
+    }
+    return (
+      <style
+        key={cache.key}
+        data-emotion={`${cache.key} ${names.join(' ')}`}
+        dangerouslySetInnerHTML={{ __html: styles }}
+      />
+    );
+  });
+
+  return <CacheProvider value={cache}>{children}</CacheProvider>;
+}
+
+export function AppProviders({ children }: { children: ReactNode }) {
+  return (
+    <StyleCache>
+      <ChakraProvider value={system}>
+        <Box className="app-providers" colorPalette="gray">
+          {children}
+        </Box>
+      </ChakraProvider>
+    </StyleCache>
+  );
+}
+
+
+---- components/ui/Mark.tsx ----
+type    write
+origin  base
+----
+import { SITE } from '../../lib/site.config';
+
+/**
+ * A placeholder brand mark: the client's initials in a rounded square.
+ *
+ * Deliberately not an image. A generated project has no logo file, and shipping
+ * a stand-in graphic would be something to find and delete later; initials read
+ * as intentional until a real mark replaces them.
+ *
+ * The class names are the project's shared style contract - `brand`,
+ * `brand-lg`, `brand-mark`, `brand-name` - which every styling system
+ * implements. That is what lets this component render under plain CSS or
+ * Tailwind without knowing which was selected.
+ */
+export function Mark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
+  const initials = SITE.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <span className={`brand brand-${size}`}>
+      <span className="brand-mark" aria-hidden="true">
+        {initials || '—'}
+      </span>
+      <span className="brand-name">{SITE.name}</span>
+    </span>
+  );
+}
+
+
+---- lib/site.config.ts ----
+type    write
+origin  base
+----
+/**
+ * Everything client-specific, in one file.
+ *
+ * An empty string means "not set", and the UI omits that piece rather than
+ * rendering a placeholder. Nothing here is ever invented for you.
+ */
+
+export interface NavItem {
+  label: string;
+  /** In-page anchor ('#services') or a route path. */
+  href: string;
+}
+
+export interface SiteIdentity {
+  name: string;
+  description: string;
+  /**
+   * Production URL. Empty is a supported state, not a broken one - nothing
+   * absolute is emitted until you fill it in, so no page ever points at a
+   * domain nobody owns.
+   */
+  url: string;
+  locale: string;
+  author: string;
+}
+
+export interface ContactDetails {
+  email: string;
+  phone: string;
+}
+
+export const SITE: SiteIdentity = {
+  name: 'Acme Ltd',
+  description: 'Bespoke widgets.',
+  url: 'https://acme.example',
+  locale: 'en',
+  author: '',
+};
+
+/** Header links. Empty means no menu is rendered at all. */
+export const NAV: NavItem[] = [];
+
+/** Each field is optional and hidden when empty. */
+export const CONTACT: ContactDetails = {
+  email: '',
+  phone: '',
+};
+
+
+---- next.config.ts ----
+type    write
+origin  base
+----
+import type { NextConfig } from 'next';
+
+/**
+ * Deliberately empty.
+ *
+ * Every option Next offers here is a decision about deployment, images or
+ * experimental behaviour, and none of those can be made correctly before the
+ * project has a host. An empty config is the honest starting point; add to it
+ * when there is something to add.
+ */
+const nextConfig: NextConfig = {};
+
+export default nextConfig;
+
+
+---- package.json ----
+type    write
+origin  base + modes/coming-soon
+----
+{
+  "name": "acme-app",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "keywords": [
+    "nextjs",
+    "client-site",
+    "landing-page"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chakra-ui/react": "3.37.0",
+    "@emotion/cache": "11.14.0",
+    "@emotion/react": "11.14.0",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}
+
+
+---- public/favicon.svg ----
+type    write
+origin  base
+----
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M20 40V24h6.4c4.8 0 7.6 2.7 7.6 7s-2.8 7-7.6 7H20Zm4.4-3.4h1.9c2.6 0 4-1.4 4-3.6s-1.4-3.6-4-3.6h-1.9v7.2Z" fill="#f8fafc" />
+  <circle cx="42" cy="38" r="3" fill="#38bdf8" />
+</svg>
+
+
+---- README.md ----
+type    write
+origin  base
+----
+# Acme Ltd
+
+Bespoke widgets.
+
+Built with [Next.js](https://nextjs.org) (App Router), TypeScript and plain CSS.
+
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+The site runs at http://localhost:3000.
+
+## Scripts
+
+| Script              | What it does                          |
+| ------------------- | ------------------------------------- |
+| `npm run dev`       | Development server with hot reloading |
+| `npm run build`     | Production build                      |
+| `npm run start`     | Serves the production build           |
+| `npm run typecheck` | Type-checks without emitting          |
+
+There is no `lint` script. Next 16 removed the `next lint` command, and adding
+one would mean adding ESLint and its Next configuration - a choice better made
+by you than assumed here.
+
+## Where things live
+
+```
+app/
+  layout.tsx      the root layout: <html>, <body>, baseline metadata
+  page.tsx        the home page
+components/ui/    presentational pieces
+lib/
+  site.config.ts  everything client-specific, in one file
+public/           static assets served from /
+styles/
+  globals.css     the only stylesheet; custom properties are the design system
+```
+
+## First things to change
+
+- `lib/site.config.ts` — name, description, locale and contact all live there.
+- Set `SITE.url` once the domain is known. It is empty on purpose: nothing
+  absolute is emitted until it is filled in, so no page points at a domain
+  nobody owns.
+- Replace `public/favicon.svg` with the client mark.
+
+## What is deliberately not here
+
+No CSS framework, no component library, no client-side router, no analytics and
+no deployment configuration. Each of those is a decision with consequences, and
+a scaffold that makes them for you is one you have to undo first.
+
+
+---- styles/globals.css ----
+type    write
+origin  framework:nextjs
+----
+/*
+ * Plain CSS, implementing the project's shared style contract.
+ *
+ * The markup names what a thing *is* - `hero`, `page-title`, `button-primary` -
+ * and a stylesheet decides how it looks. This file is the plain-CSS
+ * implementation of that contract; `templates/styling/tailwind/` is the
+ * Tailwind one, and `templates/styling/bootstrap/` the Bootstrap one. Every one
+ * of them answers the same class names, which is what lets a component tree be
+ * rendered under a different styling system without the framework template
+ * knowing which was selected.
+ *
+ * Only one of them is ever shipped. Selecting a styling system hands that
+ * system ownership of the `styles.global` role, and this file is not composed
+ * at all.
+ *
+ * No framework, no preprocessor, no build step beyond the one Next already
+ * runs. Custom properties are the whole system: change a value here and the
+ * palette, rhythm and type scale follow everywhere.
+ */
+
+:root {
+  --color-ink: oklch(0.22 0.01 260);
+  --color-ink-muted: oklch(0.52 0.01 260);
+  --color-surface: oklch(1 0 0);
+  --color-line: oklch(0.92 0.005 260);
+  --measure-page: 64rem;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+  text-rendering: optimizeLegibility;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+/* The shared style contract ------------------------------------------------ */
+
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+}
+
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
+}
+
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--color-line);
+}
+
+.copyright {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+}
+
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.contact-link:hover {
+  color: var(--color-ink);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  color: var(--color-surface);
+  font-weight: 600;
+}
+
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
+
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
+
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hero,
+.intro {
+  padding-block: 5rem;
+}
+
+.hero-inner,
+.intro-inner {
+  max-width: 42rem;
+}
+
+.eyebrow {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 2rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  padding-inline: 1.25rem;
+  color: var(--color-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 160ms ease;
+}
+
+.button-primary:hover {
+  opacity: 0.85;
+}
+
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
+  .sections {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+/* Respect the reader's preference; never animate for someone who asked not to. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+---- tsconfig.json ----
+type    write
+origin  base
+----
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+

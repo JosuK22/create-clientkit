@@ -70,10 +70,10 @@ const manifestOf = (combination: Combination) => ({
 
 describe('the accepted set comes from the engine', () => {
   it('covers the whole cross-product of what is implemented', () => {
-    // 3 frameworks x 3 styling x 2 UI x 3 routers x 2 languages x 32 feature
+    // 3 frameworks x 3 styling x 3 UI x 3 routers x 2 languages x 32 feature
     // subsets x 2 starters. Asserted so a dimension gaining a value is visible
     // here rather than silently shrinking the matrix.
-    expect(enumeration.total).toBe(3 * 3 * 2 * 3 * 2 * 32 * 2);
+    expect(enumeration.total).toBe(3 * 3 * 3 * 3 * 2 * 32 * 2);
     expect(enumeration.accepted.length + enumeration.rejected.length).toBe(enumeration.total);
   });
 

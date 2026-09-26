@@ -228,9 +228,9 @@ describe('impossible combinations are never offered', () => {
     expect(asked).not.toContain('uiLibrary');
   });
 
-  it('offers MUI under React', async () => {
+  it('offers MUI and Chakra UI under React', async () => {
     const { optionsFor } = await menus({ framework: 'react' });
-    expect(optionsFor('uiLibrary')).toEqual(['mui', 'none']);
+    expect(optionsFor('uiLibrary')).toEqual(['chakra', 'mui', 'none']);
   });
 
   it('offers Astro the features Astro can have', async () => {

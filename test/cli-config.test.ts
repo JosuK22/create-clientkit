@@ -447,13 +447,18 @@ describe('a known id with no adapter is the registry’s answer, not the CLI’s
     expect(error.hint).toContain('no adapter implements it');
   });
 
-  it('reports chakra the same way, at the same layer', async () => {
+  it('reports angular-material the same way, at the same layer', async () => {
     // The framework is looked up during normalisation because the remaining
     // defaults are read from it; every other dimension is looked up by
     // `selectAdapters`. Both produce the registry's sentence, and neither
     // produces a CLI-authored one.
-    const manifest = await manifestFor(['--framework', 'react', '--ui-library', 'chakra']);
-    expect(manifest.uiLibrary).toBe('chakra');
+    const manifest = await manifestFor([
+      '--framework',
+      'react',
+      '--ui-library',
+      'angular-material',
+    ]);
+    expect(manifest.uiLibrary).toBe('angular-material');
     expect(planFailure(manifest)).toContain('no adapter implements it');
   });
 
@@ -1029,8 +1034,8 @@ describe('help is accurate about what works', () => {
     }
     // The vocabulary is wider, and the choice lists must not pretend otherwise.
     expect(stackSection).not.toContain('angular');
-    expect(stackSection).not.toContain('chakra');
-    expect(stackSection).not.toContain('angular');
+    expect(stackSection).not.toContain('angular-material');
+    expect(stackSection).toContain('chakra');
   });
 
   it('says plainly that the vocabulary is wider than the choices', () => {

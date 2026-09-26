@@ -125,7 +125,7 @@ npm create clientkit@latest acme-app \
 | `--build-tool <id>`   | the bundler       | `vite` (`astro` and `nextjs` own theirs)                                        | the framework's |
 | `--language <id>`     | the language      | `ts` (every framework fixes it)                                                 | the framework's |
 | `--styling <id>`      | how CSS is built  | `tailwind`, `bootstrap`, `none` (what each framework takes differs)             | the framework's |
-| `--ui-library <id>`   | component library | `mui`, `none`                                                                   | `none`          |
+| `--ui-library <id>`   | component library | `chakra`, `mui`, `none`                                                         | `none`          |
 | `--router <id>`       | routing           | `react-router`, `file-based`, `none`                                            | the framework's |
 | `--architecture <id>` | folder layout     | whatever the framework defines                                                  | the framework's |
 | `--features <a,b>`    | site capabilities | `accessibility`, `client-route-fallback`, `not-found`, `seo`, `structured-data` | none            |
@@ -176,8 +176,8 @@ HTTP 404.
 #### Known names versus working choices
 
 ClientKit's vocabulary is wider than the table above — it knows `angular`,
-`chakra` and others. Asking for one reports that no adapter implements it
-rather than silently substituting something that does:
+`angular-material` and others. Asking for one reports that no adapter
+implements it rather than silently substituting something that does:
 
 ```
 $ npm create clientkit@latest acme-app --framework angular
@@ -391,8 +391,8 @@ repeated id rejected rather than collapsed.
 **Combinations are validated identically.** A file asking for React with `seo`
 fails with the same message `--framework react --features seo` produces, from
 the same compatibility engine. Unknown values are refused, and a known name
-with no adapter behind it — `nextjs`, `chakra` — reports that no adapter
-implements it rather than quietly substituting something else.
+with no adapter behind it — `nextjs`, `angular-material` — reports that no
+adapter implements it rather than quietly substituting something else.
 
 **`stack` and `template` are alternatives.** A template names a whole stack and
 the dimensions configure one, so a file containing both is refused, as is a
@@ -444,11 +444,11 @@ fully specified file needs no terminal and `--yes` never discards it.
 Three frameworks ship. Each is chosen with `--framework`; `--template` names
 the V1 Astro stack and is kept for compatibility.
 
-| Framework | Stack                                                                                                     | Modes                 |
-| --------- | --------------------------------------------------------------------------------------------------------- | --------------------- |
-| `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                                                                   | `coming-soon`, `full` |
-| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap, optional Material UI                             | `coming-soon`, `full` |
-| `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, Tailwind, Bootstrap or plain CSS, optional Material UI | `coming-soon`, `full` |
+| Framework | Stack                                                                                                                  | Modes                 |
+| --------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `astro`   | Astro 7, Tailwind CSS 4, TypeScript 5.9                                                                                | `coming-soon`, `full` |
+| `react`   | React 19, Vite 8, TypeScript 5.9, Tailwind or Bootstrap, optional Material UI or Chakra UI                             | `coming-soon`, `full` |
+| `nextjs`  | Next.js 16 (App Router), React 19, TypeScript 5.9, Tailwind, Bootstrap or plain CSS, optional Material UI or Chakra UI | `coming-soon`, `full` |
 
 - **`coming-soon`** — a single polished launch page you can put live today.
 - **`full`** — a small multi-section home page, on the same design system.
@@ -459,9 +459,9 @@ rather than documented. Tailwind composes with all three — through Vite on
 Astro and React, through PostCSS on Next.js — from one styling adapter that
 names no framework, and Bootstrap composes with React and Next.js the same way.
 
-Next.js takes Material UI and the `seo` and `not-found` features. It does not
-take React Router, which needs a route table a file-routed framework does not
-have, nor the `structured-data` and `accessibility` features, which need a
+Next.js takes Material UI or Chakra UI and the `seo` and `not-found` features.
+It does not take React Router, which needs a route table a file-routed framework
+does not have, nor the `structured-data` and `accessibility` features, which need a
 document head this generator writes more of than Next's offers. `seo` works
 there because the one thing it writes — the canonical address — is the one
 thing Next's metadata genuinely exposes. Each refusal names the capability that
