@@ -348,3 +348,35 @@ under the suite's default five-second timeout. They passed on an idle machine
 and timed out under load, which made the release gate fail for no product
 reason. They now carry a time budget that reflects what they actually do; their
 assertions are unchanged.
+
+## 1.2.0 — 2026-09-26
+
+Chakra UI as a second component library, beside Material UI.
+
+### Added
+
+- `--ui-library chakra`, `"uiLibrary": "chakra"` in a config file, or **Chakra
+  UI** in the interactive component-library menu. `chakra` is the only
+  spelling; `chakra-ui` is refused as an unknown UI library rather than
+  guessed at.
+- Available for React + Vite and Next.js, with Tailwind, Bootstrap or — on
+  Next.js — plain CSS, and with React Router where React takes it. Astro
+  refuses it, naming the capabilities it does not provide.
+
+The generated project installs `@chakra-ui/react` 3.37.0 and its required peer
+`@emotion/react` 11.14.0, and wraps the application in a provider file that is
+yours to edit. On Next.js the provider also collects Chakra's styles during the
+server render and flushes them into the document head, with
+`@emotion/cache` 11.14.0 — without that, every page load reported a React
+hydration error.
+
+Chakra's own CSS reset is turned off in the generated provider. It lives in a
+CSS layer declared after Tailwind's utilities, so left on it would override
+them; the styling system you chose already resets the page. Measured in a
+browser, a starter page with Chakra lays out identically to the same stack
+without it, under both Tailwind and Bootstrap.
+
+### Unchanged
+
+Every stack that does not select Chakra generates exactly what 1.1.1 generated,
+file for file. No flag, config key or default changed.
