@@ -380,3 +380,42 @@ without it, under both Tailwind and Bootstrap.
 
 Every stack that does not select Chakra generates exactly what 1.1.1 generated,
 file for file. No flag, config key or default changed.
+
+## 1.2.1 — 2026-09-27
+
+A documentation release. No generated output changes, and no flag, config key
+or default changed.
+
+### `npm create` examples now pass their options through
+
+With npm 10, `npm create` reads every option before a `--` as its own. Two of
+ClientKit's options, `--yes` and `--dry-run`, are also npm options, so npm kept
+them and the CLI never saw them. Others ended up as stray arguments and failed
+with _"Expected at most one target directory"_. The README and `--help` both
+showed the broken form.
+
+Every example now puts the options after a separator:
+
+```sh
+npm create clientkit@latest acme-website -- --yes --framework react
+```
+
+`npx create-clientkit@latest acme-website --yes …` needs no separator and is
+unchanged.
+
+### Documentation
+
+- The README is rewritten around what a new visitor needs first: what the tool
+  generates, a working quick start, what each framework includes, the supported
+  stacks, common workflows, and when not to use it.
+- Reference material moved into guides: [CLI](./docs/cli.md),
+  [supported stacks](./docs/stacks.md),
+  [the generated project](./docs/generated-project.md),
+  [upgrading](./docs/upgrading.md) and
+  [troubleshooting](./docs/troubleshooting.md).
+- Stale claims corrected. Next.js has an adapter; only Astro projects need
+  Node 22.12+ (React needs `^20.19 || >=22.12`, Next.js `>=20.9`); and a config
+  file may carry `template.mode` alongside `stack` — only `template.id`
+  conflicts with it.
+- The package description and keywords on npm now name the frameworks and
+  libraries ClientKit supports.
