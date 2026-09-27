@@ -10,8 +10,8 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
-import { CliError } from '../errors.js';
-import type { GenerationPlan } from './files.js';
+import { CliError, ExecutionError } from '../errors.js';
+import { isCanonicalPlanPath, type GenerationPlan } from './files.js';
 
 export interface ApplyResult {
   readonly targetDir: string;
@@ -107,9 +107,13 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
   const parent = path.dirname(targetDir);
   const stagingDir = path.join(parent, `.${path.basename(targetDir)}.tmp-${randomSuffix()}`);
 
+  // The final mutation boundary checks paths itself rather than trusting the
+  // planner did: a plan is plain data and can reach here from anywhere.
+  for (const operation of plan.operations) assertInsideTarget(operation.path, targetDir);
+
   const targetExists = existsSync(targetDir);
   if (targetExists && !options.allowNonEmpty && !isEffectivelyEmpty(targetDir)) {
-    throw new CliError(`Directory "${targetDir}" already exists and is not empty.`);
+    throw new ExecutionError(`Directory "${targetDir}" already exists and is not empty.`);
   }
 
   const retry = options.rename === undefined ? {} : { rename: options.rename };
@@ -170,7 +174,7 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
              * developer's files - so this refuses before anything is touched.
              */
             if (statSync(to).isDirectory()) {
-              throw new CliError(
+              throw new ExecutionError(
                 `Cannot write "${operation.path}": a directory exists at that path.`,
                 {
                   hint: 'Move or remove that directory, then run the command again. Nothing was written.',
@@ -207,9 +211,33 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
   } catch (error) {
     rmSync(stagingDir, { recursive: true, force: true });
     if (error instanceof CliError) throw error;
-    throw new CliError(`Generation failed: ${(error as Error).message}`, {
+    throw new ExecutionError(`Generation failed: ${(error as Error).message}`, {
       cause: error,
       hint: 'Nothing was written to the target directory.',
+    });
+  }
+}
+
+/**
+ * Refuses an operation that would land outside the target directory.
+ *
+ * Two checks, deliberately redundant. The first re-applies the planner's own
+ * rule - a canonical relative path with no `..`. The second resolves the
+ * destination the way the writes below will and confirms it is still under the
+ * target, so the guard rests on what actually happens rather than on what
+ * should.
+ */
+function assertInsideTarget(relativePath: string, targetDir: string): void {
+  const destination = path.resolve(targetDir, ...relativePath.split('/'));
+  const fromTarget = path.relative(targetDir, destination);
+  const inside =
+    fromTarget !== '' &&
+    fromTarget !== '..' &&
+    !fromTarget.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(fromTarget);
+  if (!isCanonicalPlanPath(relativePath) || !inside) {
+    throw new ExecutionError(`Refusing to write "${relativePath}" outside the target directory.`, {
+      hint: 'Nothing was written. This is a bug in ClientKit; please report it.',
     });
   }
 }

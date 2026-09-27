@@ -4,7 +4,7 @@ import type { AnyDocumentValue } from '../domain/document-value.js';
 import { absolutePageUrl } from '../domain/document-value.js';
 import type { ArchitectureDefinition } from '../domain/roles.js';
 import { resolveRole } from '../domain/roles.js';
-import type { FileOperation } from '../generate/files.js';
+import { comparePlanPaths, type FileOperation } from '../generate/files.js';
 import { CliError } from '../errors.js';
 
 /**
@@ -175,7 +175,7 @@ export function applyNextDocument(
   return [
     ...operations.filter((operation) => !rewritten.has(operation.path)),
     ...rewritten.values(),
-  ].sort((a, b) => a.path.localeCompare(b.path));
+  ].sort((a, b) => comparePlanPaths(a.path, b.path));
 }
 
 /**

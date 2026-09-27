@@ -1,11 +1,13 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { CliError } from '../errors.js';
+import { PlanningError } from '../errors.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext } from '../types.js';
 import { deepMergeJson, parseJsonLayer, stringifyJson } from './compose.js';
 import {
+  assertValidPlan,
+  comparePlanPaths,
   isMergeableJson,
   isTextFile,
   normaliseEol,
@@ -137,7 +139,7 @@ export function plan(context: ProjectContext, options: PlanOptions): GenerationP
   const manifest = options.registry.get(context.template.id);
 
   if (!manifest.supportedModes.includes(context.template.mode)) {
-    throw new CliError(
+    throw new PlanningError(
       `Template "${manifest.id}" does not support mode "${context.template.mode}".`,
       { hint: `Supported modes: ${manifest.supportedModes.join(', ')}.` },
     );
@@ -158,7 +160,7 @@ export function plan(context: ProjectContext, options: PlanOptions): GenerationP
   }
 
   if (byDestination.size === 0) {
-    throw new CliError(`Template "${manifest.id}" produced no files.`, {
+    throw new PlanningError(`Template "${manifest.id}" produced no files.`, {
       hint: 'The template directory appears to be empty or missing from the package.',
     });
   }
@@ -216,13 +218,15 @@ export function plan(context: ProjectContext, options: PlanOptions): GenerationP
     origin: 'cli',
   });
 
-  operations.sort((a, b) => a.path.localeCompare(b.path));
+  operations.sort((a, b) => comparePlanPaths(a.path, b.path));
 
-  return {
+  const generated: GenerationPlan = {
     templateId: manifest.id,
     templateVersion: manifest.version,
     mode: context.template.mode,
     targetDir: context.targetDir,
     operations,
   };
+  assertValidPlan(generated);
+  return generated;
 }

@@ -11,7 +11,7 @@ import type { DocumentTarget } from '../domain/document-scope.js';
 import { describeTarget } from '../domain/document-scope.js';
 import type { ArchitectureDefinition, FileRole } from '../domain/roles.js';
 import { resolveRole } from '../domain/roles.js';
-import type { FileOperation } from '../generate/files.js';
+import { comparePlanPaths, type FileOperation } from '../generate/files.js';
 import { CliError } from '../errors.js';
 
 /**
@@ -351,7 +351,7 @@ export function composeAstroDocument(
     ...rewritten.values(),
   ];
 
-  return [...composed].sort((a, b) => a.path.localeCompare(b.path));
+  return [...composed].sort((a, b) => comparePlanPaths(a.path, b.path));
 }
 
 /**

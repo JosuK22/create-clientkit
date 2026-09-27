@@ -17,6 +17,7 @@ import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply, findCollisions } from '../generate/apply.js';
 import { findTemplatesRoot, type TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
+import { summarisePlan } from '../ui/plan.js';
 
 /**
  * Upgrading an existing ClientKit project.
@@ -276,6 +277,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     templateId: resolved.context.template.id,
   });
   const generationPlan = planned.plan;
+  for (const line of summarisePlan(generationPlan, planned.composedPackage)) logger.debug(line);
 
   // What already exists and is in the current plan: the set a write replaces.
   const collisions = findCollisions(generationPlan);

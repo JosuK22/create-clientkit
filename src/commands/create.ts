@@ -10,7 +10,7 @@ import { planManifest } from '../adapters/bridge.js';
 import { runPostSteps } from '../generate/postSteps.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
-import { renderDryRun, renderNextSteps, renderPlan } from '../ui/plan.js';
+import { renderDryRun, renderNextSteps, renderPlan, summarisePlan } from '../ui/plan.js';
 import { satisfiesMinimum } from '../util/node.js';
 
 export interface CreateOptions {
@@ -101,7 +101,7 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   // Read from the plan rather than the registry: React's template manifest
   // lives on its adapter, so `registry.get('react-vite')` would throw.
   const manifest = planned.templateManifest;
-  logger.debug(`planned ${generationPlan.operations.length} operations`);
+  for (const line of summarisePlan(generationPlan, planned.composedPackage)) logger.debug(line);
 
   if (flags.dryRun) {
     logger.print(

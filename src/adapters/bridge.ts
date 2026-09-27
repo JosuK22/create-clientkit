@@ -26,8 +26,13 @@ import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
 import { definesRole, resolveRole } from '../domain/roles.js';
 import type { FileRole } from '../domain/roles.js';
-import { CliError } from '../errors.js';
-import type { FileOperation, GenerationPlan } from '../generate/files.js';
+import { CliError, PlanningError } from '../errors.js';
+import {
+  assertValidPlan,
+  comparePlanPaths,
+  type FileOperation,
+  type GenerationPlan,
+} from '../generate/files.js';
 import { plan, realPlanFs, type PlanFs, type PlanLayer } from '../generate/plan.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
@@ -550,7 +555,7 @@ export function applyMerges(
     });
   }
 
-  return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
+  return [...byPath.values()].sort((a, b) => comparePlanPaths(a.path, b.path));
 }
 
 /**
@@ -580,7 +585,7 @@ export function mergeComposed(
 
   // Same ordering rule as plan(): sorted by path, so composed files land where
   // they would have had they come from a template.
-  return [...existing.values()].sort((a, b) => a.path.localeCompare(b.path));
+  return [...existing.values()].sort((a, b) => comparePlanPaths(a.path, b.path));
 }
 
 /**
@@ -765,10 +770,40 @@ export function assertRequiredRoles(
   );
 }
 
+/**
+ * The planner: everything the run will write, decided without writing it.
+ *
+ * Reads templates, never the target directory, and mutates nothing - so the
+ * same manifest and options always return the same plan, which is what lets
+ * `--dry-run` print it and the golden snapshots pin it. `apply()` is the only
+ * thing that turns it into files.
+ *
+ * Any user-facing failure raised while planning comes out as a
+ * `PlanningError`, with its message, hint and exit code unchanged, so a caller
+ * can tell "could not decide what to write" from "could not write it".
+ */
 export function planManifest(
   manifest: ProjectManifest,
   options: ManifestPlanOptions,
 ): AdapterPlanResult {
+  try {
+    const result = composePlan(manifest, options);
+    assertValidPlan(result.plan);
+    return result;
+  } catch (error) {
+    if (error instanceof PlanningError || !(error instanceof CliError)) throw error;
+    const classified = new PlanningError(error.message, {
+      exitCode: error.exitCode,
+      ...(error.hint === undefined ? {} : { hint: error.hint }),
+      ...(error.cause === undefined ? {} : { cause: error.cause }),
+    });
+    // `--debug` prints the stack; keep it pointing at the real throw site.
+    if (error.stack !== undefined) classified.stack = error.stack;
+    throw classified;
+  }
+}
+
+function composePlan(manifest: ProjectManifest, options: ManifestPlanOptions): AdapterPlanResult {
   const templatesRoot = path.dirname(options.registry.rootFor('astro-tailwind'));
   const adapters = createAdapterRegistry(templatesRoot);
   const framework = adapters.framework(manifest.framework);

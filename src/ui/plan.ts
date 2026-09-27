@@ -5,6 +5,7 @@ import pc from 'picocolors';
 import { explainStack } from '../context/explain.js';
 import type { StackSources } from '../context/resolve.js';
 import type { ProjectManifest } from '../domain/manifest.js';
+import type { ComposedPackage } from '../domain/package-composition.js';
 import type { GenerationPlan } from '../generate/files.js';
 import type { PostStepResult } from '../generate/postSteps.js';
 import type { TemplateManifest } from '../templates/manifest.js';
@@ -19,6 +20,34 @@ function show(value: string | null | boolean): string {
   if (typeof value === 'boolean') return value ? pc.green('yes') : pc.dim('no');
   if (value === '') return pc.dim('(empty)');
   return value;
+}
+
+/**
+ * What a plan contains, as counts, for `--debug`.
+ *
+ * Counts rather than contents: the full plan is what `--dry-run --debug`
+ * prints, and a debug log that repeated it would bury everything else.
+ * Dependencies and scripts are counted from the composed package, which is the
+ * same data the planned `package.json` write carries.
+ */
+export function summarisePlan(plan: GenerationPlan, composed?: ComposedPackage): string[] {
+  const writes = plan.operations.filter((operation) => operation.type === 'write').length;
+  const copies = plan.operations.length - writes;
+  const lines = [
+    `[planner] ${plan.operations.length} file operations (${writes} write, ${copies} copy)`,
+  ];
+  if (composed !== undefined) {
+    const kinds = (['prod', 'dev', 'peer', 'optional'] as const)
+      .map((kind) => [kind, composed.dependencies.filter((d) => d.kind === kind).length] as const)
+      .filter(([, count]) => count > 0)
+      .map(([kind, count]) => `${count} ${kind}`)
+      .join(', ');
+    lines.push(
+      `[planner] ${composed.dependencies.length} dependency operations${kinds === '' ? '' : ` (${kinds})`}`,
+    );
+    lines.push(`[planner] ${composed.scripts.length} script operations`);
+  }
+  return lines;
 }
 
 /**

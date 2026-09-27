@@ -18,6 +18,38 @@ export class CliError extends Error {
   }
 }
 
+/**
+ * The plan could not be built: an invalid template, an operation that would
+ * leave the target directory, two operations for one path. Raised before
+ * anything is written, so nothing needs undoing.
+ *
+ * A `CliError`, so it is reported and exits exactly as one; the subclass only
+ * lets a caller tell "could not decide what to write" from "could not write".
+ */
+export class PlanningError extends CliError {
+  constructor(
+    message: string,
+    options: { exitCode?: number; hint?: string; cause?: unknown } = {},
+  ) {
+    super(message, options);
+    this.name = 'PlanningError';
+  }
+}
+
+/**
+ * Applying a finished plan failed: permission denied, a busy or full disk, a
+ * path the executor refused at the mutation boundary.
+ */
+export class ExecutionError extends CliError {
+  constructor(
+    message: string,
+    options: { exitCode?: number; hint?: string; cause?: unknown } = {},
+  ) {
+    super(message, options);
+    this.name = 'ExecutionError';
+  }
+}
+
 /** Raised when the user cancels a prompt (Ctrl+C). Exits 130, prints nothing ugly. */
 export class CancelledError extends Error {
   constructor() {
