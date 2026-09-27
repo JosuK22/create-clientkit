@@ -442,3 +442,47 @@ flag, config key, default or message changed.
 - `--debug` logs a summary of the plan: file, dependency and script counts.
 - New internal architecture notes:
   [docs/architecture/generation-plan.md](./docs/architecture/generation-plan.md).
+
+## 1.3.0 — 2026-09-28
+
+Adds `detect`, a read-only command that reports what an existing project is
+built with. Generated output is unchanged: no template, adapter or golden
+snapshot was touched.
+
+### `create-clientkit detect [directory]`
+
+```sh
+npm create clientkit@latest detect ./acme-site
+```
+
+Reports the project's framework, build tool, language, styling system, UI
+library, router and package manager, the evidence for each, and whether
+ClientKit supports that stack — as the flags you would pass for it.
+
+- **Read-only.** It reads `package.json` and the names of files in the one
+  directory it is given. It never writes, prompts, installs, or runs a package
+  manager or project script, and it works on a fresh clone without
+  `node_modules`.
+- **Evidence, not guesses.** Dependencies decide; configuration files are
+  listed as corroboration but never decide alone.
+- **Honest about what it cannot say.** A framework ClientKit does not support
+  (Vue, Gatsby, …) is named, not mapped to a supported one. Two lockfiles, or
+  two styling systems, are reported as ambiguous rather than picked between.
+  An empty directory, a missing `package.json` and a malformed one are each
+  reported, not crashed on.
+- **One resolver.** Whether a detected stack is supported is decided by the
+  same checks a set of flags goes through, and refused in the same words.
+- Exits `0` whenever detection completes. Exits `2` for a missing directory, or
+  when given an option that configures generation (`--framework`, `--yes`, …).
+
+See [docs/cli.md](./docs/cli.md#detect) and
+[docs/architecture/project-detection.md](./docs/architecture/project-detection.md).
+
+### Changed
+
+- `detect` is now a command word, as `upgrade` is: `create-clientkit detect`
+  no longer creates a project named `detect`. `create-clientkit ./detect`
+  still does.
+- `upgrade`'s refusal for a project with no `.client-site.json` no longer says
+  ClientKit does not inspect projects. It now says upgrade does not guess a
+  stack, and points to `detect`.
