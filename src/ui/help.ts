@@ -77,14 +77,17 @@ export function helpText(): string {
   create-clientkit - the boring foundation of your next client website.
 
   Usage
-    npm create clientkit@latest [directory] [options]
+    npm create clientkit@latest [directory] -- [options]
     npx create-clientkit@latest [directory] [options]
+
+    With npm create, options go after a -- or npm keeps them for itself
+    (--yes and --dry-run are npm options too). npx needs no separator.
 
     Run it with nothing and it asks. Every question below has a flag, and a
     flag you pass is a question you are not asked. A JSON file passed with
     --from can supply the same answers, and a flag still beats the file.
 
-    npm create clientkit@latest upgrade <directory>
+    npm create clientkit@latest upgrade <directory> -- [options]
 
     Re-generates a ClientKit project's generated files from the stack it
     recorded, with any flag you pass overriding it. It lists what it would
@@ -141,14 +144,14 @@ ${presetRows()}
   Examples
     npm create clientkit@latest
     npm create clientkit@latest acme-website
-    npm create clientkit@latest acme-website --yes --no-install
-    npm create clientkit@latest --from ./agency-preset.json --dry-run
-    npm create clientkit@latest --from ./clientkit.json --yes
+    npm create clientkit@latest acme-website -- --yes --no-install
+    npm create clientkit@latest -- --from ./agency-preset.json --dry-run
+    npm create clientkit@latest -- --from ./clientkit.json --yes
 
-    npm create clientkit@latest acme-app --preset react-mui
-    npm create clientkit@latest acme-app --preset react-tailwind --ui-library mui
+    npm create clientkit@latest acme-app -- --preset react-mui
+    npm create clientkit@latest acme-app -- --preset react-tailwind --ui-library mui
 
-    npm create clientkit@latest acme-app \\
+    npm create clientkit@latest acme-app -- \\
       --framework react --build-tool vite --language typescript \\
       --styling tailwind --ui-library mui --router react-router
 

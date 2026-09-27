@@ -34,11 +34,27 @@ out of the way. The generated source belongs to whoever generated it.
 
 These are **non-goals**, not missing features: a CMS, authentication, forms,
 analytics, deployment or DNS automation, payments, a plugin marketplace,
-telemetry, and a visual builder. A second template is not planned yet either —
-the first priority is learning whether the existing one actually works for
-people.
+telemetry, and a visual builder.
 
-Proposals that make the existing scaffold better are genuinely welcome.
+Proposals that make the existing scaffolds better are genuinely welcome. So is
+a request for a stack that is not supported yet — open an
+[idea issue](https://github.com/JosuK22/create-clientkit/issues/new/choose) and
+say what you would use it for, before writing an adapter.
+
+## Ways to help
+
+- **Report a bug** — in the CLI, or in a project it generated. There is a
+  separate issue template for each.
+- **Fix the docs** — if something in the README, the [guides](./docs/) or
+  `--help` was wrong or missing, that is a bug worth reporting, and a docs PR is
+  welcome.
+- **Improve a generated project** — templates live in `templates/`, and the
+  code that composes them in `src/adapters/`. Changes to generated output
+  usually need a golden snapshot update; see
+  [docs/golden-snapshots.md](./docs/golden-snapshots.md).
+- **Suggest a preset or stack** — presets are defined in
+  `src/context/presets.ts`. A new framework or library means a new adapter; the
+  design is in [docs/v2-architecture.md](./docs/v2-architecture.md).
 
 ## Working on the code
 
