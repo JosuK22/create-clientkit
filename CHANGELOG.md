@@ -419,3 +419,26 @@ unchanged.
   conflicts with it.
 - The package description and keywords on npm now name the frameworks and
   libraries ClientKit supports.
+
+## 1.2.2 — 2026-09-27
+
+An internal hardening release. Generated output is byte-for-byte unchanged: the
+golden snapshots were not touched, and the full plan for every accepted stack
+(140 configurations, with and without a site URL) is identical to 1.2.1's. No
+flag, config key, default or message changed.
+
+### Generation plan boundary
+
+- Every planned file path is now checked twice. Once when the plan is built,
+  and again by the executor just before anything is written. A path that is
+  absolute, contains `..`, or would resolve outside the target directory is
+  refused, and nothing is written.
+- A plan that names the same file twice is refused before writing.
+- Planned operations are ordered by a collator pinned to `en` rather than the
+  machine's default locale. The order is the one every earlier release
+  produced; it simply no longer depends on how the machine is configured.
+- Planning failures and execution failures are now distinct internally
+  (`PlanningError`, `ExecutionError`). Both print and exit exactly as before.
+- `--debug` logs a summary of the plan: file, dependency and script counts.
+- New internal architecture notes:
+  [docs/architecture/generation-plan.md](./docs/architecture/generation-plan.md).
