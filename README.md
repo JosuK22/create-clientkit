@@ -323,6 +323,7 @@ does not preserve.
 ```text
 npm create clientkit@latest [directory] -- [options]
 npm create clientkit@latest upgrade <directory> -- [options]
+npm create clientkit@latest detect [directory] -- [--debug]
 ```
 
 | Option              | What it does                                                                  |

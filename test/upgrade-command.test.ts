@@ -156,7 +156,9 @@ describe('upgrade refuses a project it cannot read', () => {
 
     expect(result.code).not.toBe(0);
     expect(result.text).toContain(PROVENANCE_FILE);
-    expect(result.text).toContain('does not inspect');
+    expect(result.text).toContain('does not guess a stack');
+    // Points at the command that can say what the project is, with its path.
+    expect(result.text).toContain('create-clientkit detect plain');
     expect(snapshot(path.join(cwd, 'plain'))).toEqual(before);
   });
 

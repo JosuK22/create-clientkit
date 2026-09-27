@@ -172,8 +172,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     refuse(
       `No ${PROVENANCE_DOCUMENT} in ${targetInput}, so there is nothing recording how this ` +
         'project was generated.',
-      'Upgrade only works on a project ClientKit created. ClientKit does not inspect a ' +
-        'project to work out what it is.',
+      'Upgrade only works on a project ClientKit created, because it regenerates from what ' +
+        `that project recorded. \`create-clientkit detect ${targetInput}\` reports what the ` +
+        'project is built with, but upgrade does not guess a stack from it.',
     );
   }
   if (read.status === 'malformed' || read.status === 'invalid') {

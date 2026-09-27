@@ -50,6 +50,21 @@ export class ExecutionError extends CliError {
   }
 }
 
+/**
+ * Detection itself could not run: the directory is missing, is not a
+ * directory, or cannot be listed. An unrecognised or half-configured project
+ * is not this - that is a successful detection whose answer is "unknown".
+ */
+export class DetectionError extends CliError {
+  constructor(
+    message: string,
+    options: { exitCode?: number; hint?: string; cause?: unknown } = {},
+  ) {
+    super(message, options);
+    this.name = 'DetectionError';
+  }
+}
+
 /** Raised when the user cancels a prompt (Ctrl+C). Exits 130, prints nothing ugly. */
 export class CancelledError extends Error {
   constructor() {

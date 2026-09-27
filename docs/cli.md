@@ -3,6 +3,7 @@
 ```text
 npm create clientkit@latest [directory] -- [options]
 npm create clientkit@latest upgrade <directory> -- [options]
+npm create clientkit@latest detect [directory] -- [--debug]
 ```
 
 **The `--` matters.** With `npm create`, npm reads any option before a `--` as
@@ -41,6 +42,7 @@ rather than from this page.
 - [Config file (`--from`)](#config-file---from)
 - [Configuration precedence](#configuration-precedence)
 - [Seeing where a value came from](#seeing-where-a-value-came-from)
+- [`detect`](#detect)
 - [`--template` (legacy)](#--template-legacy)
 
 ## Project options
@@ -307,6 +309,52 @@ Stack
 Sources are `flag`, `file`, `preset`, `prompt`, `adapter` and `default`.
 `adapter` means the framework decided it (React needs Vite); `default` is a
 built-in preference no framework owns.
+
+## `detect`
+
+```sh
+npm create clientkit@latest detect ./acme-site
+npx create-clientkit@latest detect --debug          # the current directory
+```
+
+Reports what an existing project is built with — framework, build tool,
+language, styling, UI library, router and package manager — with the evidence
+for each. It then says whether that is a stack ClientKit supports, as the flags
+you would pass for it:
+
+```text
+ClientKit project detection
+
+  Directory         acme-site
+  Project           acme-site
+
+  Framework         react         dependencies.react
+  Build tool        vite          devDependencies.vite, vite.config.ts
+  Language          ts            devDependencies.typescript, tsconfig.json
+  Styling           tailwind      devDependencies.tailwindcss
+  UI library        mui           dependencies.@mui/material
+  Router            react-router  dependencies.react-router-dom
+  Package manager   pnpm          pnpm-lock.yaml
+
+  ClientKit stack   supported
+    --framework react --build-tool vite --language ts --styling tailwind --ui-library mui --router react-router
+    architecture react-standard: set by the react framework
+
+  .client-site.json is present: ClientKit generated this project. Detection does not read it; `upgrade` does.
+```
+
+It reads `package.json` and the names of files in that one directory. It never
+writes, prompts, installs or runs anything, and works on a fresh clone without
+`node_modules`. A framework ClientKit does not support is named rather than
+guessed at. Two lockfiles, or two styling systems, are reported as ambiguous
+rather than resolved by picking one.
+
+It exits `0` whenever detection completes, including for an unsupported or
+half-configured project. It exits `2` if the directory does not exist, or if
+given an option that configures generation (`--framework`, `--yes`, …).
+`--debug` also lists what was looked for when nothing was found. See
+[architecture/project-detection.md](./architecture/project-detection.md) for
+the evidence rules.
 
 ## `--template` (legacy)
 

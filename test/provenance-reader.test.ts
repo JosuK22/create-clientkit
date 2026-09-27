@@ -271,7 +271,7 @@ describe('a project with no provenance', () => {
       CLI_VERSION,
     );
     expect(result.status === 'missing' ? result.because : '').toMatch(
-      /does not inspect a project/i,
+      /does not infer provenance from the project/i,
     );
   });
 });

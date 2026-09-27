@@ -95,6 +95,13 @@ export function helpText(): string {
     it did not plan. Files the new stack no longer generates are reported and
     left alone. Use --dry-run to see the plan without writing.
 
+    npm create clientkit@latest detect [directory] -- [--debug]
+
+    Reports what an existing project is built with - framework, build tool,
+    language, styling, UI library, router and package manager - and the
+    evidence for each, then whether ClientKit supports that stack. Reads
+    package.json and root file names only; changes nothing, runs nothing.
+
   Options
         --name <name>     Client / site name
         --url <url>       Production URL (omit if not decided yet)

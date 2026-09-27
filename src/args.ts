@@ -12,12 +12,13 @@ import { CliError, EXIT_USAGE } from './errors.js';
  *
  * The cost of the fix is that a directory literally named `upgrade` can no
  * longer be created by bare name. That is the trade a subcommand always makes,
- * and `create-clientkit ./upgrade` still works.
+ * and `create-clientkit ./upgrade` still works. `detect` makes the same trade
+ * for the same reason: `create-clientkit ./detect` still creates one.
  */
-export type Command = 'create' | 'upgrade';
+export type Command = 'create' | 'upgrade' | 'detect';
 
 /** The subcommands that must be typed to be selected. */
-const COMMANDS = ['upgrade'] as const;
+const COMMANDS = ['upgrade', 'detect'] as const;
 
 export interface ParsedFlags {
   readonly command: Command;

@@ -550,6 +550,17 @@ describe('the domain layer stays pure', () => {
       // than a second opinion about them.
       'commands\\upgrade.ts',
       'commands/upgrade.ts',
+      // Stage 2 (project detection). The detector reports what it finds in the
+      // domain's own id types, and its evidence table is keyed by them so a new
+      // id cannot compile without a detection entry. Type imports only - the
+      // test below holds that. `stack.ts` feeds findings to the resolver and
+      // formats a refusal with the compatibility engine's own formatter.
+      'detect\\detect.ts',
+      'detect/detect.ts',
+      'detect\\signatures.ts',
+      'detect/signatures.ts',
+      'detect\\stack.ts',
+      'detect/stack.ts',
     ]);
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const v2Directories = new Set(['domain', 'adapters']);
@@ -570,6 +581,24 @@ describe('the domain layer stays pure', () => {
     };
     walk(srcDir);
     expect(offenders).toEqual([]);
+  });
+
+  it('lets the detector name the domain vocabulary without depending on it', () => {
+    for (const file of ['detect.ts', 'signatures.ts']) {
+      const source = readFileSync(
+        path.resolve(import.meta.dirname, '..', 'src', 'detect', file),
+        'utf8',
+      );
+      // Whole statements, so a multi-line `import type { … }` is judged by its
+      // opening keyword rather than by its closing line.
+      const statements = [...source.matchAll(/import\s[^;]*?from '\.\.\/domain\/[^']+';/g)].map(
+        (match) => match[0],
+      );
+      expect(statements.length, file).toBeGreaterThan(0);
+      for (const statement of statements) {
+        expect(statement, `${file}: not a type-only import`).toMatch(/^import type /);
+      }
+    }
   });
 
   it('lets the generator name the domain vocabulary without depending on it', () => {

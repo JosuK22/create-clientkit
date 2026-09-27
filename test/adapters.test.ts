@@ -469,6 +469,14 @@ describe('the bridge keeps its direction and its limits', () => {
       // computes no path difference of its own, asserted in its own suite.
       'commands\\upgrade.ts',
       'commands/upgrade.ts',
+      // Stage 2 (project detection). Detected values are handed to the same
+      // resolver a flag reaches - resolveDimensions, assertFrameworkOffers,
+      // checkCompatibility - which needs the registry. The detector itself,
+      // detect/detect.ts, imports nothing from adapters.
+      'detect\\stack.ts',
+      'detect/stack.ts',
+      'commands\\detect.ts',
+      'commands/detect.ts',
     ];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];
