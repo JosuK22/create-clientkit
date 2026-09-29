@@ -295,7 +295,9 @@ describe('compatibility', () => {
     );
   });
 
-  it('agrees with the planner for every accepted stack', () => {
+  // Plans every accepted stack, like the detection round-trip, and needs the
+  // same allowance: under a full preflight it ran past the 5 s default.
+  it('agrees with the planner for every accepted stack', { timeout: 60_000 }, () => {
     const { accepted } = enumerateCombinations(adapters);
     expect(accepted.length).toBeGreaterThan(0);
     for (const combination of accepted) {
