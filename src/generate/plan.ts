@@ -87,14 +87,14 @@ export function defaultLayers(templateRoot: string, mode: string): readonly Plan
   ];
 }
 
-interface LayerFile {
+export interface LayerFile {
   readonly layer: string;
   readonly absolutePath: string;
   /** Relative path inside the layer, before the underscore rename. */
   readonly rawRelativePath: string;
 }
 
-function walkLayer(fs: PlanFs, layerRoot: string, layerName: string): LayerFile[] {
+export function walkLayer(fs: PlanFs, layerRoot: string, layerName: string): LayerFile[] {
   const files: LayerFile[] = [];
   const walk = (dir: string, prefix: string): void => {
     for (const entry of fs.readDir(dir)) {

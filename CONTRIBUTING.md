@@ -48,7 +48,8 @@ say what you would use it for, before writing an adapter.
 - **Fix the docs** — if something in the README, the [guides](./docs/) or
   `--help` was wrong or missing, that is a bug worth reporting, and a docs PR is
   welcome.
-- **Improve a generated project** — templates live in `templates/`, and the
+- **Improve a generated project** — templates live in `templates/` (see
+  [docs/architecture/templates.md](./docs/architecture/templates.md)), and the
   code that composes them in `src/adapters/`. Changes to generated output
   usually need a golden snapshot update; see
   [docs/golden-snapshots.md](./docs/golden-snapshots.md).

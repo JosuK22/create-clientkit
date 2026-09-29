@@ -34,10 +34,12 @@ import {
   type GenerationPlan,
 } from '../generate/files.js';
 import { plan, realPlanFs, type PlanFs, type PlanLayer } from '../generate/plan.js';
+import { templateFiles } from '../templates/definition.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
 import { createAdapterRegistry } from './registry.js';
+import { createTemplateCatalog } from './template-catalog.js';
 import type { DocumentContribution } from '../domain/document-contribution.js';
 import { assertPlanRealizable, buildDocumentEmission } from '../domain/document-emission.js';
 import { selectDocumentRealizer } from './document-realizers.js';
@@ -143,8 +145,9 @@ export function layersFrom(contributions: readonly Contribution[]): readonly Pla
       .flatMap((contribution) => contribution.templateLayers)
       .slice()
       // `order` first, then `owner` so the result never depends on which adapter
-      // happened to be iterated first.
-      .sort((a, b) => a.order - b.order || a.owner.localeCompare(b.owner))
+      // happened to be iterated first - through the plan's pinned collator, not
+      // a bare `localeCompare`, so the machine's locale cannot reorder layers.
+      .sort((a, b) => a.order - b.order || comparePlanPaths(a.owner, b.owner))
       .map((layer) => ({ name: layer.name, root: layer.root }))
   );
 }
@@ -806,11 +809,23 @@ export function planManifest(
 function composePlan(manifest: ProjectManifest, options: ManifestPlanOptions): AdapterPlanResult {
   const templatesRoot = path.dirname(options.registry.rootFor('astro-tailwind'));
   const adapters = createAdapterRegistry(templatesRoot);
-  const framework = adapters.framework(manifest.framework);
-  const templateManifest = framework.templateManifest;
 
-  const templateId = options.templateId ?? templateManifest?.id ?? manifest.framework;
-  const registry = registryFor(options.registry, templatesRoot, templateManifest);
+  /*
+   * The template, resolved and checked before anything is planned from it:
+   * it exists, it is this framework's, it offers the mode, its manifest passes
+   * the manifest validator, and every file it contributes has a safe
+   * destination and declares the tokens it uses. A malformed template fails
+   * here, as a PlanningError, with nothing written.
+   */
+  const definition = createTemplateCatalog(adapters, templatesRoot).resolve({
+    framework: manifest.framework,
+    id: options.templateId,
+    mode: options.mode,
+  });
+  templateFiles(definition, options.mode, options.fs ?? realPlanFs);
+
+  const templateId = definition.id;
+  const registry = registryFor(options.registry, templatesRoot, definition.manifest);
 
   const { project, contributions } = resolveWithAdapters(manifest, templatesRoot);
 

@@ -122,3 +122,6 @@ these types or functions, and the plan's shape may change in any release.
 `--dry-run` predates this document and prints a human-readable rendering of the
 plan. There is no machine-readable plan output, diff view, rollback, or
 conflict resolution beyond the existing replace-confirmation.
+
+Where a plan's template comes from, and how it is validated before planning, is
+described in [templates.md](./templates.md).
