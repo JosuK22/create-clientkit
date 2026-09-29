@@ -608,3 +608,25 @@ The `DRY RUN` header and `Total: N files` line are unchanged, and `--debug`
 still only adds where each file came from.
 
 See [docs/cli.md](./docs/cli.md#previewing-with---dry-run).
+
+## 1.5.2 — 2026-09-30
+
+Internal groundwork: templates are now first-class, validated definitions.
+Nothing you run changes: the same templates, flags, prompts and generated
+output. No golden snapshot was touched.
+
+### Changed
+
+- **Every template is validated before anything is planned from it.** The
+  React and Next.js templates now go through the same manifest checks as the
+  Astro one. A template's files must stay inside the target directory, and a
+  file may only use the `{{tokens}}` its manifest declares. A template that
+  breaks these rules fails before a single file is written.
+- **One place resolves a stack to its template**, and checks the template
+  belongs to the stack's framework and offers the starting mode. Which
+  styling, component library or router a stack may combine is still decided
+  by the compatibility rules alone.
+- Template layers are ordered with the same locale-pinned comparison as the
+  rest of the plan, so the machine's language setting cannot reorder them.
+
+See [docs/architecture/templates.md](./docs/architecture/templates.md).
