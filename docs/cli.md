@@ -4,6 +4,7 @@
 npm create clientkit@latest [directory] -- [options]
 npm create clientkit@latest upgrade <directory> -- [options]
 npm create clientkit@latest detect [directory] -- [--debug]
+npm create clientkit@latest doctor [directory] -- [--debug]
 ```
 
 **The `--` matters.** With `npm create`, npm reads any option before a `--` as
@@ -43,6 +44,7 @@ rather than from this page.
 - [Configuration precedence](#configuration-precedence)
 - [Seeing where a value came from](#seeing-where-a-value-came-from)
 - [`detect`](#detect)
+- [`doctor`](#doctor)
 - [`--template` (legacy)](#--template-legacy)
 
 ## Project options
@@ -355,6 +357,54 @@ given an option that configures generation (`--framework`, `--yes`, …).
 `--debug` also lists what was looked for when nothing was found. See
 [architecture/project-detection.md](./architecture/project-detection.md) for
 the evidence rules.
+
+## `doctor`
+
+```sh
+npm create clientkit@latest doctor ./acme-site
+npx create-clientkit@latest doctor --debug          # the current directory
+```
+
+`detect` discovers; `doctor` diagnoses. It runs the same detection and the
+same resolution as `detect`, then reports whether anything needs attention,
+why, and what you might do about it:
+
+```text
+ClientKit doctor
+
+  Directory         acme-site
+  Project           acme-site
+
+  * Project metadata  package.json
+  * Framework         react
+  * Build tool        vite
+  * Language          ts
+  * Styling           tailwind
+  i UI library        none found
+      package.json lists no UI library package ClientKit recognises. The stack's UI library is none.
+  * Router            react-router
+  ! Package manager   multiple lockfiles
+      The evidence names more than one package manager: npm, pnpm.
+      ClientKit does not choose between them.
+      Evidence:
+        package-lock.json
+        pnpm-lock.yaml
+      Hint: Keep the lockfile for the package manager this project actually uses.
+  * Compatibility     supported
+
+1 warning found.
+```
+
+Each check is `*` pass, `i` info, `!` warning or `x` error. Warnings and
+errors show their evidence and a hint. `--debug` also expands the passes.
+
+It exits `0` when there are no errors, warnings included, so it does not
+break a script over something that only might matter. It exits `2` when it
+finds an error, when the directory does not exist, or when given a generation
+option. It is as read-only as `detect`: no writes, prompts, installs, scripts
+or network. There is no `--fix`. See
+[architecture/project-doctor.md](./architecture/project-doctor.md) for what
+each check means.
 
 ## `--template` (legacy)
 

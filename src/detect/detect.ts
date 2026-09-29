@@ -170,6 +170,15 @@ const MAX_PACKAGE_JSON_BYTES = 1024 * 1024;
 
 const PROVENANCE_FILE = '.client-site.json';
 
+/**
+ * The note for a project ClientKit generated. Exported so a reader of `notes`
+ * can tell this one - a fact, not a problem - from the rest by identity rather
+ * than by matching its wording.
+ */
+export const PROVENANCE_NOTE =
+  `${PROVENANCE_FILE} is present: ClientKit generated this project. Detection does not ` +
+  'read it; `upgrade` does.';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -462,6 +471,8 @@ export interface DetectOptions {
   /** The project to inspect. Exactly this directory; parents are never searched. */
   readonly root: string;
   readonly fs?: DetectFs;
+  /** The command a missing-directory hint tells the user to re-run. Defaults to `detect`. */
+  readonly command?: 'detect' | 'doctor';
 }
 
 /**
@@ -484,7 +495,7 @@ export function detectProject(options: DetectOptions): ProjectDetection {
     if (code === 'ENOENT') {
       throw new DetectionError(`Directory "${root}" does not exist.`, {
         exitCode: EXIT_USAGE,
-        hint: 'Pass the directory of an existing project: create-clientkit detect ./my-site',
+        hint: `Pass the directory of an existing project: create-clientkit ${options.command ?? 'detect'} ./my-site`,
       });
     }
     if (code === 'ENOTDIR') {
@@ -528,12 +539,7 @@ export function detectProject(options: DetectOptions): ProjectDetection {
     }
   }
 
-  if (present(PROVENANCE_FILE)) {
-    notes.push(
-      `${PROVENANCE_FILE} is present: ClientKit generated this project. Detection does not ` +
-        'read it; `upgrade` does.',
-    );
-  }
+  if (present(PROVENANCE_FILE)) notes.push(PROVENANCE_NOTE);
 
   const name =
     facts !== undefined && typeof facts.json.name === 'string' ? facts.json.name : undefined;

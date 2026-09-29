@@ -35,7 +35,7 @@ export interface DetectOptions {
  * check the project *against* React, and silently dropping the flag would
  * answer a different question than the one asked.
  */
-function generationFlags(flags: ParsedFlags): readonly string[] {
+export function generationFlags(flags: ParsedFlags): readonly string[] {
   const used: string[] = [...dimensionFlagsUsed(flags)];
   if (flags.yes) used.push('--yes');
   if (flags.dryRun) used.push('--dry-run');

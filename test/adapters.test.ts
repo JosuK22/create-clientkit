@@ -477,6 +477,11 @@ describe('the bridge keeps its direction and its limits', () => {
       'detect/stack.ts',
       'commands\\detect.ts',
       'commands/detect.ts',
+      // Stage 3 (project doctor). Runs the same detection and the same
+      // resolution `detect` does, so it needs the registry for the same reason.
+      // The diagnosis itself, doctor/diagnose.ts, imports nothing from adapters.
+      'commands\\doctor.ts',
+      'commands/doctor.ts',
     ];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];

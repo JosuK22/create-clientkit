@@ -102,6 +102,14 @@ export function helpText(): string {
     evidence for each, then whether ClientKit supports that stack. Reads
     package.json and root file names only; changes nothing, runs nothing.
 
+    npm create clientkit@latest doctor [directory] -- [--debug]
+
+    Diagnoses whether an existing project is ready for ClientKit: runs the
+    same detection, then reports each problem - an unsupported or ambiguous
+    stack, conflicting lockfiles, a broken package.json - with its evidence
+    and a hint. detect discovers; doctor diagnoses. Changes nothing. Exits 2
+    when it finds an error, 0 otherwise, warnings included.
+
   Options
         --name <name>     Client / site name
         --url <url>       Production URL (omit if not decided yet)
