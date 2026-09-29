@@ -580,3 +580,31 @@ Start from
 - `docs/stacks.md` no longer says there is no Next.js preset.
 - `docs/upgrading.md` points projects without `.client-site.json` to `detect`
   and `doctor`.
+
+## 1.5.1 — 2026-09-29
+
+`--dry-run` now previews the whole run, not just the file list. Generated
+output is unchanged: no template, adapter or golden snapshot was touched.
+
+### `--dry-run`
+
+```sh
+npm create clientkit@latest acme-site -- --dry-run
+```
+
+- **Create or replace.** Files are listed under "Files to create" and "Files
+  to replace". A file lands under replace when it already exists in the
+  target, because a real run overwrites it. Files the plan does not name are
+  not listed, and a real run never touches them.
+- **Non-empty targets.** If the directory already has files, the preview says
+  what a real run would do: ask first when interactive, or stop with `--yes`
+  or without a terminal. The dry run itself asks nothing.
+- **Post steps, not run.** It shows the exact install and `git init` commands
+  a real run would use, or why one is skipped (`--no-install`, `--no-git`).
+- **Ends with "No changes were made."** Nothing is written, installed,
+  initialised or downloaded, as before.
+
+The `DRY RUN` header and `Total: N files` line are unchanged, and `--debug`
+still only adds where each file came from.
+
+See [docs/cli.md](./docs/cli.md#previewing-with---dry-run).

@@ -1,6 +1,6 @@
 {
   "name": "create-clientkit",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Client website starter: generate the foundation you rebuild for every client site — Astro, React + Vite or Next.js, with Tailwind, Bootstrap, Material UI or Chakra UI.",
   "keywords": [
     "create",
