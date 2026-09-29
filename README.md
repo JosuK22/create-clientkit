@@ -311,9 +311,12 @@ instead of being ignored. See [docs/cli.md](./docs/cli.md#config-file---from).
 npm create clientkit@latest acme-app -- --preset react-mui --dry-run
 ```
 
-Prints the resolved stack and every file it would create, and writes nothing.
-Add `--debug` to see where each value came from (flag, file, preset, prompt or
-default).
+Prints the resolved stack, every file it would create or replace, and the
+install and `git init` commands it would run. It writes, installs and runs
+nothing. If the target already has files, it says whether a real run would ask
+first or stop. Add `--debug` to see where each value came from (flag, file,
+preset, prompt or default). See
+[docs/cli.md](./docs/cli.md#previewing-with---dry-run).
 
 ### Change the stack of a project later
 
@@ -363,7 +366,7 @@ npm create clientkit@latest doctor [directory] -- [--debug]
 | `--features <a,b>`  | Comma-separated optional features — see [Supported stacks](#supported-stacks) |
 | `-y, --yes`         | Accept defaults; never prompt                                                 |
 | `--from <file>`     | Read answers from a JSON config file                                          |
-| `--dry-run`         | Print the plan; write nothing                                                 |
+| `--dry-run`         | Preview files and post steps; write, install and run nothing                  |
 | `--no-install`      | Skip dependency installation                                                  |
 | `--no-git`          | Skip git initialisation                                                       |
 | `--pm <manager>`    | Force `npm`, `pnpm`, `yarn` or `bun`                                          |

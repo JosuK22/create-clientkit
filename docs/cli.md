@@ -42,6 +42,7 @@ rather than from this page.
 - [Presets](#presets)
 - [Config file (`--from`)](#config-file---from)
 - [Configuration precedence](#configuration-precedence)
+- [Previewing with `--dry-run`](#previewing-with---dry-run)
 - [Seeing where a value came from](#seeing-where-a-value-came-from)
 - [`detect`](#detect)
 - [`doctor`](#doctor)
@@ -98,17 +99,17 @@ Notes:
 
 ## Run options
 
-| Option           | Purpose                                                       | Default                               |
-| ---------------- | ------------------------------------------------------------- | ------------------------------------- |
-| `-y, --yes`      | Accept defaults for anything not given; never prompt          | off                                   |
-| `--from <file>`  | Read answers from a JSON file                                 | —                                     |
-| `--dry-run`      | Resolve and print the plan and file list; write nothing       | off                                   |
-| `--no-install`   | Skip installing dependencies                                  | install                               |
-| `--no-git`       | Skip initialising a git repository                            | git init                              |
-| `--pm <manager>` | Package manager for the install: `npm`, `pnpm`, `yarn`, `bun` | detected from the one running the CLI |
-| `--debug`        | Show each value's source and full stack traces                | off                                   |
-| `-h, --help`     | Show help                                                     |                                       |
-| `-v, --version`  | Show the version                                              |                                       |
+| Option           | Purpose                                                                                                                          | Default                               |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `-y, --yes`      | Accept defaults for anything not given; never prompt                                                                             | off                                   |
+| `--from <file>`  | Read answers from a JSON file                                                                                                    | —                                     |
+| `--dry-run`      | Preview the files and post steps; write, install and run nothing — see [Previewing with `--dry-run`](#previewing-with---dry-run) | off                                   |
+| `--no-install`   | Skip installing dependencies                                                                                                     | install                               |
+| `--no-git`       | Skip initialising a git repository                                                                                               | git init                              |
+| `--pm <manager>` | Package manager for the install: `npm`, `pnpm`, `yarn`, `bun`                                                                    | detected from the one running the CLI |
+| `--debug`        | Show each value's source and full stack traces                                                                                   | off                                   |
+| `-h, --help`     | Show help                                                                                                                        |                                       |
+| `-v, --version`  | Show the version                                                                                                                 |                                       |
 
 ## Interactive mode
 
@@ -297,6 +298,66 @@ its styling.
 
 Prompts are only shown for values nothing higher up supplied, so a complete
 config file needs no terminal.
+
+## Previewing with `--dry-run`
+
+```sh
+npm create clientkit@latest acme-app -- --preset react-tailwind --dry-run
+```
+
+`--dry-run` asks the same questions and builds the same generation plan as a
+real run, then shows it instead of applying it:
+
+```text
+DRY RUN - no files will be written.
+
+  Target            /home/you/sites/acme-app
+  Template          react-vite v0.1.0
+  Mode              coming-soon
+
+Files to create (20)
+  + .client-site.json
+  + .gitattributes (binary)
+  + package.json
+  …
+
+Files to replace (1)
+  ~ README.md
+
+Total: 21 files
+
+The target directory already contains files.
+  Without --dry-run, this run would stop here: it does not write into a non-empty
+  directory without asking, and --yes or a script cannot be asked.
+
+Post steps (not run)
+  npm install
+  git init --quiet
+
+Resolved configuration
+  …
+
+* Dry run complete. No changes were made.
+```
+
+- **It is the real plan.** The file list is the plan a real run would apply,
+  in the same order, and a test compares the two byte for byte.
+- **Create or replace.** A file that already exists in the target is listed
+  under "Files to replace", because a real run overwrites it. Files the plan
+  does not name are not listed, and a real run never touches them.
+- **Non-empty targets.** If the directory already has files, the preview says
+  what a real run would do. Interactively it would ask first; with `--yes` or
+  without a terminal it would stop. The dry run itself asks nothing.
+- **Post steps are shown, never run.** It lists the exact install and
+  `git init` commands a real run uses, or why one is skipped (`--no-install`,
+  `--no-git`).
+- **Nothing changes.** No file or directory is created, changed or deleted. No
+  dependency is installed, no git repository is initialised, nothing is
+  downloaded and no script runs. It exits `0`, or fails with the same error a
+  real run would for an invalid stack.
+
+`upgrade --dry-run` previews an upgrade the same way; see
+[upgrading.md](./upgrading.md).
 
 ## Seeing where a value came from
 

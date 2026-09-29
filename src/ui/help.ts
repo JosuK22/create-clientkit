@@ -116,7 +116,8 @@ export function helpText(): string {
     -m, --mode <mode>     coming-soon | full
     -y, --yes             Accept all defaults; never prompt
         --from <file>     Read answers from a JSON config file (see README)
-        --dry-run         Resolve and print the plan; write nothing
+        --dry-run         Preview the files and post steps; write, install and
+                          run nothing
         --no-git          Skip git initialisation
         --no-install      Skip dependency installation
         --pm <manager>    Force a package manager (${PACKAGE_MANAGERS.join(' | ')})

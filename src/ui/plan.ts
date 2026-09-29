@@ -7,7 +7,7 @@ import type { StackSources } from '../context/resolve.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ComposedPackage } from '../domain/package-composition.js';
 import type { GenerationPlan } from '../generate/files.js';
-import type { PostStepResult } from '../generate/postSteps.js';
+import type { PlannedPostStep, PostStepResult } from '../generate/postSteps.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { PackageManager, ProjectContext, SourceMap } from '../types.js';
 
@@ -118,8 +118,28 @@ export function renderPlan(
 }
 
 /**
+ * What the directory and the post steps would make of the plan, read before
+ * anything is written. Gathered by the command from the same checks a real run
+ * makes; the renderer only displays it.
+ */
+export interface DryRunFacts {
+  /** Plan paths that already exist, and would be replaced. Sorted. */
+  readonly replaced: readonly string[];
+  /** The target already holds files, `.git` aside. */
+  readonly nonEmpty: boolean;
+  /** Whether a real run could ask before writing into a non-empty target. */
+  readonly interactive: boolean;
+  readonly postSteps: readonly PlannedPostStep[];
+}
+
+/**
  * The `--dry-run` view: the actual file list the plan would produce, so the
  * output is verifiable rather than a promise.
+ *
+ * Every line is read from the plan or from `facts`. The plan has two operation
+ * types, write and copy, and both create a file or replace the one already
+ * there - so "create" and "replace" are the only two verbs, and which applies
+ * is the filesystem's answer, not a guess.
  */
 export function renderDryRun(
   generationPlan: GenerationPlan,
@@ -127,6 +147,7 @@ export function renderDryRun(
   stack: StackSources,
   context: ProjectContext,
   sources: SourceMap,
+  facts: DryRunFacts,
   options: { verbose: boolean },
 ): string {
   const lines: string[] = [];
@@ -138,17 +159,52 @@ export function renderDryRun(
     `  ${label('Template')}${generationPlan.templateId} ${pc.dim(`v${generationPlan.templateVersion}`)}`,
   );
   lines.push(`  ${label('Mode')}${generationPlan.mode}`);
-  lines.push('');
-  lines.push(pc.bold('Files:'));
 
-  for (const operation of generationPlan.operations) {
+  const replaced = new Set(facts.replaced);
+  const entry = (operation: GenerationPlan['operations'][number], mark: string): string => {
     const kind = operation.type === 'copy' ? pc.dim(' (binary)') : '';
     const origin = options.verbose ? pc.dim(`  <- ${operation.origin}`) : '';
-    lines.push(`  ${operation.path}${kind}${origin}`);
+    return `  ${mark} ${operation.path}${kind}${origin}`;
+  };
+  const creates = generationPlan.operations.filter((operation) => !replaced.has(operation.path));
+  const replaces = generationPlan.operations.filter((operation) => replaced.has(operation.path));
+
+  lines.push('');
+  lines.push(pc.bold(`Files to create (${creates.length})`));
+  for (const operation of creates) lines.push(entry(operation, pc.green('+')));
+  if (replaces.length > 0) {
+    lines.push('');
+    lines.push(pc.bold(`Files to replace (${replaces.length})`));
+    for (const operation of replaces) lines.push(entry(operation, pc.yellow('~')));
+  }
+  lines.push('');
+  lines.push(`Total: ${generationPlan.operations.length} files`);
+
+  if (facts.nonEmpty) {
+    lines.push('');
+    lines.push(pc.yellow('The target directory already contains files.'));
+    if (facts.interactive) {
+      lines.push('  Without --dry-run, you would be asked before anything is written into it.');
+      lines.push(pc.dim('  Files it does not replace are never touched, and nothing is deleted.'));
+    } else {
+      lines.push(
+        '  Without --dry-run, this run would stop here: it does not write into a non-empty\n' +
+          '  directory without asking, and --yes or a script cannot be asked.',
+      );
+    }
   }
 
   lines.push('');
-  lines.push(`Total: ${generationPlan.operations.length} files`);
+  lines.push(pc.bold('Post steps (not run)'));
+  if (facts.postSteps.length === 0) lines.push(pc.dim('  none'));
+  for (const planned of facts.postSteps) {
+    lines.push(
+      'command' in planned
+        ? `  ${pc.cyan(planned.command.join(' '))}`
+        : pc.dim(`  ${planned.step}: skipped, ${planned.skipped}`),
+    );
+  }
+
   lines.push('');
   lines.push(renderPlan(context, manifest, sources, stack, { showSources: true }));
   return lines.join('\n');

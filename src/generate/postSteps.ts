@@ -52,51 +52,66 @@ const defaultRunner: CommandRunner = (command, args, cwd) => {
   return { status: result.status, stderr: result.stderr ?? String(result.error ?? '') };
 };
 
+/**
+ * What a post step would do: the exact command, or why it will not run.
+ *
+ * The one place a step becomes a command. `runPostSteps` executes from it and
+ * `--dry-run` displays it, so the preview cannot describe a command the real
+ * run would not use.
+ */
+export type PlannedPostStep =
+  | {
+      readonly step: PostStep;
+      /** Program first, then its arguments. Run in the target directory. */
+      readonly command: readonly [string, ...string[]];
+    }
+  | { readonly step: PostStep; readonly skipped: string };
+
+export function planPostSteps(
+  context: ProjectContext,
+  steps: readonly PostStep[],
+): PlannedPostStep[] {
+  return steps.map((step): PlannedPostStep => {
+    switch (step) {
+      case 'install':
+        return context.install
+          ? { step, command: [context.packageManager, ...INSTALL_ARGS[context.packageManager]] }
+          : { step, skipped: 'disabled by --no-install' };
+      case 'git-init':
+        return context.git
+          ? { step, command: ['git', 'init', '--quiet'] }
+          : { step, skipped: 'disabled by --no-git' };
+      case 'format':
+        // Known identifier, intentionally inert in M2: the generated project
+        // has no formatter dependency yet. Wired up in a later milestone.
+        return { step, skipped: 'not implemented yet' };
+    }
+  });
+}
+
 export function runPostSteps(options: PostStepOptions): PostStepResult[] {
   const { context, logger, steps } = options;
   const run = options.run ?? defaultRunner;
   const results: PostStepResult[] = [];
 
-  for (const step of steps) {
-    switch (step) {
-      case 'install': {
-        if (!context.install) {
-          results.push({ step, status: 'skipped', detail: 'disabled by --no-install' });
-          break;
-        }
-        const args = INSTALL_ARGS[context.packageManager];
-        logger.info(`Installing dependencies with ${context.packageManager}...`);
-        const result = run(context.packageManager, args, context.targetDir);
-        results.push(
-          result.status === 0
-            ? { step, status: 'ok' }
-            : { step, status: 'failed', detail: firstLine(result.stderr) },
-        );
-        break;
-      }
-
-      case 'git-init': {
-        if (!context.git) {
-          results.push({ step, status: 'skipped', detail: 'disabled by --no-git' });
-          break;
-        }
-        const result = run('git', ['init', '--quiet'], context.targetDir);
-        results.push(
-          result.status === 0
-            ? { step, status: 'ok' }
-            : { step, status: 'failed', detail: firstLine(result.stderr) },
-        );
-        break;
-      }
-
-      case 'format': {
-        // Known identifier, intentionally inert in M2: the generated project
-        // has no formatter dependency yet. Wired up in a later milestone.
-        logger.debug('post-step "format" is a no-op in this release');
-        results.push({ step, status: 'skipped', detail: 'not implemented yet' });
-        break;
-      }
+  for (const planned of planPostSteps(context, steps)) {
+    const { step } = planned;
+    if (!('command' in planned)) {
+      if (step === 'format') logger.debug('post-step "format" is a no-op in this release');
+      results.push({ step, status: 'skipped', detail: planned.skipped });
+      continue;
     }
+
+    if (step === 'install') {
+      logger.info(`Installing dependencies with ${context.packageManager}...`);
+    }
+    const [program, ...args] = planned.command;
+    const result = run(program, args, context.targetDir);
+    results.push(
+      result.status === 0
+        ? { step, status: 'ok' }
+        : { step, status: 'failed', detail: firstLine(result.stderr) },
+    );
   }
 
   return results;

@@ -7,7 +7,7 @@ import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply, findCollisions } from '../generate/apply.js';
 import { planManifest } from '../adapters/bridge.js';
-import { runPostSteps } from '../generate/postSteps.js';
+import { planPostSteps, runPostSteps } from '../generate/postSteps.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
 import { renderDryRun, renderNextSteps, renderPlan, summarisePlan } from '../ui/plan.js';
@@ -103,12 +103,32 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   const manifest = planned.templateManifest;
   for (const line of summarisePlan(generationPlan, planned.composedPackage)) logger.debug(line);
 
+  /*
+   * The preview, and the whole of the run. It returns before `apply()` and
+   * before the post steps, and what it reports comes from the same checks a
+   * real run makes below - `findCollisions`, `hasContent`, `planPostSteps` -
+   * every one of which only reads. The non-empty question is not asked: a dry
+   * run is not a rehearsal for a confirmed write, it is the entire run.
+   */
   if (flags.dryRun) {
     logger.print(
-      renderDryRun(generationPlan, projectManifest, stack, context, sources, {
-        verbose: flags.debug,
-      }),
+      renderDryRun(
+        generationPlan,
+        projectManifest,
+        stack,
+        context,
+        sources,
+        {
+          replaced: findCollisions(generationPlan),
+          nonEmpty: hasContent(generationPlan.targetDir),
+          interactive: prompter.interactive,
+          postSteps: planPostSteps(context, manifest.postSteps),
+        },
+        { verbose: flags.debug },
+      ),
     );
+    logger.print('');
+    logger.success('Dry run complete. No changes were made.');
     return EXIT_OK;
   }
 
