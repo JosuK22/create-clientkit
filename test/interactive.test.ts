@@ -396,6 +396,16 @@ describe('answering the questions and typing the flags produce one manifest', ()
       flags: ['--framework', 'react', '--styling', 'bootstrap', '--router', 'none'],
     },
     {
+      name: 'React + Chakra UI',
+      answers: { dimensions: { framework: 'react', styling: 'tailwind', uiLibrary: 'chakra' } },
+      flags: ['--framework', 'react', '--styling', 'tailwind', '--ui-library', 'chakra'],
+    },
+    {
+      name: 'Next.js + Tailwind',
+      answers: { dimensions: { framework: 'nextjs', styling: 'tailwind' } },
+      flags: ['--framework', 'nextjs', '--styling', 'tailwind'],
+    },
+    {
       name: 'React + a feature',
       answers: {
         dimensions: { framework: 'react', styling: 'tailwind', router: 'react-router' },

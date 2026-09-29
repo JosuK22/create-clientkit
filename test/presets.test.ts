@@ -613,6 +613,72 @@ describe('choosing a preset interactively', () => {
     expect(asked).toContain('router');
   });
 
+  /*
+   * "Use Vite?" is not asked, because it has one answer. React's adapter
+   * offers Vite and nothing else, and no other React build tool has an adapter
+   * or a template, so a "No" would lead nowhere. A menu of one is derived, not
+   * asked. The preset does not state a build tool, so the day React offers a
+   * second one, the ordinary build-tool question appears after this preset
+   * without the preset changing. These hold both halves of that.
+   */
+  describe('the build tool under React + Tailwind', () => {
+    it('is not asked, because React offers only Vite', async () => {
+      expect(adapters.framework('react').buildTools).toEqual({
+        kind: 'choice',
+        options: ['vite'],
+        default: 'vite',
+      });
+      const { asked } = await menus({}, { dimensions: { preset: 'react-tailwind' } });
+      expect(asked).not.toContain('buildTool');
+      expect(PRESETS.get('react-tailwind').dimensions).not.toHaveProperty('buildTool');
+    });
+
+    it('resolves to Vite, and equals --build-tool vite', async () => {
+      const chosen = await fromAnswers({ dimensions: { preset: 'react-tailwind' } });
+      expect(chosen.manifest).toMatchObject({
+        framework: 'react',
+        buildTool: 'vite',
+        styling: 'tailwind',
+      });
+      expect(chosen.asked).not.toContain('buildTool');
+      const explicit = await fromFlags([
+        '--framework',
+        'react',
+        '--build-tool',
+        'vite',
+        '--styling',
+        'tailwind',
+      ]);
+      expect(chosen.manifest).toEqual(explicit.manifest);
+    });
+
+    it('has no React build tool other than Vite to offer', async () => {
+      for (const buildTool of ['next', 'astro', 'angular-cli']) {
+        await expect(
+          fromFlags(['--framework', 'react', '--build-tool', buildTool]),
+          buildTool,
+        ).rejects.toThrow(`does not offer the build tool "${buildTool}"`);
+      }
+    });
+
+    it('is not asked under Astro or Next.js either, where the framework is the build tool', async () => {
+      for (const id of ['astro-tailwind', 'nextjs-tailwind']) {
+        const { asked } = await menus({}, { dimensions: { preset: id } });
+        expect(asked, id).not.toContain('buildTool');
+      }
+    });
+
+    it('is not asked under Custom + React', async () => {
+      const { asked, input } = await menus(
+        {},
+        { dimensions: { preset: 'custom', framework: 'react' } },
+      );
+      expect(asked).toContain('framework');
+      expect(asked).not.toContain('buildTool');
+      expect(input.buildTool).toBeUndefined();
+    });
+  });
+
   it('Custom continues into the existing stack questions, offering every option', async () => {
     const { prompter, asked, presetSeeded } = await menus(
       {},
