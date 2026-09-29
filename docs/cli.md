@@ -64,17 +64,17 @@ rather than from this page.
 Each flag sets one part of the stack. Anything you leave out is asked for, or —
 when only one answer is possible — filled in from the framework.
 
-| Option                | Purpose                  | Accepted values                                                                 | Default                        | Example                         |
-| --------------------- | ------------------------ | ------------------------------------------------------------------------------- | ------------------------------ | ------------------------------- |
-| `--preset <id>`       | Start from a named stack | `astro-tailwind`, `react-tailwind`, `react-bootstrap`, `react-mui`              | none                           | `--preset react-mui`            |
-| `--framework <id>`    | Framework                | `astro`, `react`, `nextjs`                                                      | `astro`                        | `--framework nextjs`            |
-| `--styling <id>`      | How CSS is built         | `tailwind`, `bootstrap`, `none`                                                 | `tailwind` (`none` on Next.js) | `--styling bootstrap`           |
-| `--ui-library <id>`   | Component library        | `mui`, `chakra`, `none`                                                         | `none`                         | `--ui-library chakra`           |
-| `--router <id>`       | Routing                  | `react-router`, `none`, `file-based`                                            | the framework's                | `--router react-router`         |
-| `--features <a,b>`    | Optional site features   | `seo`, `structured-data`, `accessibility`, `not-found`, `client-route-fallback` | none                           | `--features seo,not-found`      |
-| `--build-tool <id>`   | Bundler                  | `vite` (Astro and Next.js use their own)                                        | the framework's                | `--build-tool vite`             |
-| `--language <id>`     | Language                 | `ts` (or `typescript`)                                                          | `ts`                           | `--language ts`                 |
-| `--architecture <id>` | Folder layout            | defined by the framework                                                        | the framework's                | `--architecture react-standard` |
+| Option                | Purpose                  | Accepted values                                                                       | Default                        | Example                         |
+| --------------------- | ------------------------ | ------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------- |
+| `--preset <id>`       | Start from a named stack | `astro-tailwind`, `react-tailwind`, `nextjs-tailwind`, `react-bootstrap`, `react-mui` | none                           | `--preset react-mui`            |
+| `--framework <id>`    | Framework                | `astro`, `react`, `nextjs`                                                            | `astro`                        | `--framework nextjs`            |
+| `--styling <id>`      | How CSS is built         | `tailwind`, `bootstrap`, `none`                                                       | `tailwind` (`none` on Next.js) | `--styling bootstrap`           |
+| `--ui-library <id>`   | Component library        | `mui`, `chakra`, `none`                                                               | `none`                         | `--ui-library chakra`           |
+| `--router <id>`       | Routing                  | `react-router`, `none`, `file-based`                                                  | the framework's                | `--router react-router`         |
+| `--features <a,b>`    | Optional site features   | `seo`, `structured-data`, `accessibility`, `not-found`, `client-route-fallback`       | none                           | `--features seo,not-found`      |
+| `--build-tool <id>`   | Bundler                  | `vite` (Astro and Next.js use their own)                                              | the framework's                | `--build-tool vite`             |
+| `--language <id>`     | Language                 | `ts` (or `typescript`)                                                                | `ts`                           | `--language ts`                 |
+| `--architecture <id>` | Folder layout            | defined by the framework                                                              | the framework's                | `--architecture react-standard` |
 
 Which values each framework accepts is in [stacks.md](./stacks.md). In short:
 
@@ -117,8 +117,10 @@ Run with no options in a terminal and it asks:
 1. **Project directory**
 2. **Client / site name** — defaults to the title-cased directory name
 3. **Production URL** — optional; Enter skips it
-4. **Start from** — a preset, or **Custom** (the default) to answer each question
-5. **Framework**
+4. **Start from** — **Astro + Tailwind** (the default), **React + Tailwind**,
+   **Next.js + Tailwind**, or **Custom — choose your stack**. A preset answers
+   the framework and styling; Custom asks each question below
+5. **Framework** — after Custom
 6. **Styling** — only when the framework offers more than one
 7. **Component library** — only when the framework can mount one
 8. **Routing** — only when the framework offers a choice
@@ -164,12 +166,18 @@ rather than hanging on a prompt.
 
 A preset is a named set of stack choices:
 
-| Preset            | Framework | Styling   | Component library |
-| ----------------- | --------- | --------- | ----------------- |
-| `astro-tailwind`  | astro     | tailwind  | —                 |
-| `react-tailwind`  | react     | tailwind  | —                 |
-| `react-bootstrap` | react     | bootstrap | —                 |
-| `react-mui`       | react     | tailwind  | mui               |
+| Preset            | Framework | Styling   | Component library | In **Start from** |
+| ----------------- | --------- | --------- | ----------------- | ----------------- |
+| `astro-tailwind`  | astro     | tailwind  | —                 | yes (default)     |
+| `react-tailwind`  | react     | tailwind  | —                 | yes               |
+| `nextjs-tailwind` | nextjs    | tailwind  | —                 | yes               |
+| `react-bootstrap` | react     | bootstrap | —                 | —                 |
+| `react-mui`       | react     | tailwind  | mui               | —                 |
+
+The interactive **Start from** menu offers the first three and **Custom —
+choose your stack**. Custom asks every stack question, so every supported
+combination, including the other two presets, is still one menu away. All
+five work with `--preset` and in a config file.
 
 How they behave:
 
@@ -182,8 +190,11 @@ How they behave:
   project.
 - **Checked the same way.** `--preset react-mui --framework astro` is refused by
   the compatibility rules, with the same message as the equivalent flags.
-- **Never a default.** A bare run and `--yes` still give Astro + Tailwind. In
-  the interactive menu, **Custom** is always the default, and a preset is only
+- **Never applied without being shown.** `--yes` and a non-interactive run
+  use no preset: they give Astro + Tailwind through the built-in defaults. In
+  the interactive menu, Enter takes the first preset that can supply all of
+  its stack and be built with what you already chose (**Astro + Tailwind**
+  when nothing is set). If none can, Enter means **Custom**. A preset is only
   listed while it can still set something you have not already decided.
 - **Unknown presets are refused**, with the list of valid ones.
 

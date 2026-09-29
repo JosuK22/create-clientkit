@@ -105,13 +105,34 @@ const plan = (resolution: Awaited<ReturnType<typeof fromFlags>>) =>
 describe('the preset registry', () => {
   const all = PRESETS.all();
 
-  it('ships the four proven stacks', () => {
+  it('ships the five proven stacks', () => {
     expect(all.map((preset) => preset.id)).toEqual([
       'astro-tailwind',
       'react-tailwind',
+      'nextjs-tailwind',
       'react-bootstrap',
       'react-mui',
     ]);
+  });
+
+  it('offers exactly three of them under Start from, in menu order, with their labels', () => {
+    expect(PRESETS.startFrom().map((preset) => [preset.id, preset.displayName])).toEqual([
+      ['astro-tailwind', 'Astro + Tailwind'],
+      ['react-tailwind', 'React + Tailwind'],
+      ['nextjs-tailwind', 'Next.js + Tailwind'],
+    ]);
+  });
+
+  it('keeps the Start from list a view of the one registry, not a second list', () => {
+    expect(PRESETS.startFrom()).toEqual(all.filter((preset) => preset.startFrom));
+    for (const preset of PRESETS.startFrom()) expect(PRESETS.get(preset.id)).toBe(preset);
+  });
+
+  it('still accepts the presets that left the menu, as --preset values', () => {
+    for (const id of ['react-bootstrap', 'react-mui']) {
+      expect(PRESETS.has(id), id).toBe(true);
+      expect(PRESETS.get(id).startFrom, id).toBe(false);
+    }
   });
 
   it('gives every preset a unique, lowercase, kebab-case id', () => {
@@ -129,8 +150,9 @@ describe('the preset registry', () => {
   });
 
   it('names only ids the registry actually implements', () => {
-    // A preset naming `nextjs` would be an advertisement for something that
-    // does not exist. Checked against the adapter registry rather than a list.
+    // A preset naming an id with no adapter (`angular`) would be an
+    // advertisement for something that does not exist. Checked against the
+    // adapter registry rather than a list.
     for (const preset of all) {
       const { framework, styling, uiLibrary, router } = preset.dimensions;
       if (framework !== undefined) expect(adapters.hasFramework(framework as never)).toBe(true);
@@ -186,6 +208,7 @@ describe('a malformed preset cannot ship', () => {
     displayName: 'Fine',
     description: 'a valid preset',
     dimensions: { framework: 'react' },
+    startFrom: true,
   };
   const build = (over: Partial<Preset>) => () => createPresetRegistry([{ ...valid, ...over }]);
 
@@ -241,6 +264,16 @@ describe('every shipped preset resolves to a buildable project', () => {
       architecture: 'react-standard',
       starter: 'coming-soon',
     },
+    'nextjs-tailwind': {
+      framework: 'nextjs',
+      buildTool: 'next',
+      language: 'ts',
+      styling: 'tailwind',
+      uiLibrary: 'none',
+      router: 'file-based',
+      architecture: 'next-app',
+      starter: 'coming-soon',
+    },
     'react-bootstrap': { framework: 'react', styling: 'bootstrap', uiLibrary: 'none' },
     'react-mui': { framework: 'react', styling: 'tailwind', uiLibrary: 'mui' },
   };
@@ -284,6 +317,7 @@ describe('a preset equals the flags it stands for', () => {
   const equivalents: Readonly<Record<string, readonly string[]>> = {
     'astro-tailwind': ['--framework', 'astro', '--styling', 'tailwind'],
     'react-tailwind': ['--framework', 'react', '--styling', 'tailwind'],
+    'nextjs-tailwind': ['--framework', 'nextjs', '--styling', 'tailwind'],
     'react-bootstrap': ['--framework', 'react', '--styling', 'bootstrap'],
     'react-mui': ['--framework', 'react', '--styling', 'tailwind', '--ui-library', 'mui'],
   };
@@ -304,8 +338,18 @@ describe('a preset equals the flags it stands for', () => {
       expect(viaFile.manifest).toEqual((await fromFlags(['--preset', id])).manifest);
     });
 
+    /*
+     * Interactively, a Start from preset is one choice. One that left the menu
+     * is still reachable: Custom, answering the questions it would have
+     * answered, gives the same project - the change took a shortcut away, not
+     * a stack.
+     */
     it(`${id}: same manifest chosen interactively`, async () => {
-      const viaAnswers = await fromAnswers({ dimensions: { preset: id } });
+      const preset = PRESETS.get(id);
+      const answers: Record<string, string> = preset.startFrom
+        ? { preset: id }
+        : { preset: 'custom', ...(preset.dimensions as Record<string, string>) };
+      const viaAnswers = await fromAnswers({ dimensions: answers });
       expect(viaAnswers.manifest).toEqual((await fromFlags(['--preset', id])).manifest);
     });
   }
@@ -364,6 +408,7 @@ describe('a preset supplies defaults and never overrides', () => {
       displayName: 'Opinionated',
       description: 'a preset that picks features too',
       dimensions: { framework: 'astro', styling: 'tailwind', features: ['seo', 'accessibility'] },
+      startFrom: true,
     },
   ]);
 
@@ -511,46 +556,90 @@ describe('choosing a preset interactively', () => {
     return { ...result, prompter };
   };
 
-  it('offers every preset plus Custom', async () => {
+  const startFrom = (prompter: FakePrompter) =>
+    prompter.questions.find((q) => q.dimension === 'preset');
+
+  it('shows exactly the three Start from presets and Custom, in order', async () => {
     const { prompter } = await menus({});
-    const question = prompter.questions.find((q) => q.dimension === 'preset');
+    const question = startFrom(prompter);
+    expect(question?.message).toBe('Start from');
+    expect(question?.options.map((option) => option.label)).toEqual([
+      'Astro + Tailwind',
+      'React + Tailwind',
+      'Next.js + Tailwind',
+      'Custom — choose your stack',
+    ]);
     expect(question?.options.map((option) => option.value)).toEqual([
-      ...PRESETS.all().map((preset) => preset.id),
+      'astro-tailwind',
+      'react-tailwind',
+      'nextjs-tailwind',
       'custom',
     ]);
   });
 
-  it('defaults to Custom, so pressing Enter changes nothing', async () => {
-    const { prompter, asked } = await menus({});
-    expect(prompter.questions.find((q) => q.dimension === 'preset')?.initialValue).toBe('custom');
-    // ...and the ordinary questions still follow.
-    expect(asked).toContain('framework');
-    // Styling is asked on a framework that offers a choice. On the default
-    // Astro path it is derived, because Astro requires a CSS framework and
-    // Tailwind is the only one it can take - see Stage 52.
-    const { asked: onReact } = await menus({ framework: 'react' });
-    expect(onReact).toContain('styling');
+  it('never offers a preset that left the menu', async () => {
+    const { prompter } = await menus({});
+    const values = startFrom(prompter)?.options.map((option) => option.value);
+    expect(values).not.toContain('react-bootstrap');
+    expect(values).not.toContain('react-mui');
   });
 
-  it('skips the dimensions the chosen preset states', async () => {
-    const { asked } = await menus({}, { dimensions: { preset: 'react-mui' } });
-    expect(asked).toContain('preset');
-    for (const dimension of ['framework', 'styling', 'uiLibrary']) {
-      expect(asked, `${dimension} was asked though the preset states it`).not.toContain(dimension);
-    }
+  it('defaults to Astro + Tailwind, so Enter asks neither framework nor styling', async () => {
+    const { prompter, asked, input } = await menus({});
+    expect(startFrom(prompter)?.initialValue).toBe('astro-tailwind');
+    expect(asked).not.toContain('framework');
+    expect(asked).not.toContain('styling');
+    expect(input).toMatchObject({ framework: 'astro', styling: 'tailwind' });
   });
 
-  it('still asks the dimensions it does not state', async () => {
+  for (const [id, framework] of [
+    ['astro-tailwind', 'astro'],
+    ['react-tailwind', 'react'],
+    ['nextjs-tailwind', 'nextjs'],
+  ] as const) {
+    it(`${id} does not ask framework or styling again`, async () => {
+      const { asked, input, presetSeeded } = await menus({}, { dimensions: { preset: id } });
+      expect(asked).toContain('preset');
+      expect(asked).not.toContain('framework');
+      expect(asked).not.toContain('styling');
+      expect(presetSeeded).toEqual(['framework', 'styling']);
+      expect(input).toMatchObject({ framework, styling: 'tailwind' });
+    });
+  }
+
+  it('React + Tailwind still asks what it does not state', async () => {
     const { asked } = await menus({}, { dimensions: { preset: 'react-tailwind' } });
     expect(asked).toContain('uiLibrary');
     expect(asked).toContain('router');
   });
 
+  it('Custom continues into the existing stack questions, offering every option', async () => {
+    const { prompter, asked, presetSeeded } = await menus(
+      {},
+      { dimensions: { preset: 'custom', framework: 'react' } },
+    );
+    expect(presetSeeded).toEqual([]);
+    expect(asked.slice(0, 2)).toEqual(['preset', 'framework']);
+    const offered = (dimension: string) =>
+      prompter.questions
+        .find((q) => q.dimension === dimension)
+        ?.options.map((option) => option.value);
+    // Every implemented framework, and on React every styling system and
+    // component library the registry has - nothing left with the old menu.
+    // (Styling `none` is not offered on React: the compatibility engine
+    // requires a styling system there, as it always has.)
+    expect(offered('framework')).toEqual([...adapters.implementedFrameworks()]);
+    expect(offered('styling')).toEqual(expect.arrayContaining([...adapters.implementedStyling()]));
+    expect(offered('uiLibrary')).toEqual(
+      expect.arrayContaining([...adapters.implementedUiLibraries(), 'none']),
+    );
+    expect(offered('router')).toEqual(expect.arrayContaining(['react-router', 'none']));
+  });
+
   it('names each preset the way the registry does', async () => {
     const { prompter } = await menus({});
-    const question = prompter.questions.find((q) => q.dimension === 'preset');
-    for (const preset of PRESETS.all()) {
-      const option = question?.options.find((entry) => entry.value === preset.id);
+    for (const preset of PRESETS.startFrom()) {
+      const option = startFrom(prompter)?.options.find((entry) => entry.value === preset.id);
       expect(option?.label).toBe(preset.displayName);
       expect(option?.hint).toBe(preset.description);
     }
@@ -614,6 +703,66 @@ describe('the default is untouched', () => {
       expect(manifest.framework, preset.id).toBeDefined();
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// Each Start from preset generates an existing golden, unchanged
+// ---------------------------------------------------------------------------
+
+describe('each Start from preset plans an existing golden snapshot', () => {
+  /*
+   * The preset decides the stack; the golden's own suite decides the identity.
+   * The stack comes from `--preset` through the ordinary resolver, the
+   * identity is copied from the suite that owns the golden, and the plan is
+   * rendered through the ordinary pipeline. The golden is only read - a
+   * mismatch fails, it never rewrites the snapshot.
+   */
+  const identity = (dir: string) => ({
+    targetDir: path.join(TEST_CWD, dir),
+    projectName: dir,
+    site: {
+      name: 'Acme Ltd',
+      url: 'https://acme.example',
+      description: 'Bespoke widgets.',
+      locale: 'en',
+      author: null,
+    },
+    packageManager: 'npm' as const,
+    git: true,
+    install: true,
+  });
+
+  const goldens = [
+    ['astro-tailwind', 'acme-website', 'coming-soon-url.txt'],
+    ['react-tailwind', 'acme-app', 'react-coming-soon-url.txt'],
+    ['nextjs-tailwind', 'acme-site', 'next-tailwind-coming-soon-url.txt'],
+  ] as const;
+
+  it('covers every Start from preset', () => {
+    expect(goldens.map(([id]) => id)).toEqual(PRESETS.startFrom().map((preset) => preset.id));
+  });
+
+  for (const [id, dir, golden] of goldens) {
+    it(`${id} reproduces golden/${golden}`, async () => {
+      const resolution = await fromFlags(['--preset', id]);
+      const manifest = { ...resolution.manifest, ...identity(dir) };
+      const rendered = renderPlan(
+        planManifest(manifest, {
+          registry,
+          cliVersion: '9.9.9',
+          generatedAt: '2026-01-01T00:00:00.000Z',
+          mode: manifest.starter,
+          templateId: resolution.context.template.id,
+        }).plan,
+        TEMPLATES_ROOT,
+      );
+      const expected = readFileSync(
+        path.resolve(import.meta.dirname, 'golden', golden),
+        'utf8',
+      ).replace(/\r\n/g, '\n');
+      expect(rendered).toBe(expected);
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -792,6 +941,7 @@ describe('determinism', () => {
         displayName: 'Demo',
         description: 'a preset with features',
         dimensions: { framework: 'astro', features: ['structured-data', 'accessibility', 'seo'] },
+        startFrom: true,
       },
     ]);
     const { manifest } = await resolveContext({

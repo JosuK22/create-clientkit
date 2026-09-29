@@ -274,6 +274,9 @@ export async function promptDimensions(options: InteractiveOptions): Promise<Int
    * - so a preset survives a flag that overlaps it and disappears only when it
    * has nothing left to give. A menu entry that could change no value is not a
    * choice, and offering one would imply the user's own flags were negotiable.
+   *
+   * Only the registry's "Start from" presets are candidates. The rest remain
+   * `--preset` values, and every stack they give is still reachable by Custom.
    */
   if (options.presets !== undefined && prompter.interactive) {
     /** What a preset would actually change, given what is already settled. */
@@ -283,12 +286,27 @@ export async function promptDimensions(options: InteractiveOptions): Promise<Int
         .map(([key]) => key);
 
     const useful = options.presets
-      .all()
+      .startFrom()
       .map((entry) => ({ entry, contributes: contribution(entry) }))
       .filter(({ contributes }) => contributes.length > 0);
 
     if (useful.length > 0) {
       const CUSTOM = 'custom';
+      /*
+       * Enter takes the first preset, because the common path should be one
+       * keystroke - but only a preset that is whole and buildable here.
+       *
+       * Whole: every dimension it states is still open. Under `--framework
+       * react`, Enter on "Astro + Tailwind" would quietly take only its styling,
+       * a stack its name does not describe. Buildable: asked of the
+       * compatibility engine, so Enter never walks into a refusal - under
+       * `--router react-router` the Astro preset is skipped and React is the
+       * default. When no preset qualifies, Enter means Custom, as it always did.
+       */
+      const initial = useful.find(
+        ({ entry, contributes }) =>
+          contributes.length === countStated(entry.dimensions) && buildable(entry.dimensions),
+      );
       const chosen = await prompter.selectDimension({
         dimension: 'preset',
         message: 'Start from',
@@ -310,11 +328,10 @@ export async function promptDimensions(options: InteractiveOptions): Promise<Int
                 ? entry.description
                 : `sets ${contributes.join(', ')}`,
           })),
-          { value: CUSTOM, label: 'Custom', hint: 'answer each question yourself' },
+          // The label says what it does; every supported stack is reachable here.
+          { value: CUSTOM, label: 'Custom — choose your stack' },
         ],
-        // Never a preset. Pressing Enter has to mean "I did not choose one",
-        // or the flow would select a stack on the user's behalf.
-        initialValue: CUSTOM,
+        initialValue: initial?.entry.id ?? CUSTOM,
       });
       asked.push('preset');
 

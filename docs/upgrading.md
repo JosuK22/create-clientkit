@@ -63,6 +63,10 @@ What it guarantees:
 - records no stack (projects generated before 1.1.0)
 - records a template that contradicts its recorded stack
 
+For a project with no `.client-site.json`, `detect` reports what it is built
+with and `doctor` says whether ClientKit supports it. Both only read the project.
+See [docs/cli.md](./cli.md#detect).
+
 ## Re-running `create` over an existing project
 
 This is a merge, not an upgrade:

@@ -36,9 +36,6 @@ const TEMPLATES_ROOT = findTemplatesRoot(path.resolve(import.meta.dirname, '..',
 const registry = createRegistry(TEMPLATES_ROOT);
 const adapters = createAdapterRegistry(TEMPLATES_ROOT);
 
-/** The dimensions `react-mui` actually states. */
-const PRESET_DIMENSIONS = PRESETS.get('react-mui').dimensions;
-
 const source = (relative: string): string =>
   readFileSync(path.resolve(import.meta.dirname, '..', relative), 'utf8');
 
@@ -278,14 +275,13 @@ describe('a derived value does not pretend to have been chosen', () => {
 
 describe('a preset is credited only with what it supplied', () => {
   it('does not claim a dimension the flag settled', async () => {
-    const run = await answering({ dimensions: { preset: 'react-mui' } }, [
+    const run = await answering({ dimensions: { preset: 'react-tailwind' } }, [
       '--router',
       'react-router',
     ]);
     expect(attribution(run)).toMatchObject({
       framework: 'preset',
       styling: 'preset',
-      uiLibrary: 'preset',
       router: 'flag',
     });
   });
@@ -305,9 +301,10 @@ describe('a preset is credited only with what it supplied', () => {
      * `adapter`. Comparing the whole map would assert the two flows are
      * identical, which they are not and should not be.
      */
-    const named = attribution(await fromFlags(['--preset', 'react-mui']));
-    const chosen = attribution(await answering({ dimensions: { preset: 'react-mui' } }));
-    for (const dimension of Object.keys(PRESET_DIMENSIONS)) {
+    // A preset on the Start from menu, so it can be both named and chosen.
+    const named = attribution(await fromFlags(['--preset', 'react-tailwind']));
+    const chosen = attribution(await answering({ dimensions: { preset: 'react-tailwind' } }));
+    for (const dimension of Object.keys(PRESETS.get('react-tailwind').dimensions)) {
       expect(chosen[dimension], dimension).toBe(named[dimension]);
       expect(chosen[dimension], dimension).toBe('preset');
     }
@@ -325,6 +322,7 @@ describe('features are attributed like any other dimension', () => {
       displayName: 'Opinionated',
       description: 'picks features too',
       dimensions: { framework: 'astro', features: ['seo', 'accessibility'] },
+      startFrom: true,
     },
   ]);
 

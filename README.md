@@ -57,8 +57,9 @@ $ npm create clientkit@latest
 Project directory
 Client / site name        defaults to the directory name, title-cased
 Production URL            optional — press Enter to skip
-Start from                a preset, or Custom
-Framework                 Astro, React, Next.js
+Start from                Astro + Tailwind, React + Tailwind, Next.js + Tailwind,
+                          or Custom — choose your stack
+Framework                 Custom only: Astro, React, Next.js
 Styling                   only if the framework offers a choice
 Component library         only if the framework can mount one
 Routing                   only if the framework offers a choice
@@ -67,6 +68,9 @@ Starting mode             Coming Soon or Full Starter
 Setup                     Install dependencies, Initialize Git (both on)
 ```
 
+Pick one of the three presets and the framework and styling are set for you.
+Pick **Custom** to choose every part of the stack yourself. It reaches every
+supported combination, including Bootstrap, Material UI and Chakra UI.
 Questions with only one valid answer are skipped — Astro is never asked about
 styling, because only Tailwind works there.
 
@@ -228,8 +232,12 @@ Shortcuts for common stacks. Anything a preset sets can still be overridden.
 | ----------------- | ------------------------------------- |
 | `astro-tailwind`  | Astro + Tailwind CSS                  |
 | `react-tailwind`  | React + Vite + Tailwind CSS           |
+| `nextjs-tailwind` | Next.js + Tailwind CSS                |
 | `react-bootstrap` | React + Vite + Bootstrap              |
 | `react-mui`       | React + Vite + Tailwind + Material UI |
+
+The first three are the interactive **Start from** choices. All five work with
+`--preset` and in a config file.
 
 ```sh
 npm create clientkit@latest acme-app -- --preset react-mui
@@ -317,6 +325,21 @@ npm create clientkit@latest upgrade ./acme-app -- --styling bootstrap --dry-run
 before writing, never deletes anything and never touches files it did not
 generate. See [docs/upgrading.md](./docs/upgrading.md) for what it does and
 does not preserve.
+
+### Check an existing project
+
+```sh
+npm create clientkit@latest detect ./client-site
+npm create clientkit@latest doctor ./client-site
+```
+
+`detect` reports what a project is built with and the evidence for each part.
+`doctor` then says whether anything needs attention before ClientKit works with
+it: an unsupported or ambiguous stack, lockfiles that disagree, a broken
+`package.json`. It gives the evidence and a hint for each. Both only read
+`package.json` and file names; they change nothing and need no
+`node_modules`. `doctor` exits `2` when it finds an error, so it can gate a
+script. See [docs/cli.md](./docs/cli.md#doctor).
 
 ## CLI at a glance
 
@@ -459,14 +482,15 @@ Be honest with yourself about the fit:
 
 ## Documentation
 
-| Guide                                                | For                                                                   |
-| ---------------------------------------------------- | --------------------------------------------------------------------- |
-| [CLI reference](./docs/cli.md)                       | Every flag, the config file, presets, precedence, interactive mode    |
-| [Supported stacks](./docs/stacks.md)                 | What each framework takes, and why some combinations are refused      |
-| [The generated project](./docs/generated-project.md) | File trees, `site.config.ts`, the SEO/URL rules, pre-deploy checklist |
-| [Upgrading and re-running](./docs/upgrading.md)      | Changing a project's stack later, safely                              |
-| [Troubleshooting](./docs/troubleshooting.md)         | Old versions, Node errors, non-empty directories                      |
-| [Changelog](./CHANGELOG.md)                          | What changed in each release                                          |
+| Guide                                                | For                                                                    |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| [CLI reference](./docs/cli.md)                       | Every flag, the config file, presets, precedence, interactive mode     |
+| [Supported stacks](./docs/stacks.md)                 | What each framework takes, and why some combinations are refused       |
+| [The generated project](./docs/generated-project.md) | File trees, `site.config.ts`, the SEO/URL rules, pre-deploy checklist  |
+| [Upgrading and re-running](./docs/upgrading.md)      | Changing a project's stack later, safely                               |
+| [`detect` and `doctor`](./docs/cli.md#detect)        | Inspecting an existing project, and whether ClientKit can work with it |
+| [Troubleshooting](./docs/troubleshooting.md)         | Old versions, Node errors, non-empty directories                       |
+| [Changelog](./CHANGELOG.md)                          | What changed in each release                                           |
 
 ## How it's built
 

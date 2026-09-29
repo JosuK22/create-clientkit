@@ -114,7 +114,8 @@ describe('a user who presses Enter through the whole flow gets V1', () => {
   });
 
   it('offers the current value as the default of every question', async () => {
-    const { prompter } = await run([]);
+    // Custom, so the framework question is on the path; Enter everywhere else.
+    const { prompter } = await run([], { dimensions: { preset: 'custom' } });
     for (const question of prompter.questions) {
       expect(
         question.options.map((option) => option.value),
@@ -122,6 +123,11 @@ describe('a user who presses Enter through the whole flow gets V1', () => {
       ).toContain(question.initialValue);
     }
     expect(prompter.questions.find((q) => q.dimension === 'framework')?.initialValue).toBe('astro');
+    // And on Start from itself, the default is the Astro + Tailwind preset.
+    const { prompter: enter } = await run([]);
+    expect(enter.questions.find((q) => q.dimension === 'preset')?.initialValue).toBe(
+      'astro-tailwind',
+    );
 
     /*
      * Styling is no longer among the questions on the default path. Astro

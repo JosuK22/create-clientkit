@@ -35,7 +35,7 @@ If it is behind [the latest release](https://www.npmjs.com/package/create-client
 run a specific version, or clear npm's cache with `npm cache clean --force`:
 
 ```sh
-npx create-clientkit@1.2.0 acme-website
+npx create-clientkit@<version> acme-website   # e.g. the version npm lists as latest
 ```
 
 ## "requires Node.js 20.19 or newer"

@@ -89,14 +89,17 @@ data.
 
 ## Presets
 
-| Preset            | Sets                         |
-| ----------------- | ---------------------------- |
-| `astro-tailwind`  | Astro, Tailwind              |
-| `react-tailwind`  | React, Tailwind              |
-| `react-bootstrap` | React, Bootstrap             |
-| `react-mui`       | React, Tailwind, Material UI |
+| Preset            | Sets                         | In **Start from** |
+| ----------------- | ---------------------------- | ----------------- |
+| `astro-tailwind`  | Astro, Tailwind              | yes (default)     |
+| `react-tailwind`  | React, Tailwind              | yes               |
+| `nextjs-tailwind` | Next.js, Tailwind            | yes               |
+| `react-bootstrap` | React, Bootstrap             | —                 |
+| `react-mui`       | React, Tailwind, Material UI | —                 |
 
-There are no Next.js or Chakra presets; use the flags. See
+The interactive **Start from** menu offers the first three, plus **Custom —
+choose your stack**, which reaches every combination on this page. There is no
+Chakra preset; use `--ui-library chakra` or choose it under Custom. See
 [CLI reference → Presets](./cli.md#presets).
 
 ## Not supported

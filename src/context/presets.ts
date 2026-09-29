@@ -49,45 +49,68 @@ export interface Preset {
    * three places that answer it when no preset is involved at all.
    */
   readonly dimensions: DimensionInput;
+  /**
+   * Offered in the interactive "Start from" menu.
+   *
+   * The menu is kept to a few opinionated starting points; every other stack
+   * is one "Custom" away. A preset that is not offered there is still a preset
+   * in every other respect - `--preset` and a config file accept it, and help
+   * lists it - so taking one off the menu never takes it out of the CLI.
+   */
+  readonly startFrom: boolean;
 }
 
 /**
- * The presets that ship, in the order they are offered.
+ * The presets that ship. The "Start from" presets come first, in the order the
+ * menu shows them.
  *
  * Only combinations the repository actually builds and tests. The domain
- * vocabulary is wider - it knows `nextjs` and `chakra` - and a preset naming
- * one would be an advertisement for something that does not exist.
+ * vocabulary is wider - it knows `angular` - and a preset naming one would be
+ * an advertisement for something that does not exist.
  */
 const DEFINITIONS: readonly Preset[] = [
   {
     id: 'astro-tailwind',
-    displayName: 'Astro + Tailwind CSS',
+    displayName: 'Astro + Tailwind',
     description: 'content-first, ships almost no JavaScript',
     dimensions: { framework: 'astro', styling: 'tailwind' },
+    startFrom: true,
   },
   {
     id: 'react-tailwind',
-    displayName: 'React + Tailwind CSS',
+    displayName: 'React + Tailwind',
     description: 'a React application with utility-first styling',
     dimensions: { framework: 'react', styling: 'tailwind' },
+    startFrom: true,
+  },
+  {
+    id: 'nextjs-tailwind',
+    displayName: 'Next.js + Tailwind',
+    description: 'a Next.js App Router site with utility-first styling',
+    dimensions: { framework: 'nextjs', styling: 'tailwind' },
+    startFrom: true,
   },
   {
     id: 'react-bootstrap',
     displayName: 'React + Bootstrap',
     description: 'a React application with Bootstrap components and grid',
     dimensions: { framework: 'react', styling: 'bootstrap' },
+    startFrom: false,
   },
   {
     id: 'react-mui',
     displayName: 'React + Material UI',
     description: 'a React application with the MUI component library',
     dimensions: { framework: 'react', styling: 'tailwind', uiLibrary: 'mui' },
+    startFrom: false,
   },
 ];
 
 export interface PresetRegistry {
   /** Every preset, in a fixed order. The only list; help and prompts read it. */
   all(): readonly Preset[];
+  /** The presets the "Start from" menu offers, in menu order. A view of `all`, never a copy. */
+  startFrom(): readonly Preset[];
   has(id: string): boolean;
   /** Throws a CliError naming what is available. */
   get(id: string): Preset;
@@ -134,9 +157,11 @@ export function createPresetRegistry(definitions: readonly Preset[] = DEFINITION
   for (const preset of definitions) validate(preset, seen);
 
   const byId = new Map(definitions.map((preset) => [preset.id, preset]));
+  const offered = definitions.filter((preset) => preset.startFrom);
 
   return {
     all: () => definitions,
+    startFrom: () => offered,
     has: (id) => byId.has(id),
     get: (id) => {
       const preset = byId.get(id);

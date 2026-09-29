@@ -104,7 +104,7 @@ export class FakePrompter implements Prompter {
     this.questions.push(question);
     if (this.#answers.cancelAt?.includes(question.dimension)) throw new CancelledError();
 
-    const answer = this.#answers.dimensions?.[question.dimension];
+    const answer = this.#answers.dimensions?.[question.dimension] ?? this.#impliedStart(question);
     if (answer === undefined) return question.initialValue;
     // A fake that could answer with something the menu never offered would let
     // a test assert an impossible flow.
@@ -115,6 +115,22 @@ export class FakePrompter implements Prompter {
       );
     }
     return answer;
+  }
+
+  /**
+   * "Start from", when a test answers stack questions but not this one.
+   *
+   * A user only reaches the framework, styling or component-library question by
+   * choosing Custom, so answers for those imply it. Without this, Enter would
+   * take the default preset and the answers would never be asked for. A test
+   * that answers nothing still presses Enter and gets the default preset.
+   */
+  #impliedStart(question: DimensionQuestion): string | undefined {
+    if (question.dimension !== 'preset') return undefined;
+    const stated = Object.keys(this.#answers.dimensions ?? {});
+    const stack = stated.some((key) => key !== 'preset');
+    const cancelling = (this.#answers.cancelAt ?? []).some((key) => key !== 'preset');
+    return stack || cancelling ? 'custom' : undefined;
   }
 
   async selectMany(question: MultiChoiceQuestion): Promise<readonly string[]> {

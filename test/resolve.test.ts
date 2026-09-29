@@ -121,9 +121,9 @@ describe('default resolution', () => {
 describe('interactive flow', () => {
   it('skips the directory question when a positional is supplied', async () => {
     const { asked } = await run({ argv: ['acme-website'] });
-    // No styling question on the default Astro path since Stage 52; see the
-    // next test for why.
-    expect(asked).toEqual(['siteName', 'url', 'preset', 'framework', 'features', 'mode', 'setup']);
+    // Enter on Start from takes Astro + Tailwind; see the next test for why
+    // nothing else about the stack is asked.
+    expect(asked).toEqual(['siteName', 'url', 'preset', 'features', 'mode', 'setup']);
   });
 
   it('asks the client questions, then the stack, then the starter', async () => {
@@ -133,8 +133,9 @@ describe('interactive flow', () => {
      * last two.
      *
      * Stage 17 added the preset question at the head of that block. The fake
-     * answers it with the question's own default, which is "Custom" - so
-     * nothing is seeded and every question below is asked exactly as before.
+     * answers it with the question's own default, which is now "Astro +
+     * Tailwind" - so the framework and styling are seeded and neither is asked.
+     * (With Custom, the framework question returns; the next tests choose it.)
      *
      * What is *not* asked is the point. The default framework is Astro, which
      * fixes its build tool, language, router and architecture - so those are
@@ -150,6 +151,13 @@ describe('interactive flow', () => {
      * the question comes back.
      */
     const { asked } = await run({ answers: { dir: 'acme-website' } });
+    expect(asked).toEqual(['dir', 'siteName', 'url', 'preset', 'features', 'mode', 'setup']);
+  });
+
+  it('choosing Custom asks the framework, as the flow always did', async () => {
+    const { asked } = await run({
+      answers: { dir: 'acme-website', dimensions: { preset: 'custom' } },
+    });
     expect(asked).toEqual([
       'dir',
       'siteName',
@@ -407,9 +415,9 @@ describe('--name / --url / --mode (M1 flag parity)', () => {
     const { asked } = await run({
       argv: ['acme-website', '--name', 'Acme', '--url', 'https://acme.example', '--mode', 'full'],
     });
-    // The stack is still unanswered, so it is still asked; the three V1 values
-    // are not.
-    expect(asked).toEqual(['preset', 'framework', 'features', 'setup']);
+    // The stack is still unanswered, so Start from is still asked; the three V1
+    // values are not.
+    expect(asked).toEqual(['preset', 'features', 'setup']);
   });
 
   it('--name overrides the site name from --from', async () => {

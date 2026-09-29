@@ -107,8 +107,13 @@ const plan = (resolution: Awaited<ReturnType<typeof fromFlags>>) =>
 // ---------------------------------------------------------------------------
 
 describe('a preset is offered while it can still contribute', () => {
-  it('offers every preset when nothing is settled', async () => {
-    expect((await menu({})).offered).toEqual(PRESETS.all().map((preset) => preset.id));
+  it('offers the Start from presets when nothing is settled', async () => {
+    expect((await menu({})).offered).toEqual(PRESETS.startFrom().map((preset) => preset.id));
+    expect((await menu({})).offered).toEqual([
+      'astro-tailwind',
+      'react-tailwind',
+      'nextjs-tailwind',
+    ]);
   });
 
   const partial: readonly [string, Record<string, unknown>][] = [
@@ -137,13 +142,11 @@ describe('a preset is offered while it can still contribute', () => {
   });
 
   it('drops a preset once everything it states is settled', async () => {
-    // `react-tailwind` states a framework and a styling system, both answered.
-    const { offered } = await menu({ framework: 'react', styling: 'tailwind' });
-    expect(offered).not.toContain('react-tailwind');
-    expect(offered).not.toContain('astro-tailwind');
-    expect(offered).not.toContain('react-bootstrap');
-    // ...but `react-mui` still adds a component library.
-    expect(offered).toEqual(['react-mui']);
+    // Every Start from preset states a framework and a styling system; with
+    // both answered, none has anything left to give, so none is offered.
+    const { offered, asked } = await menu({ framework: 'react', styling: 'tailwind' });
+    expect(offered).toEqual([]);
+    expect(asked).not.toContain('preset');
   });
 
   it('skips the question entirely when no preset can contribute', async () => {
@@ -156,7 +159,7 @@ describe('a preset is offered while it can still contribute', () => {
     // promise something the flag has settled.
     const { question } = await menu({ framework: 'react' });
     const astro = question?.options.find((option) => option.value === 'astro-tailwind');
-    expect(astro?.label).toBe('Astro + Tailwind CSS');
+    expect(astro?.label).toBe('Astro + Tailwind');
     expect(astro?.hint).toBe('sets styling');
   });
 
@@ -184,8 +187,20 @@ describe('a preset is offered while it can still contribute', () => {
     }
   });
 
-  it('defaults to Custom, so no preset is ever chosen for the user', async () => {
-    for (const input of [{}, { framework: 'react' }, { styling: 'bootstrap' }]) {
+  it('defaults to the first preset that is whole and buildable', async () => {
+    const initial = async (input: Record<string, unknown>) =>
+      (await menu(input)).question?.initialValue;
+    expect(await initial({})).toBe('astro-tailwind');
+    // Astro cannot take React Router or MUI, so Enter skips it rather than
+    // walking into the compatibility engine's refusal.
+    expect(await initial({ router: 'react-router' })).toBe('react-tailwind');
+    expect(await initial({ uiLibrary: 'mui' })).toBe('react-tailwind');
+  });
+
+  it('defaults to Custom when every preset would only partly apply', async () => {
+    // Under `--framework react`, Enter on "Astro + Tailwind" would take only its
+    // styling - a stack its name does not describe.
+    for (const input of [{ framework: 'react' }, { styling: 'bootstrap' }]) {
       const { question } = await menu(input);
       expect(question?.initialValue, JSON.stringify(input)).toBe('custom');
     }
@@ -195,7 +210,10 @@ describe('a preset is offered while it can still contribute', () => {
     // `input` still grows, because the ordinary dimension questions follow and
     // the fake answers them with their defaults. What Custom must not do is
     // contribute anything of its own, which is what `presetSeeded` records.
-    const { presetSeeded } = await menu({ router: 'react-router' });
+    const { presetSeeded } = await menu(
+      { router: 'react-router' },
+      { dimensions: { preset: 'custom' } },
+    );
     expect(presetSeeded).toEqual([]);
   });
 });
@@ -208,13 +226,12 @@ describe('a chosen preset fills gaps and never overwrites', () => {
   it('seeds only what was unresolved', async () => {
     const { presetSeeded, input } = await menu(
       { router: 'react-router' },
-      { dimensions: { preset: 'react-mui' } },
+      { dimensions: { preset: 'react-tailwind' } },
     );
-    expect(presetSeeded).toEqual(['framework', 'styling', 'uiLibrary']);
+    expect(presetSeeded).toEqual(['framework', 'styling']);
     expect(input).toMatchObject({
       framework: 'react',
       styling: 'tailwind',
-      uiLibrary: 'mui',
       router: 'react-router',
     });
   });
@@ -238,9 +255,9 @@ describe('a chosen preset fills gaps and never overwrites', () => {
   });
 
   it('does not mutate the preset definition', async () => {
-    const before = JSON.stringify(PRESETS.get('react-mui'));
-    await menu({ styling: 'bootstrap' }, { dimensions: { preset: 'react-mui' } });
-    expect(JSON.stringify(PRESETS.get('react-mui'))).toBe(before);
+    const before = JSON.stringify(PRESETS.get('react-tailwind'));
+    await menu({ styling: 'bootstrap' }, { dimensions: { preset: 'react-tailwind' } });
+    expect(JSON.stringify(PRESETS.get('react-tailwind'))).toBe(before);
   });
 
   it('still asks for what neither the flags nor the preset settled', async () => {
@@ -261,24 +278,21 @@ describe('a chosen preset fills gaps and never overwrites', () => {
 
 describe('partial configuration plus a chosen preset', () => {
   it('a router flag and an interactively chosen preset compose', async () => {
-    const { manifest } = await picking('react-mui', ['--router', 'react-router']);
+    const { manifest } = await picking('react-tailwind', ['--router', 'react-router']);
     expect(manifest).toMatchObject({
       framework: 'react',
       styling: 'tailwind',
-      uiLibrary: 'mui',
       router: 'react-router',
     });
   });
 
   it('and equals the fully explicit flags', async () => {
-    const composed = await picking('react-mui', ['--router', 'react-router']);
+    const composed = await picking('react-tailwind', ['--router', 'react-router']);
     const explicit = await fromFlags([
       '--framework',
       'react',
       '--styling',
       'tailwind',
-      '--ui-library',
-      'mui',
       '--router',
       'react-router',
     ]);
@@ -287,7 +301,7 @@ describe('partial configuration plus a chosen preset', () => {
   });
 
   it('a config value and a chosen preset compose', async () => {
-    const { manifest } = await picking('react-mui', [], { stack: { styling: 'tailwind' } });
+    const { manifest } = await picking('react-tailwind', [], { stack: { uiLibrary: 'mui' } });
     expect(manifest).toMatchObject({
       framework: 'react',
       styling: 'tailwind',
@@ -296,27 +310,23 @@ describe('partial configuration plus a chosen preset', () => {
   });
 
   it('a config value beats the preset it overlaps', async () => {
-    const { manifest } = await picking('react-mui', [], { stack: { styling: 'bootstrap' } });
-    expect(manifest).toMatchObject({
-      framework: 'react',
-      styling: 'bootstrap',
-      uiLibrary: 'mui',
-    });
+    const { manifest } = await picking('react-tailwind', [], { stack: { styling: 'bootstrap' } });
+    expect(manifest).toMatchObject({ framework: 'react', styling: 'bootstrap' });
   });
 
   it('a flag beats the preset it overlaps', async () => {
-    const { manifest } = await picking('react-mui', ['--ui-library', 'none']);
-    expect(manifest).toMatchObject({ framework: 'react', uiLibrary: 'none' });
+    const { manifest } = await picking('react-tailwind', ['--styling', 'bootstrap']);
+    expect(manifest).toMatchObject({ framework: 'react', styling: 'bootstrap' });
   });
 
   it('an explicit flag beats a config value beats the preset', async () => {
-    const { manifest } = await picking('react-mui', ['--ui-library', 'none'], {
-      stack: { styling: 'bootstrap' },
+    const { manifest } = await picking('react-tailwind', ['--ui-library', 'none'], {
+      stack: { styling: 'bootstrap', uiLibrary: 'mui' },
     });
     expect(manifest).toMatchObject({
       framework: 'react', // preset
-      styling: 'bootstrap', // file
-      uiLibrary: 'none', // flag
+      styling: 'bootstrap', // file, beating the preset
+      uiLibrary: 'none', // flag, beating the file
     });
   });
 
@@ -347,6 +357,7 @@ describe('features follow the same rules as every other dimension', () => {
       displayName: 'Opinionated',
       description: 'a preset that picks features too',
       dimensions: { framework: 'astro', features: ['seo', 'accessibility'] },
+      startFrom: true,
     },
   ]);
 
@@ -426,15 +437,16 @@ describe('features follow the same rules as every other dimension', () => {
 
 describe('provenance names the layer that actually won', () => {
   it('labels interactively seeded values as preset', async () => {
-    const { stack } = await picking('react-mui', ['--router', 'react-router']);
+    const { stack } = await picking('react-tailwind', ['--router', 'react-router']);
     expect(stack['framework']).toBe('preset');
     expect(stack['styling']).toBe('preset');
-    expect(stack['uiLibrary']).toBe('preset');
+    // The preset does not state one; it was asked.
+    expect(stack['uiLibrary']).toBe('prompt');
     expect(stack['router']).toBe('flag');
   });
 
   it('labels an overridden dimension by its winner, not by the preset', async () => {
-    const { stack } = await picking('react-mui', ['--ui-library', 'none'], {
+    const { stack } = await picking('react-tailwind', ['--ui-library', 'none'], {
       stack: { styling: 'bootstrap' },
     });
     expect(stack['framework']).toBe('preset');
@@ -445,7 +457,7 @@ describe('provenance names the layer that actually won', () => {
   it('records no dimension row for the preset question itself', async () => {
     // `preset` is a question, not a dimension; a source beside a value the
     // summary never prints would be noise.
-    const { stack } = await picking('react-mui');
+    const { stack } = await picking('react-tailwind');
     expect(stack['preset']).toBeUndefined();
   });
 
@@ -487,11 +499,17 @@ describe('a preset is never inferred', () => {
     expect(manifest.router).toBe('react-router');
   });
 
-  it('pressing Enter through the menu leaves the stack to the ordinary flow', async () => {
+  it('pressing Enter on Start from takes Astro + Tailwind, and says it was the preset', async () => {
+    // The interactive default is a preset the user saw and accepted, so it is
+    // credited to the preset - unlike --yes, above, which never shows the menu.
     const prompter = new FakePrompter({ dir: 'acme-site' });
-    const { manifest } = await resolve(['acme-site'], { prompter });
-    expect(manifest.framework).toBe('astro');
+    const { manifest, stack } = await resolve(['acme-site'], { prompter });
+    expect(manifest).toMatchObject({ framework: 'astro', styling: 'tailwind' });
     expect(prompter.asked).toContain('preset');
+    expect(prompter.asked).not.toContain('framework');
+    expect(stack['framework']).toBe('preset');
+    // The same stack as the flag-less default: only the attribution differs.
+    expect(manifest).toEqual((await fromFlags([])).manifest);
   });
 });
 
@@ -550,14 +568,14 @@ describe('determinism', () => {
   });
 
   it('the seeded order is stable', async () => {
-    const a = await menu({ router: 'react-router' }, { dimensions: { preset: 'react-mui' } });
-    const b = await menu({ router: 'react-router' }, { dimensions: { preset: 'react-mui' } });
+    const a = await menu({ router: 'react-router' }, { dimensions: { preset: 'react-tailwind' } });
+    const b = await menu({ router: 'react-router' }, { dimensions: { preset: 'react-tailwind' } });
     expect(a.presetSeeded).toEqual(b.presetSeeded);
   });
 
   it('the same composition resolves to the same plan twice', async () => {
-    const once = await picking('react-mui', ['--router', 'react-router']);
-    const twice = await picking('react-mui', ['--router', 'react-router']);
+    const once = await picking('react-tailwind', ['--router', 'react-router']);
+    const twice = await picking('react-tailwind', ['--router', 'react-router']);
     expect(plan(once)).toBe(plan(twice));
   });
 });
@@ -635,8 +653,8 @@ describe('the create command composes them', () => {
   };
 
   it('a router flag plus a chosen preset reaches the plan', async () => {
-    const { code, text } = await create(['--router', 'react-router'], {
-      dimensions: { preset: 'react-mui' },
+    const { code, text } = await create(['--router', 'react-router', '--ui-library', 'mui'], {
+      dimensions: { preset: 'react-tailwind' },
     });
     expect(code).toBe(0);
     expect(text).toContain('react-vite');
@@ -646,15 +664,15 @@ describe('the create command composes them', () => {
 
   it('shows the composed provenance', async () => {
     const { text } = await create(['--router', 'react-router', '--debug'], {
-      dimensions: { preset: 'react-mui' },
+      dimensions: { preset: 'react-tailwind' },
     });
     expect(text).toContain('[preset]');
     expect(text).toContain('[flag]');
   });
 
   it('a styling flag plus a chosen preset reaches the plan', async () => {
-    const { text } = await create(['--styling', 'bootstrap'], {
-      dimensions: { preset: 'react-mui' },
+    const { text } = await create(['--styling', 'bootstrap', '--ui-library', 'mui'], {
+      dimensions: { preset: 'react-tailwind' },
     });
     expect(text).toContain('react-vite');
     expect(text).toContain('src/components/ui/AppProviders.tsx');
