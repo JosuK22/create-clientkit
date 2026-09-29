@@ -486,3 +486,44 @@ See [docs/cli.md](./docs/cli.md#detect) and
 - `upgrade`'s refusal for a project with no `.client-site.json` no longer says
   ClientKit does not inspect projects. It now says upgrade does not guess a
   stack, and points to `detect`.
+
+## 1.4.0 — 2026-09-29
+
+Adds `doctor`, a read-only command that diagnoses whether an existing project
+needs attention before ClientKit works with it. Generated output is unchanged:
+no template, adapter or golden snapshot was touched.
+
+### `create-clientkit doctor [directory]`
+
+```sh
+npm create clientkit@latest doctor ./acme-site
+```
+
+`detect` discovers; `doctor` diagnoses. It runs the same detection and the
+same resolution as `detect`, then reports each check as pass, info, warning or
+error, with the evidence and a hint for anything that needs attention.
+
+- **What it flags.** An unsupported or ambiguous framework, styling system, UI
+  library or router; a stack ClientKit cannot build; a missing or malformed
+  `package.json`; lockfiles, or a `packageManager` field, that disagree; a
+  build tool ClientKit would have to assume because the project does not show
+  one.
+- **No second opinion.** The verdict on the stack is the resolver's, in the
+  resolver's words, so `doctor` and `detect` cannot disagree.
+- **Unknown is not unsupported.** Missing information is at most a warning.
+  Ambiguity is reported, never resolved by picking one.
+- **Read-only.** It reads exactly what `detect` reads. It never writes,
+  prompts, installs, or runs a package manager or project script, and works
+  without `node_modules`. There is no `--fix`.
+- Exits `0` when there are no errors, warnings included, so it does not break
+  a script over something that only might matter. Exits `2` when it finds an
+  error, for a missing directory, or when given an option that configures
+  generation.
+
+See [docs/cli.md](./docs/cli.md#doctor) and
+[docs/architecture/project-doctor.md](./docs/architecture/project-doctor.md).
+
+### Changed
+
+- `doctor` is now a command word: `create-clientkit doctor` no longer creates
+  a project named `doctor`. `create-clientkit ./doctor` still does.
