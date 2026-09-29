@@ -633,12 +633,20 @@ function snapshot(root: string): Record<string, string> {
 
 describe('read-only', () => {
   it('changes no file, no content and no timestamp, and creates nothing', async () => {
-    const dir = writeProject({
+    const files: Record<string, string> = {
       ...RICH,
       'package.json': '{ "name": "broken", ',
       'pnpm-lock.yaml': 'lockfileVersion: 9',
       'node_modules/react/package.json': '{}',
-    });
+    };
+    // Inside a parent of its own: the shared temp directory gains and loses
+    // entries whenever another suite runs in parallel.
+    const dir = path.join(
+      writeProject(
+        Object.fromEntries(Object.entries(files).map(([name, text]) => [`project/${name}`, text])),
+      ),
+      'project',
+    );
     const before = snapshot(dir);
     const parentBefore = readdirSync(path.dirname(dir)).sort();
 

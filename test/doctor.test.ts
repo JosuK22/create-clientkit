@@ -395,7 +395,12 @@ describe('read-only', () => {
     ['warning', { ...HEALTHY, 'package-lock.json': '{"lockfileVersion":3}' }],
     ['error', { 'package.json': '{ "name": "broken", ', 'yarn.lock': '# yarn' }],
   ])('changes no file, content or timestamp, and creates nothing: %s', async (_label, files) => {
-    const dir = writeProject({ ...files, 'node_modules/react/package.json': '{}' });
+    // Inside a parent of its own: the shared temp directory gains and loses
+    // entries whenever another suite runs in parallel.
+    const nested = Object.entries({ ...files, 'node_modules/react/package.json': '{}' }).map(
+      ([name, text]) => [`project/${name}`, text],
+    );
+    const dir = path.join(writeProject(Object.fromEntries(nested)), 'project');
     const before = snapshot(dir);
     const parentBefore = readdirSync(path.dirname(dir)).sort();
 
