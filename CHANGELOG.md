@@ -527,3 +527,56 @@ See [docs/cli.md](./docs/cli.md#doctor) and
 
 - `doctor` is now a command word: `create-clientkit doctor` no longer creates
   a project named `doctor`. `create-clientkit ./doctor` still does.
+
+## 1.5.0 — 2026-09-29
+
+A simpler start. The interactive **Start from** question now offers three
+opinionated presets and Custom. Generated output is unchanged: no template,
+adapter or golden snapshot was touched.
+
+### Start from
+
+```text
+Start from
+
+❯ Astro + Tailwind
+  React + Tailwind
+  Next.js + Tailwind
+  Custom — choose your stack
+```
+
+- **One keystroke for the common path.** Choosing a preset sets the framework
+  and styling, so neither is asked again. Only the questions that remain are
+  asked, such as component library and routing on React.
+- **Astro + Tailwind is the default.** Pressing Enter all the way through
+  gives the same project as before, with fewer questions. Enter only takes a
+  preset that fits what you have already passed. With `--framework react`,
+  Enter means Custom, and with `--router react-router` it means React +
+  Tailwind.
+- **Custom keeps everything.** It asks every stack question as before, so
+  every supported combination is still available: Bootstrap, Material UI,
+  Chakra UI, React Router and every feature.
+- `--yes` and non-interactive runs are unchanged. They use no preset.
+
+### Added
+
+- `--preset nextjs-tailwind`: Next.js (App Router) with Tailwind CSS. It is
+  also valid in a config file (`"stack": { "preset": "nextjs-tailwind" }`).
+
+### Changed
+
+- `react-bootstrap` and `react-mui` are no longer in the interactive menu.
+  They still work with `--preset` and in a config file, and Custom builds
+  the same projects.
+- Presets are now named "Astro + Tailwind" and "React + Tailwind" in `--help`
+  and the menu, instead of "… + Tailwind CSS".
+- With `--debug`, the framework and styling of a project made by pressing
+  Enter are credited to the preset rather than to the built-in default.
+
+### Docs
+
+- README: the new menu, and a short workflow for `detect` and `doctor` on an
+  existing project.
+- `docs/stacks.md` no longer says there is no Next.js preset.
+- `docs/upgrading.md` points projects without `.client-site.json` to `detect`
+  and `doctor`.
