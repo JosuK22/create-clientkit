@@ -372,8 +372,16 @@ describe('determinism', () => {
   it('does not depend on locale-sensitive ordering', async () => {
     const cwd = scratch({ 'acme/package.json': '{}', 'acme/README.md': '#' });
     const expected = (await create(cwd, ['acme', '--yes', '--dry-run'])).out;
-    const compare = vi.spyOn(String.prototype, 'localeCompare').mockImplementation(() => {
-      throw new Error('localeCompare used');
+    // Turkish collation rather than a throw: this stub spans an `await`, and the
+    // test runner's own code runs meanwhile - a throwing global breaks its
+    // progress reporting. That no generation code calls `localeCompare` at all
+    // is held by the source scan in determinism.test.ts.
+    const tr = new Intl.Collator('tr');
+    const compare = vi.spyOn(String.prototype, 'localeCompare').mockImplementation(function (
+      this: string,
+      that: string,
+    ) {
+      return tr.compare(String(this), that);
     });
     try {
       expect((await create(cwd, ['acme', '--yes', '--dry-run'])).out).toEqual(expected);

@@ -87,11 +87,13 @@ async function resolved(
   });
 }
 
-async function planOf(
-  argv: readonly string[],
-  options: { cwd?: string; env?: NodeJS.ProcessEnv; fs?: PlanFs; now?: string } = {},
-): Promise<GenerationPlan> {
-  const resolution = await resolved(argv, options);
+type Resolution = Awaited<ReturnType<typeof resolved>>;
+
+/** Planning alone, synchronous: what a stubbed global can safely surround. */
+function planFrom(
+  resolution: Resolution,
+  options: { fs?: PlanFs; now?: string } = {},
+): GenerationPlan {
   return planManifest(resolution.manifest, {
     registry,
     cliVersion: '9.9.9',
@@ -100,6 +102,29 @@ async function planOf(
     templateId: resolution.context.template.id,
     ...(options.fs === undefined ? {} : { fs: options.fs }),
   }).plan;
+}
+
+async function planOf(
+  argv: readonly string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; fs?: PlanFs; now?: string } = {},
+): Promise<GenerationPlan> {
+  return planFrom(await resolved(argv, options), options);
+}
+
+/**
+ * Runs `fn` with a global stubbed, synchronously, and always restores it.
+ *
+ * Never across an `await`: the test runner's own worker code runs in the same
+ * process while a test awaits, and a global stubbed to throw breaks its
+ * progress reporting - under load, a runner timeout rather than a test result.
+ */
+function withStub<T>(install: () => void, fn: () => T): T {
+  install();
+  try {
+    return fn();
+  } finally {
+    vi.restoreAllMocks();
+  }
 }
 
 /** A filesystem listing every directory backwards. */
@@ -235,26 +260,33 @@ describe('the machine locale changes nothing', () => {
 
   for (const argv of STACKS) {
     it(`gives the same plan under a Turkish default locale: ${argv.join(' ') || '(defaults)'}`, async () => {
-      const normal = await planOf(argv);
-      turkish();
-      expect(await planOf(argv)).toEqual(normal);
+      const resolution = await resolved(argv);
+      const normal = planFrom(resolution);
+      expect(withStub(turkish, () => planFrom(resolution))).toEqual(normal);
     });
   }
 
   it('gives the same plan when locale-default comparison is unavailable', async () => {
-    const normal = await Promise.all(STACKS.map((argv) => planOf(argv)));
-    vi.spyOn(String.prototype, 'localeCompare').mockImplementation(() => {
-      throw new Error('localeCompare used during generation');
-    });
-    for (const [index, argv] of STACKS.entries()) {
-      expect(await planOf(argv)).toEqual(normal[index]);
-    }
+    const resolutions = await Promise.all(STACKS.map((argv) => resolved(argv)));
+    const normal = resolutions.map((resolution) => planFrom(resolution));
+    const unavailable = () => {
+      vi.spyOn(String.prototype, 'localeCompare').mockImplementation(() => {
+        throw new Error('localeCompare used during generation');
+      });
+    };
+    const stubbed = withStub(unavailable, () =>
+      resolutions.map((resolution) => planFrom(resolution)),
+    );
+    expect(stubbed).toEqual(normal);
   });
 
   it('orders through one pinned comparator', () => {
-    turkish();
     // A default Collator now answers in Turkish; the shared one does not.
-    expect(['i', 'ı'].sort(compareText)).toEqual(['i', 'ı'].sort(new Intl.Collator('en').compare));
+    const [pinned, english] = withStub(turkish, () => [
+      ['i', 'ı'].sort(compareText),
+      ['i', 'ı'].sort(new Intl.Collator('en').compare),
+    ]);
+    expect(pinned).toEqual(english);
   });
 });
 
