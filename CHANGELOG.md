@@ -691,3 +691,38 @@ changes, and no golden snapshot was touched.
 
 See
 [docs/architecture/deterministic-generation.md](./docs/architecture/deterministic-generation.md).
+
+## 1.6.0 — 2026-10-01
+
+Running ClientKit again on a project it generated is now safe to repeat: it
+changes only what differs, and nothing when nothing does. Generating a new
+project is unchanged, byte for byte, and no golden snapshot was touched.
+
+### Changed
+
+- **The same command twice is a no-op.** Re-running `create` with the same
+  configuration on a project ClientKit generated now says the project is
+  already up to date, writes nothing, and succeeds. It doesn't reinstall
+  dependencies or re-initialise git. Before, a second `--yes` run was refused
+  with "already exists and is not empty".
+- **Missing generated files come back.** Delete a generated file and re-run,
+  and that one file is restored, without a question, because nothing is
+  overwritten.
+- **Your edits are never replaced silently.** A generated file that differs
+  from what ClientKit would write now may hold your work, so only those files
+  are listed, and they are replaced only if you confirm. With `--yes` or
+  without a terminal the run stops and writes nothing.
+- **`upgrade` replaces only what differs.** Files that already match are no
+  longer rewritten or listed, and if everything matches it says so and asks
+  nothing.
+- **`--dry-run` shows the same decision** on such a project: what it would
+  create, what it would replace with your confirmation, how many files are
+  unchanged, or that the project is already up to date.
+- `.client-site.json` is left exactly as it is when nothing else changes.
+
+A project is recognised by its `.client-site.json`. Directories without a
+usable one keep the rules they always had.
+
+See
+[docs/architecture/idempotent-generation.md](./docs/architecture/idempotent-generation.md)
+and [docs/upgrading.md](./docs/upgrading.md#re-running-create-over-an-existing-project).
