@@ -506,8 +506,9 @@ Be honest with yourself about the fit:
   audited with axe and Lighthouse.
 - **Generation is atomic**: files are written to a temporary directory and moved
   into place only when every file succeeded. A failure leaves nothing behind.
-- Never writes into a non-empty directory without asking, and never touches
-  files it did not generate.
+- Never overwrites a file without asking, and never touches files it did not
+  generate. Run again on a project it generated, it changes only what differs,
+  and nothing at all if nothing does.
 - Nothing phones home.
 
 ## Contributing

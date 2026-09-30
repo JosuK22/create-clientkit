@@ -124,6 +124,7 @@ comparison throw: any use of it during generation fails, whatever the names.
 
 ## Not in scope
 
-Determinism is about generating a new project. Updating an existing project,
-merging into one, diffing and rolling back are separate, and are not
-described here.
+Determinism is about the plan for a set of inputs. What happens when that plan
+meets a project ClientKit already generated is described in
+[idempotent-generation.md](./idempotent-generation.md). Diffing and rolling
+back are not features.

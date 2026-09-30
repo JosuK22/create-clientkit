@@ -13,7 +13,7 @@
  *   node scripts/smoke.mjs --keep          leave the workspace for inspection
  *   node scripts/smoke.mjs --audit         also run axe + Lighthouse on each build
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -21,6 +21,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -626,6 +627,43 @@ try {
   console.log(
     '  determinism: same plan across processes, locale and cwd; same bytes from two generations',
   );
+
+  // Idempotency across processes: the same command again, in a fresh process,
+  // recognises the project, writes nothing and leaves every byte - and every
+  // timestamp, record included - exactly as it was.
+  const idemCwd = path.join(workspace, 'det-one');
+  const stamps = (root) => {
+    const out = [];
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else
+          out.push(
+            `${path.relative(root, full)}:${statSync(full).mtimeMs}:${readFileSync(full).toString('base64')}`,
+          );
+      }
+    };
+    walk(root);
+    return out.sort().join('\n');
+  };
+  const beforeRepeat = stamps(path.join(idemCwd, 'site'));
+  // Both streams: the verdict is a status line, and those go to stderr.
+  const repeat = spawnSync(
+    process.execPath,
+    [cli, 'site', '--yes', '--no-install', '--no-git', '--preset', 'nextjs-tailwind'],
+    { cwd: idemCwd, encoding: 'utf8' },
+  );
+  expect(repeat.status === 0, `idempotency: the repeat exited ${repeat.status}`);
+  expect(
+    /already up to date/.test(`${repeat.stdout}${repeat.stderr}`),
+    'idempotency: the repeat did not recognise the project',
+  );
+  expect(
+    stamps(path.join(idemCwd, 'site')) === beforeRepeat,
+    'idempotency: the repeat changed the project',
+  );
+  console.log('  idempotency: the same command again wrote nothing');
 
   // --no-git and --no-install are honoured.
   const flagsDir = path.join(workspace, 'flags');

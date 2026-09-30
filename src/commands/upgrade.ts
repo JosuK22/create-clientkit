@@ -14,9 +14,12 @@ import type { ParsedFlags } from '../args.js';
 import { ClackPrompter, NonInteractivePrompter, type Prompter } from '../context/prompts.js';
 import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
-import { apply, findCollisions } from '../generate/apply.js';
+import { apply } from '../generate/apply.js';
+import { narrowPlan } from '../generate/compare.js';
+import { comparePlanPaths } from '../generate/files.js';
 import { findTemplatesRoot, type TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
+import { decideRegeneration, leftAlone, pathsToWrite } from './regenerate.js';
 import { summarisePlan } from '../ui/plan.js';
 
 /**
@@ -280,13 +283,22 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const generationPlan = planned.plan;
   for (const line of summarisePlan(generationPlan, planned.composedPackage)) logger.debug(line);
 
-  // What already exists and is in the current plan: the set a write replaces.
-  const collisions = findCollisions(generationPlan);
-  const replacing = new Set(collisions);
-  const adding = upgradePlan.paths.currentPaths.filter((entry) => !replacing.has(entry));
+  /*
+   * The plan against the project, file by file (Stage 7): what is missing,
+   * what already matches and what differs. Only the first and last are
+   * written, and only the last needs anyone to agree.
+   */
+  const regeneration = decideRegeneration(generationPlan);
+  // Listed from what would be written, so the summary is the write, exactly.
+  const writes = pathsToWrite(regeneration, true);
+  const missing = new Set(regeneration.comparison.missing);
+  const replacing = writes.filter((entry) => !missing.has(entry)).sort(comparePlanPaths);
+  const adding = writes.filter((entry) => missing.has(entry)).sort(comparePlanPaths);
 
   logger.print('');
-  logger.print(renderUpgrade(upgradePlan.paths, collisions, adding));
+  logger.print(
+    renderUpgrade(upgradePlan.paths, replacing, adding, leftAlone(regeneration, writes).length),
+  );
 
   /*
    * The one thing the file list cannot show.
@@ -323,32 +335,43 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return EXIT_OK;
   }
 
-  // ---- ask -----------------------------------------------------------------
-  /*
-   * The same confirmation a re-generation already requires, reached the same
-   * way. `--yes` selects the non-interactive prompter, which refuses to answer
-   * this - so `--yes` configures, and it does not consent to replacing a
-   * developer's files. That boundary is Stage 55's and is deliberately not
-   * widened here.
-   */
-  const prompter = options.prompter ?? consentPrompter(flags, isTTY);
-  if (prompter instanceof ClackPrompter) prompter.intro(cliVersion);
-
-  const confirmed = await prompter.confirmNonEmpty(collisions.length);
-  if (!confirmed) {
-    logger.info('Cancelled. Nothing was written.');
+  if (regeneration.upToDate) {
+    logger.print('');
+    logger.success('Already up to date. Nothing was written.');
     return EXIT_OK;
   }
 
+  // ---- ask -----------------------------------------------------------------
+  /*
+   * The same confirmation a re-generation already requires, reached the same
+   * way - and only when a file that differs would be replaced. `--yes` selects
+   * the non-interactive prompter, which refuses to answer this, so `--yes`
+   * configures and does not consent to replacing a developer's files. Adding a
+   * missing file replaces nothing and needs no answer.
+   */
+  if (regeneration.conflicts.length > 0) {
+    const prompter = options.prompter ?? consentPrompter(flags, isTTY);
+    if (prompter instanceof ClackPrompter) prompter.intro(cliVersion);
+
+    const confirmed = await prompter.confirmNonEmpty(regeneration.conflicts.length);
+    if (!confirmed) {
+      logger.info('Cancelled. Nothing was written.');
+      return EXIT_OK;
+    }
+  }
+
   // ---- apply ---------------------------------------------------------------
-  // The existing merge: planned files only, nothing else touched, nothing
-  // deleted, and atomic - a failure leaves the project exactly as it was.
-  const result = apply(generationPlan, { allowNonEmpty: true });
+  // The existing merge, narrowed to what was decided: planned files only,
+  // nothing else touched, nothing deleted, files already as planned left
+  // alone, and atomic - a failure leaves the project exactly as it was.
+  const result = apply(narrowPlan(generationPlan, writes), {
+    allowNonEmpty: true,
+  });
 
   logger.success(
     `Updated ${result.overwritten.length} file(s) in ${path.relative(cwd, result.targetDir) || '.'}`,
   );
-  const created = result.written.filter((entry) => !replacing.has(entry));
+  const created = result.written.filter((entry) => !result.overwritten.includes(entry));
   if (created.length > 0) logger.success(`Added ${created.length} new file(s).`);
   if (upgradePlan.paths.orphanCandidates.length > 0) {
     logger.warn(
@@ -407,6 +430,7 @@ export function renderUpgrade(
   paths: UpgradePathPlan,
   replacing: readonly string[],
   adding: readonly string[],
+  unchanged = 0,
 ): string {
   const lines: string[] = [];
 
@@ -422,6 +446,11 @@ export function renderUpgrade(
   if (adding.length > 0) {
     lines.push(`  Add ${adding.length} file(s):`);
     for (const entry of adding) lines.push(`    ${entry}`);
+    lines.push('');
+  }
+
+  if (unchanged > 0 && (replacing.length > 0 || adding.length > 0)) {
+    lines.push(`  Leave ${unchanged} generated file(s) as they are: they already match.`);
     lines.push('');
   }
 

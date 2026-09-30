@@ -17,16 +17,22 @@ you pass overrides one recorded value, so `--styling bootstrap` means
 "everything as before, but Bootstrap" — no need to repeat the site name, URL or
 the rest of the stack.
 
-Before writing, it lists every file it would **replace**, every file it would
-**add**, and every file the new stack **no longer generates**, then asks.
+Before writing, it compares every planned file with what is there. It lists
+the files that **differ** and would be replaced, the files that are **missing**
+and would be added, and the files the new stack **no longer generates**. It
+counts the files that already match, and never rewrites those.
 
 What it guarantees:
 
+- **Nothing that matches is rewritten.** If the project already matches, it
+  says so and writes nothing.
 - **Nothing is deleted.** Files the new stack no longer generates are listed and
   left where they are, for you to remove after looking at them.
 - **Files ClientKit did not plan are never touched**, including your own.
-- **You must confirm.** `--yes` is refused rather than treated as consent, and
-  so is a run without a terminal. `--dry-run` needs neither, because it writes
+- **You confirm every replacement.** A file that differs may hold your edits,
+  so replacing one needs your answer. `--yes` is refused rather than treated as
+  consent, and so is a run without a terminal. Adding a missing file replaces
+  nothing and needs no answer. `--dry-run` never needs one, because it writes
   nothing.
 - **A failure changes nothing.** If any write fails, every file already replaced
   is restored.
@@ -69,16 +75,39 @@ See [docs/cli.md](./cli.md#detect).
 
 ## Re-running `create` over an existing project
 
-This is a merge, not an upgrade:
+**On a project ClientKit generated**, one with a usable `.client-site.json`,
+`create` compares its plan with what is there, file by file:
 
-- Without a terminal, or with `--yes`, a non-empty target directory is
-  **refused** and nothing is written.
+| The planned file…             | What `create` does                                      |
+| ----------------------------- | ------------------------------------------------------- |
+| is already exactly as planned | leaves it alone, and never rewrites it                  |
+| is missing                    | adds it, without asking, because nothing is overwritten |
+| exists with different content | replaces it only if you confirm; `--yes` stops the run  |
+
+So running the same command again changes nothing and exits successfully. It
+doesn't reinstall dependencies or re-initialise git either. Deleting a
+generated file and re-running brings that one file back. If a generated file
+differs, ClientKit can't tell whether you edited it or it came from another
+configuration or release, so it lists it and asks. With `--yes`, or without a
+terminal, the run stops and writes nothing at all, not even the missing files.
+`--dry-run` shows the same decision without writing.
+
+`.client-site.json` is ClientKit's own record. It is left byte for byte as it is
+when nothing else changes, and rewritten, with a new `generatedAt`, when
+anything is written.
+
+**On any other non-empty directory**, including one whose `.client-site.json`
+ClientKit cannot use, the old rules apply:
+
+- Without a terminal, or with `--yes`, the directory is **refused** and nothing
+  is written.
 - Interactively, it lists the files it would replace and asks, defaulting to
-  **no**. Confirm and your edits to those files are replaced with the generated
-  versions.
-- Files ClientKit did not generate are never touched, and nothing is deleted.
+  **no**.
 
-Re-running with a different stack adds and overwrites files, but does not tell
+In both cases, files ClientKit did not generate are never touched, and nothing
+is deleted.
+
+Re-running with a different stack adds and replaces files, but does not tell
 you which old files are now unused. For example, dropping `--ui-library mui`
 leaves `src/components/ui/AppProviders.tsx` in place, still importing a package
 the new `package.json` no longer lists — `npm run typecheck` will fail until you

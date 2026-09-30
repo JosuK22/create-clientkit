@@ -1,4 +1,3 @@
-import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import type { ParsedFlags } from '../args.js';
@@ -7,11 +6,23 @@ import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply, findCollisions } from '../generate/apply.js';
 import { planManifest } from '../adapters/bridge.js';
-import { planPostSteps, runPostSteps } from '../generate/postSteps.js';
+import { narrowPlan } from '../generate/compare.js';
+import type { GenerationPlan } from '../generate/files.js';
+import { planPostSteps, runPostSteps, type PostStepResult } from '../generate/postSteps.js';
+import type { PostStep } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
+import type { ProjectContext } from '../types.js';
 import type { Logger } from '../ui/logger.js';
 import { renderDryRun, renderNextSteps, renderPlan, summarisePlan } from '../ui/plan.js';
 import { satisfiesMinimum } from '../util/node.js';
+import {
+  decideRegeneration,
+  inspectTarget,
+  leftAlone,
+  pathsToWrite,
+  postStepsAfter,
+  type Regeneration,
+} from './regenerate.js';
 
 export interface CreateOptions {
   readonly flags: ParsedFlags;
@@ -45,14 +56,6 @@ function selectPrompter(flags: ParsedFlags, isTTY: boolean): Prompter {
     });
   }
   return new ClackPrompter();
-}
-
-function hasContent(targetDir: string): boolean {
-  try {
-    return readdirSync(targetDir).filter((entry) => entry !== '.git').length > 0;
-  } catch {
-    return false;
-  }
 }
 
 export async function runCreate(options: CreateOptions): Promise<number> {
@@ -104,13 +107,41 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   for (const line of summarisePlan(generationPlan, planned.composedPackage)) logger.debug(line);
 
   /*
+   * What is already there, decided once, before either the preview or a write.
+   *
+   * A directory holding a usable `.client-site.json` is a ClientKit project and
+   * is re-generated idempotently: files already as planned are left alone,
+   * missing ones are added, differing ones need a person (see `regenerate.ts`).
+   * Any other directory with content keeps the non-empty rules it always had.
+   */
+  const target = inspectTarget(generationPlan.targetDir, cliVersion);
+  logger.debug(
+    `target=${target.kind}${target.kind === 'unrecognised' && target.because ? ` (${target.because})` : ''}`,
+  );
+  const regeneration = target.kind === 'clientkit' ? decideRegeneration(generationPlan) : undefined;
+  if (regeneration !== undefined) {
+    logger.debug(
+      `regeneration missing=${regeneration.missing.length} conflicts=${regeneration.conflicts.length} ` +
+        `unchanged=${regeneration.comparison.unchanged.length} record=${regeneration.recordChanged ? 'changed' : 'same'}`,
+    );
+  }
+
+  /*
    * The preview, and the whole of the run. It returns before `apply()` and
    * before the post steps, and what it reports comes from the same checks a
-   * real run makes below - `findCollisions`, `hasContent`, `planPostSteps` -
-   * every one of which only reads. The non-empty question is not asked: a dry
-   * run is not a rehearsal for a confirmed write, it is the entire run.
+   * real run makes below - the same target inspection and re-generation
+   * decision, `findCollisions`, `planPostSteps` - every one of which only
+   * reads. No question is asked: a dry run is not a rehearsal for a confirmed
+   * write, it is the entire run.
    */
   if (flags.dryRun) {
+    // What a real run would write: with conflicts, nothing unless a person can say yes.
+    const writes =
+      regeneration === undefined
+        ? generationPlan.operations.map((operation) => operation.path)
+        : regeneration.conflicts.length > 0 && !prompter.interactive
+          ? []
+          : pathsToWrite(regeneration, true);
     logger.print(
       renderDryRun(
         generationPlan,
@@ -120,9 +151,31 @@ export async function runCreate(options: CreateOptions): Promise<number> {
         sources,
         {
           replaced: findCollisions(generationPlan),
-          nonEmpty: hasContent(generationPlan.targetDir),
+          nonEmpty: target.kind !== 'new' && target.kind !== 'empty',
           interactive: prompter.interactive,
-          postSteps: planPostSteps(context, manifest.postSteps),
+          postSteps: planPostSteps(
+            context,
+            regeneration === undefined
+              ? manifest.postSteps
+              : postStepsAfter(manifest.postSteps, writes, generationPlan.targetDir),
+          ),
+          ...(regeneration === undefined
+            ? {}
+            : {
+                // Listed from what a run would write once allowed, so the
+                // preview names every file - the record included - a write touches.
+                regeneration: {
+                  create: pathsToWrite(regeneration, true).filter((entry) =>
+                    regeneration.comparison.missing.includes(entry),
+                  ),
+                  replace: pathsToWrite(regeneration, true).filter(
+                    (entry) => !regeneration.comparison.missing.includes(entry),
+                  ),
+                  conflicts: regeneration.conflicts,
+                  unchanged: leftAlone(regeneration, pathsToWrite(regeneration, true)),
+                  upToDate: regeneration.upToDate,
+                },
+              }),
         },
         { verbose: flags.debug },
       ),
@@ -140,19 +193,45 @@ export async function runCreate(options: CreateOptions): Promise<number> {
     logger.hint('The project will still be generated, but installing or building it may fail.');
   }
 
+  // ---- a project ClientKit generated --------------------------------------
+  if (regeneration !== undefined) {
+    return regenerate({
+      options,
+      prompter,
+      generationPlan,
+      regeneration,
+      postSteps: manifest.postSteps,
+      finish: (postResults) => {
+        logger.print('');
+        logger.print(
+          renderPlan(context, projectManifest, sources, stack, { showSources: flags.debug }),
+        );
+        logger.print('');
+        logger.print(renderNextSteps(context, manifest, postResults, cwd));
+      },
+      context,
+    });
+  }
+
   // ---- non-empty target directory ----------------------------------------
   const collisions = findCollisions(generationPlan);
   let allowNonEmpty = false;
 
-  if (hasContent(generationPlan.targetDir)) {
+  if (target.kind === 'unrecognised') {
+    // Why ownership could not be established, when a record was there at all.
+    const why =
+      target.because === undefined
+        ? ''
+        : `ClientKit did not treat it as its own project: ${target.because}.\n`;
     if (!prompter.interactive) {
       throw new CliError(
         `Directory "${generationPlan.targetDir}" already exists and is not empty.`,
         {
-          hint: 'Choose an empty directory, or re-run interactively to confirm writing into this one.',
+          hint: `${why}Choose an empty directory, or re-run interactively to confirm writing into this one.`,
         },
       );
     }
+    if (why !== '') logger.hint(why.trim());
 
     logger.warn(`${path.basename(generationPlan.targetDir)} already contains files.`);
     if (collisions.length > 0) {
@@ -181,6 +260,17 @@ export async function runCreate(options: CreateOptions): Promise<number> {
 
   // ---- post steps ---------------------------------------------------------
   const postResults = runPostSteps({ context, logger, steps: manifest.postSteps });
+  reportPostSteps(logger, postResults);
+
+  logger.print('');
+  logger.print(renderPlan(context, projectManifest, sources, stack, { showSources: flags.debug }));
+  logger.print('');
+  logger.print(renderNextSteps(context, manifest, postResults, cwd));
+
+  return EXIT_OK;
+}
+
+function reportPostSteps(logger: Logger, postResults: readonly PostStepResult[]): void {
   for (const postResult of postResults) {
     if (postResult.status === 'ok') {
       logger.success(
@@ -193,11 +283,90 @@ export async function runCreate(options: CreateOptions): Promise<number> {
       logger.debug(`post-step "${postResult.step}" skipped: ${postResult.detail ?? ''}`);
     }
   }
+}
 
-  logger.print('');
-  logger.print(renderPlan(context, projectManifest, sources, stack, { showSources: flags.debug }));
-  logger.print('');
-  logger.print(renderNextSteps(context, manifest, postResults, cwd));
+interface RegenerateArgs {
+  readonly options: CreateOptions;
+  readonly prompter: Prompter;
+  readonly generationPlan: GenerationPlan;
+  readonly regeneration: Regeneration;
+  readonly postSteps: readonly PostStep[];
+  readonly context: ProjectContext;
+  /** Prints the summary and next steps, as a first run does. */
+  readonly finish: (postResults: readonly PostStepResult[]) => void;
+}
 
+/**
+ * Generating again into a project ClientKit generated: idempotent.
+ *
+ * Every decision is made before anything is written - which files are
+ * missing, which differ, whether a person agreed - so a refusal or a "no"
+ * leaves the project exactly as it was. Then the plan, narrowed to what was
+ * decided, goes through the same executor as a first run.
+ */
+async function regenerate(args: RegenerateArgs): Promise<number> {
+  const { options, prompter, generationPlan, regeneration } = args;
+  const { logger, cwd } = options;
+  const where = path.relative(cwd, generationPlan.targetDir) || '.';
+  const unchanged = regeneration.comparison.unchanged.length;
+
+  if (regeneration.upToDate) {
+    logger.success(
+      `${where} is already up to date: all ${unchanged} generated files match. Nothing was written.`,
+    );
+    return EXIT_OK;
+  }
+
+  let replace = false;
+  const conflicts = regeneration.conflicts;
+  if (conflicts.length > 0) {
+    const listed = conflicts.slice(0, 10).map((file) => `  ${file}`);
+    if (conflicts.length > 10) listed.push(`  ...and ${conflicts.length - 10} more`);
+    const why =
+      'They may be your edits, or files from another configuration or release. ClientKit ' +
+      'cannot tell which, so it replaces them only when you confirm.';
+
+    if (!prompter.interactive) {
+      throw new CliError(
+        `${conflicts.length} generated file(s) in "${generationPlan.targetDir}" differ from what ` +
+          'ClientKit would write now, so nothing was changed.',
+        {
+          hint:
+            `${listed.join('\n')}\n${why}\n` +
+            'Re-run interactively to review and replace them, or use --dry-run to see the plan.',
+        },
+      );
+    }
+
+    logger.warn(
+      `${path.basename(generationPlan.targetDir)} is a ClientKit project. ${conflicts.length} of ` +
+        'its generated files differ from what ClientKit would write now:',
+    );
+    for (const line of listed) logger.hint(line);
+    logger.hint(why);
+    logger.hint('Files ClientKit does not generate are never touched, and nothing is deleted.');
+
+    replace = await prompter.confirmNonEmpty(conflicts.length);
+    if (!replace) {
+      logger.info('Cancelled. Nothing was written.');
+      return EXIT_OK;
+    }
+  }
+
+  const writes = pathsToWrite(regeneration, replace);
+  const result = apply(narrowPlan(generationPlan, writes), { allowNonEmpty: true });
+  const added = result.written.length - result.overwritten.length;
+  logger.success(
+    `Updated ${where}: ${added} added, ${result.overwritten.length} replaced, ` +
+      `${leftAlone(regeneration, writes).length} already up to date.`,
+  );
+
+  const postResults = runPostSteps({
+    context: args.context,
+    logger,
+    steps: postStepsAfter(args.postSteps, writes, generationPlan.targetDir),
+  });
+  reportPostSteps(logger, postResults);
+  args.finish(postResults);
   return EXIT_OK;
 }

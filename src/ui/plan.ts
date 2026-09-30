@@ -130,6 +130,19 @@ export interface DryRunFacts {
   /** Whether a real run could ask before writing into a non-empty target. */
   readonly interactive: boolean;
   readonly postSteps: readonly PlannedPostStep[];
+  /**
+   * Present when the target is a ClientKit project, re-generated idempotently:
+   * the plan compared with what is there. Replaces the create/replace split
+   * above, which only knows whether a path exists.
+   */
+  readonly regeneration?: {
+    readonly create: readonly string[];
+    readonly replace: readonly string[];
+    /** The replacements that need a person: everything but `.client-site.json`. */
+    readonly conflicts: readonly string[];
+    readonly unchanged: readonly string[];
+    readonly upToDate: boolean;
+  };
 }
 
 /**
@@ -160,15 +173,30 @@ export function renderDryRun(
   );
   lines.push(`  ${label('Mode')}${generationPlan.mode}`);
 
-  const replaced = new Set(facts.replaced);
   const entry = (operation: GenerationPlan['operations'][number], mark: string): string => {
     const kind = operation.type === 'copy' ? pc.dim(' (binary)') : '';
     const origin = options.verbose ? pc.dim(`  <- ${operation.origin}`) : '';
     return `  ${mark} ${operation.path}${kind}${origin}`;
   };
-  const creates = generationPlan.operations.filter((operation) => !replaced.has(operation.path));
-  const replaces = generationPlan.operations.filter((operation) => replaced.has(operation.path));
+  const regeneration = facts.regeneration;
+  const replacedPaths = new Set(regeneration?.replace ?? facts.replaced);
+  const createdPaths = regeneration === undefined ? undefined : new Set(regeneration.create);
+  const creates = generationPlan.operations.filter((operation) =>
+    createdPaths === undefined
+      ? !replacedPaths.has(operation.path)
+      : createdPaths.has(operation.path),
+  );
+  const replaces = generationPlan.operations.filter((operation) =>
+    replacedPaths.has(operation.path),
+  );
 
+  if (regeneration !== undefined) {
+    lines.push('');
+    lines.push(
+      pc.bold('This is a ClientKit project.') +
+        ' Only files that differ from the plan are written; the rest are left alone.',
+    );
+  }
   lines.push('');
   lines.push(pc.bold(`Files to create (${creates.length})`));
   for (const operation of creates) lines.push(entry(operation, pc.green('+')));
@@ -177,10 +205,39 @@ export function renderDryRun(
     lines.push(pc.bold(`Files to replace (${replaces.length})`));
     for (const operation of replaces) lines.push(entry(operation, pc.yellow('~')));
   }
+  if (regeneration !== undefined) {
+    lines.push('');
+    lines.push(pc.bold(`Unchanged (${regeneration.unchanged.length})`));
+    if (options.verbose) for (const file of regeneration.unchanged) lines.push(`  = ${file}`);
+    else if (regeneration.unchanged.length > 0) {
+      lines.push(pc.dim('  already exactly as planned; --debug lists them'));
+    }
+  }
   lines.push('');
   lines.push(`Total: ${generationPlan.operations.length} files`);
 
-  if (facts.nonEmpty) {
+  if (regeneration !== undefined) {
+    lines.push('');
+    if (regeneration.upToDate) {
+      lines.push(pc.green('Already up to date: without --dry-run, nothing would be written.'));
+    } else if (regeneration.conflicts.length === 0) {
+      lines.push('Without --dry-run, the files above would be written without asking:');
+      lines.push(pc.dim('  none of them replaces a file you could have changed.'));
+    } else {
+      lines.push(
+        pc.yellow(
+          `${regeneration.conflicts.length} generated file(s) differ from what ClientKit would write now.`,
+        ),
+      );
+      lines.push(pc.dim('  They may be your edits; ClientKit cannot tell.'));
+      lines.push(
+        facts.interactive
+          ? '  Without --dry-run, you would be asked before any of them is replaced.'
+          : '  Without --dry-run, this run would stop and write nothing: replacing them needs\n' +
+              '  an answer that --yes or a script cannot give.',
+      );
+    }
+  } else if (facts.nonEmpty) {
     lines.push('');
     lines.push(pc.yellow('The target directory already contains files.'));
     if (facts.interactive) {

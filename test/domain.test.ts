@@ -550,6 +550,11 @@ describe('the domain layer stays pure', () => {
       // than a second opinion about them.
       'commands\\upgrade.ts',
       'commands/upgrade.ts',
+      // Stage 7 (idempotent generation). Recognises a ClientKit project by the
+      // same reader `upgrade` trusts, and takes its verdict as given - it does
+      // not interpret the document a second time.
+      'commands\\regenerate.ts',
+      'commands/regenerate.ts',
       // Stage 2 (project detection). The detector reports what it finds in the
       // domain's own id types, and its evidence table is keyed by them so a new
       // id cannot compile without a detection entry. Type imports only - the

@@ -69,9 +69,22 @@ directory, or supply everything in a [config file](./cli.md#config-file---from).
 
 ## "Directory … already exists and is not empty"
 
-The CLI never writes into a non-empty directory without asking. Choose an empty
-directory, or run interactively to confirm a merge. To change a project
-ClientKit generated, use [`upgrade`](./upgrading.md).
+The CLI never writes into a directory it does not recognise without asking.
+Choose an empty directory, or run interactively to confirm a merge. To change a
+project ClientKit generated, use [`upgrade`](./upgrading.md).
+
+A project ClientKit generated is recognised by its `.client-site.json`, and
+re-running the same command on it just reports it is already up to date. If
+this message appears for such a project, the hint says why its record could
+not be used.
+
+## "… generated file(s) … differ from what ClientKit would write now"
+
+You re-ran ClientKit on a project it generated, and some generated files no
+longer match the plan: your edits, or files from another configuration or
+release. Nothing was changed. Run interactively to review the list and confirm,
+or use `--dry-run` to see the whole plan. See
+[upgrading.md](./upgrading.md#re-running-create-over-an-existing-project).
 
 ## Nothing was written after an error
 

@@ -128,3 +128,6 @@ described in [templates.md](./templates.md).
 
 What a plan guarantees about repeatability - same inputs, same plan - is
 described in [deterministic-generation.md](./deterministic-generation.md).
+
+What happens when a plan meets a project ClientKit already generated is
+described in [idempotent-generation.md](./idempotent-generation.md).

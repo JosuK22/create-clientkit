@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -271,11 +271,12 @@ describe('upgrade replaces nothing without being told to', () => {
     /*
      * The boundary Stage 55 measured and this command does not widen. `--yes`
      * answers configuration questions; it is not consent to replace a
-     * developer's files, and an upgrade always targets a directory full of
-     * them.
+     * developer's files. Since Stage 7 the question only arises when a
+     * generated file differs, so the project here has been worked in.
      */
     const cwd = scratch();
     const dir = await generated(cwd, REACT);
+    editAsUser(dir, path.join('src', 'App.tsx'));
     const before = snapshot(dir);
 
     const result = await upgrade(cwd, { argv: ['upgrade', 'site', '--yes'], isTTY: true });
@@ -288,6 +289,7 @@ describe('upgrade replaces nothing without being told to', () => {
   it('refuses without a terminal rather than assuming yes', async () => {
     const cwd = scratch();
     const dir = await generated(cwd, REACT);
+    editAsUser(dir, path.join('src', 'App.tsx'));
     const before = snapshot(dir);
 
     const result = await upgrade(cwd, { argv: ['upgrade', 'site'], isTTY: false });
@@ -295,6 +297,43 @@ describe('upgrade replaces nothing without being told to', () => {
     expect(result.code).not.toBe(0);
     expect(result.text).toContain('not an interactive terminal');
     expect(snapshot(dir)).toEqual(before);
+  });
+
+  it('needs no answer, and writes nothing, when the project already matches', async () => {
+    // Stage 7: nothing differs, so there is nothing to consent to - with
+    // --yes, without a terminal, it succeeds and leaves every byte alone.
+    for (const [argv, isTTY] of [
+      [['upgrade', 'site', '--yes'], true],
+      [['upgrade', 'site'], false],
+    ] as const) {
+      const cwd = scratch();
+      const dir = await generated(cwd, REACT);
+      const before = snapshot(dir);
+
+      const result = await upgrade(cwd, { argv: [...argv], isTTY });
+
+      expect(result.code, argv.join(' ')).toBe(0);
+      expect(result.text).toContain(
+        'Write nothing: the current plan matches what is already there.',
+      );
+      expect(result.text).toContain('Already up to date. Nothing was written.');
+      expect(snapshot(dir)).toEqual(before);
+    }
+  });
+
+  it('adds a missing generated file without asking, replacing nothing', async () => {
+    const cwd = scratch();
+    const dir = await generated(cwd, REACT);
+    const missing = path.join(dir, 'src', 'App.tsx');
+    const expected = readFileSync(missing, 'utf8');
+    rmSync(missing);
+
+    const result = await upgrade(cwd, { argv: ['upgrade', 'site'], isTTY: false });
+
+    expect(result.code).toBe(0);
+    expect(result.text).toContain('Add 1 file(s):');
+    expect(result.text).toContain('Replace 1 generated file(s):\n    .client-site.json');
+    expect(readFileSync(missing, 'utf8')).toBe(expected);
   });
 });
 
