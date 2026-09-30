@@ -38,6 +38,7 @@ import { assertValidTemplate, validateTemplate } from '../templates/validation.j
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
+import { compareText } from '../util/order.js';
 import { createAdapterRegistry } from './registry.js';
 import { createTemplateCatalog } from './template-catalog.js';
 import type { DocumentContribution } from '../domain/document-contribution.js';
@@ -147,7 +148,7 @@ export function layersFrom(contributions: readonly Contribution[]): readonly Pla
       // `order` first, then `owner` so the result never depends on which adapter
       // happened to be iterated first - through the plan's pinned collator, not
       // a bare `localeCompare`, so the machine's locale cannot reorder layers.
-      .sort((a, b) => a.order - b.order || comparePlanPaths(a.owner, b.owner))
+      .sort((a, b) => a.order - b.order || compareText(a.owner, b.owner))
       .map((layer) => ({ name: layer.name, root: layer.root }))
   );
 }
@@ -178,7 +179,7 @@ export function contributedFiles(
   const files = contributions
     .flatMap((contribution) => contribution.files)
     .slice()
-    .sort((a, b) => a.order - b.order || a.owner.localeCompare(b.owner));
+    .sort((a, b) => a.order - b.order || compareText(a.owner, b.owner));
 
   for (const file of files) {
     if (file.target.kind === 'role' && templateOwned.has(file.target.role)) continue;
@@ -525,7 +526,7 @@ export function applyMerges(
     .filter((file) => file.intent === 'merge')
     .filter((file) => !(file.target.kind === 'role' && templateOwned.has(file.target.role)))
     .slice()
-    .sort((a, b) => a.order - b.order || a.owner.localeCompare(b.owner));
+    .sort((a, b) => a.order - b.order || compareText(a.owner, b.owner));
 
   if (merges.length === 0) return operations;
 

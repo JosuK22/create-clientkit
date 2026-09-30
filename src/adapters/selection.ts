@@ -11,6 +11,7 @@ import type { ResolvedProject } from '../domain/resolved.js';
 import type { FileRole } from '../domain/roles.js';
 import { adapterRef } from '../domain/adapters.js';
 import { CliError } from '../errors.js';
+import { compareText } from '../util/order.js';
 import type { AdapterRegistry } from './registry.js';
 
 /**
@@ -134,7 +135,7 @@ export function selectAdapters(manifest: ProjectManifest, registry: AdapterRegis
     const index = (RESOLUTION_ORDER as readonly string[]).indexOf(kind);
     return index === -1 ? RESOLUTION_ORDER.length : index;
   };
-  adapters.sort((a, b) => rank(a.ref) - rank(b.ref) || a.ref.localeCompare(b.ref));
+  adapters.sort((a, b) => rank(a.ref) - rank(b.ref) || compareText(a.ref, b.ref));
 
   return { adapters, declarations: adapters.map((entry) => entry.adapter.declaration) };
 }

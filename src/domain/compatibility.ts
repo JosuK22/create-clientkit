@@ -2,6 +2,7 @@ import type { AdapterDeclaration } from './adapters.js';
 import { adapterRef } from './adapters.js';
 import type { Capability, Constraint } from './capabilities.js';
 import { describeConstraint } from './capabilities.js';
+import { compareText } from '../util/order.js';
 
 /**
  * The compatibility engine.
@@ -162,7 +163,7 @@ export function evaluateCombination(
   const violations = declarations
     .flatMap((declaration) => evaluateDeclaration(declaration, index))
     // Stable regardless of the order declarations were passed in.
-    .sort((a, b) => a.adapter.localeCompare(b.adapter));
+    .sort((a, b) => compareText(a.adapter, b.adapter));
 
   return { compatible: violations.length === 0, index, violations };
 }

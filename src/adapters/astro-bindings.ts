@@ -1,6 +1,7 @@
 import type { BindingSupport, DocumentBinding } from '../domain/document-value.js';
 import type { FileRole } from '../domain/roles.js';
 import { CliError } from '../errors.js';
+import { compareText } from '../util/order.js';
 
 /**
  * How Astro says each thing the document domain can refer to.
@@ -187,7 +188,7 @@ export function dedupeAstroImports(imports: readonly AstroImport[]): readonly As
   }
 
   return [...byName.values()].sort(
-    (a, b) => a.role.localeCompare(b.role) || a.named.localeCompare(b.named),
+    (a, b) => compareText(a.role, b.role) || compareText(a.named, b.named),
   );
 }
 

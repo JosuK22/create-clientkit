@@ -78,12 +78,13 @@ function npm(args, cwd, label) {
  * exactly as written - which a shell-quoted invocation cannot guarantee across
  * platforms.
  */
-function cliRun(cliEntry, args, cwd, label) {
+function cliRun(cliEntry, args, cwd, label, env) {
   try {
     return execFileSync(process.execPath, [cliEntry, ...args], {
       cwd,
       encoding: 'utf8',
       stdio: 'pipe',
+      ...(env === undefined ? {} : { env: { ...process.env, ...env } }),
     });
   } catch (error) {
     return record(label, error);
@@ -552,6 +553,79 @@ try {
     );
   }
   console.log('  packed templates: resolved, validated and planned as from the source tree');
+
+  // Determinism across processes. The same command, run again, run under a
+  // Turkish locale, and run from another directory with an absolute target,
+  // plans the same files - each in a fresh process, from the installed package.
+  // The locale only reaches Node on Linux and macOS; on Windows it runs the
+  // same as the first, and the unit suite covers locale in-process.
+  const detArgs = (target) => [target, '--yes', '--dry-run', '--preset', 'react-tailwind'];
+  const baseline = planned(cliRun(cli, detArgs('det'), workspace, 'determinism: first run'));
+  expect(baseline !== '', 'determinism: the dry run planned nothing');
+  const variants = [
+    ['a second process', cliRun(cli, detArgs('det'), workspace, 'determinism: second run')],
+    [
+      'a Turkish locale',
+      cliRun(cli, detArgs('det'), workspace, 'determinism: tr_TR', {
+        LC_ALL: 'tr_TR.UTF-8',
+        LANG: 'tr_TR.UTF-8',
+      }),
+    ],
+    [
+      'an absolute target from another directory',
+      cliRun(
+        cli,
+        detArgs(path.join(workspace, 'det')),
+        path.join(workspace, 'node_modules'),
+        'determinism: absolute target',
+      ),
+    ],
+  ];
+  for (const [label, output] of variants) {
+    expect(planned(output) === baseline, `determinism: ${label} planned different files`);
+  }
+
+  // Real generation, twice, in two fresh processes and two directories: the
+  // same files with the same bytes. `generatedAt` in .client-site.json is the
+  // one value that is the moment of generation, and is set aside.
+  const tree = (root) => {
+    const out = [];
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        const rel = path.relative(root, full).split(path.sep).join('/');
+        let content = readFileSync(full).toString('base64');
+        if (rel === '.client-site.json') {
+          const record = JSON.parse(readFileSync(full, 'utf8'));
+          delete record.generatedAt;
+          content = JSON.stringify(record);
+        }
+        out.push(`${rel}\n${content}`);
+      }
+    };
+    walk(root);
+    return out.sort().join('\n\n');
+  };
+  const generated = ['det-one', 'det-two'].map((parent) => {
+    const cwd = path.join(workspace, parent);
+    mkdirSync(cwd);
+    cliRun(
+      cli,
+      ['site', '--yes', '--no-install', '--no-git', '--preset', 'nextjs-tailwind'],
+      cwd,
+      `determinism: generate in ${parent}`,
+    );
+    return existsSync(path.join(cwd, 'site')) ? tree(path.join(cwd, 'site')) : '';
+  });
+  expect(generated[0] !== '', 'determinism: generation produced nothing');
+  expect(generated[0] === generated[1], 'determinism: two generations differ');
+  console.log(
+    '  determinism: same plan across processes, locale and cwd; same bytes from two generations',
+  );
 
   // --no-git and --no-install are honoured.
   const flagsDir = path.join(workspace, 'flags');

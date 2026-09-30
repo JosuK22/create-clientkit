@@ -13,6 +13,7 @@ import type { ArchitectureDefinition, FileRole } from '../domain/roles.js';
 import { resolveRole } from '../domain/roles.js';
 import { comparePlanPaths, type FileOperation } from '../generate/files.js';
 import { CliError } from '../errors.js';
+import { compareText } from '../util/order.js';
 
 /**
  * Where Astro's composed document head goes, and what it is allowed to own.
@@ -369,7 +370,7 @@ function renderHeadComponent(
   description: string,
 ): string {
   const ordered = [...entries].sort(
-    (a, b) => a.field.localeCompare(b.field) || a.owner.localeCompare(b.owner),
+    (a, b) => compareText(a.field, b.field) || compareText(a.owner, b.owner),
   );
 
   /*

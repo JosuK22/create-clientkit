@@ -223,11 +223,11 @@ is fetched, and there is no remote or user-supplied template.
 
 ## Determinism
 
-The catalog is ordered by id, and file lists by the plan's pinned `en`
-collator. Nothing depends on directory-listing order, the machine's locale, the
-clock, the network or randomness, and tests check the first two. The ordering
-of template layers in `layersFrom` used a bare `localeCompare`; it now uses the
-same pinned collator, which orders them identically on an `en` machine.
+The catalog is ordered by id, file lists and validation issues by the plan's
+pinned `en` collator. Nothing depends on directory-listing order, the machine's
+locale, the clock, the network or randomness. See
+[deterministic-generation.md](./deterministic-generation.md) for the whole
+contract and how it is tested.
 
 ## Status
 

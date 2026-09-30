@@ -125,3 +125,6 @@ conflict resolution beyond the existing replace-confirmation.
 
 Where a plan's template comes from, and how it is validated before planning, is
 described in [templates.md](./templates.md).
+
+What a plan guarantees about repeatability - same inputs, same plan - is
+described in [deterministic-generation.md](./deterministic-generation.md).
