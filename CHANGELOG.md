@@ -662,3 +662,32 @@ prompts and generated output. No golden snapshot was touched.
   never used.
 
 See [docs/architecture/templates.md](./docs/architecture/templates.md#validation).
+
+## 1.5.4 — 2026-09-30
+
+Generation is now explicitly deterministic: the same inputs give the same
+project on any machine. On an English-locale machine nothing you generate
+changes, and no golden snapshot was touched.
+
+### Fixed
+
+- **The machine's language no longer affects generation.** Six places that
+  decide an order used the machine's default locale. They decided which
+  contributed file wins, the order JSON files are merged, adapter selection,
+  the order of generated Astro bindings and page fields, and the order of
+  compatibility problems. On a machine set to another language these could
+  have ordered differently. They now all use the same fixed ordering as the
+  rest of the plan, and a test fails if a locale-dependent comparison appears
+  again.
+
+### Changed
+
+- **Determinism is tested end to end.** The same inputs are checked to give
+  the same plan however directories are listed, whatever the locale, time zone
+  or user environment, and wherever the command is run from. The release smoke
+  test also generates the same project twice from the installed package and
+  compares every byte. The one value that differs between runs is
+  `generatedAt` in `.client-site.json`, the time the project was generated.
+
+See
+[docs/architecture/deterministic-generation.md](./docs/architecture/deterministic-generation.md).
