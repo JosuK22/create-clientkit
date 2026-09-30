@@ -374,3 +374,17 @@ export function stackOf(context: ProjectContext): ResolvedStack {
     architecture: manifest.architecture,
   };
 }
+
+/**
+ * Yields one turn of the event loop.
+ *
+ * For a test that plans every accepted stack in one synchronous loop. Tens of
+ * seconds with no yield starves the test runner's own messages in the same
+ * process; on a loaded machine its worker then reports `Timeout calling
+ * "onTaskUpdate"` although every assertion passed, and the release gate fails.
+ * Awaiting this once per iteration keeps the runner responsive and changes
+ * nothing a test asserts.
+ */
+export function breathe(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}

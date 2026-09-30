@@ -18,7 +18,7 @@ import { resolveDetectedStack } from '../src/detect/stack.js';
 import { DetectionError } from '../src/errors.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { enumerateCombinations } from './accepted-combinations.js';
-import { tempDir, testLogger } from './helpers.js';
+import { breathe, tempDir, testLogger } from './helpers.js';
 
 /**
  * Project detection: what a directory is, from its own files, changing nothing.
@@ -122,9 +122,10 @@ describe('every stack ClientKit generates is detected as itself', () => {
   it(
     'plans, detects and resolves back to the same stack, for all of them',
     { timeout: 60_000 },
-    () => {
+    async () => {
       const mismatches: string[] = [];
       for (const combination of accepted) {
+        await breathe();
         const { plan } = planManifest(
           {
             targetDir: ROOT,

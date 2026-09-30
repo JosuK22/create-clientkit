@@ -17,7 +17,7 @@ import {
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { summarisePlan } from '../src/ui/plan.js';
 import { enumerateCombinations, type Combination } from './accepted-combinations.js';
-import { tempDir } from './helpers.js';
+import { breathe, tempDir } from './helpers.js';
 
 /**
  * The Generation Plan boundary: plan first, execute second.
@@ -140,8 +140,9 @@ describe('plan creation', () => {
 });
 
 describe('determinism', () => {
-  it('plans identically twice, for every accepted configuration', { timeout: 60_000 }, () => {
+  it('plans identically twice, for every accepted configuration', { timeout: 60_000 }, async () => {
     for (const combination of accepted) {
+      await breathe();
       const first = planFor(combination, '/ck/acme-site').plan;
       const second = planFor(combination, '/ck/acme-site').plan;
       expect(second, combination.id).toEqual(first);
@@ -153,8 +154,9 @@ describe('determinism', () => {
     expect(JSON.parse(JSON.stringify(plan))).toEqual(plan);
   });
 
-  it('orders operations by the pinned path comparator', { timeout: 60_000 }, () => {
+  it('orders operations by the pinned path comparator', { timeout: 60_000 }, async () => {
     for (const combination of accepted) {
+      await breathe();
       const paths = planFor(combination, '/ck/acme-site').plan.operations.map((o) => o.path);
       expect(paths, combination.id).toEqual([...paths].sort(comparePlanPaths));
     }

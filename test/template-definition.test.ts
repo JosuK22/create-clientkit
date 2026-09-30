@@ -21,7 +21,7 @@ import {
 import { KNOWN_TOKENS, type TemplateManifest } from '../src/templates/manifest.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { enumerateCombinations } from './accepted-combinations.js';
-import { memoryPlanFs, TEST_CWD } from './helpers.js';
+import { breathe, memoryPlanFs, TEST_CWD } from './helpers.js';
 
 /**
  * Templates as first-class definitions: one contract for every template,
@@ -297,10 +297,11 @@ describe('compatibility', () => {
 
   // Plans every accepted stack, like the detection round-trip, and needs the
   // same allowance: under a full preflight it ran past the 5 s default.
-  it('agrees with the planner for every accepted stack', { timeout: 60_000 }, () => {
+  it('agrees with the planner for every accepted stack', { timeout: 60_000 }, async () => {
     const { accepted } = enumerateCombinations(adapters);
     expect(accepted.length).toBeGreaterThan(0);
     for (const combination of accepted) {
+      await breathe();
       const definition = catalog.resolve({
         framework: combination.framework as FrameworkId,
         mode: combination.starter as 'coming-soon' | 'full',

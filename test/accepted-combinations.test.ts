@@ -13,7 +13,7 @@ import {
   enumerateCombinations,
   type Combination,
 } from './accepted-combinations.js';
-import { TEST_CWD } from './helpers.js';
+import { breathe, TEST_CWD } from './helpers.js';
 
 /**
  * The integration matrix's source of truth, and the promise that it is one.
@@ -196,7 +196,7 @@ describe('every accepted configuration reaches a plan', () => {
    * assertion. That made the release gate flaky, which is worse than slow:
    * it teaches people to re-run until green. The assertion is unchanged.
    */
-  it('plans without refusing, for all of them', { timeout: 60_000 }, () => {
+  it('plans without refusing, for all of them', { timeout: 60_000 }, async () => {
     /*
      * The cheap half of Stage 53's invariant, run on every push. Installing and
      * building all of them is the expensive half and lives in the integration
@@ -205,6 +205,7 @@ describe('every accepted configuration reaches a plan', () => {
      */
     const failures: string[] = [];
     for (const combination of enumeration.accepted) {
+      await breathe();
       try {
         planManifest(manifestOf(combination) as never, {
           registry: v1Registry,
@@ -220,11 +221,15 @@ describe('every accepted configuration reaches a plan', () => {
     expect(failures).toEqual([]);
   });
 
-  it('plans a distinct file set or content for each configuration', { timeout: 60_000 }, () => {
-    // Not a snapshot of any of them: just the assurance that the matrix is 104
-    // different projects rather than one project counted 104 times.
-    const fingerprints = new Set(
-      enumeration.accepted.map((combination) => {
+  it(
+    'plans a distinct file set or content for each configuration',
+    { timeout: 60_000 },
+    async () => {
+      // Not a snapshot of any of them: just the assurance that the matrix is 104
+      // different projects rather than one project counted 104 times.
+      const fingerprints = new Set<string>();
+      for (const combination of enumeration.accepted) {
+        await breathe();
         const { plan } = planManifest(manifestOf(combination) as never, {
           registry: v1Registry,
           cliVersion: '9.9.9',
@@ -232,11 +237,11 @@ describe('every accepted configuration reaches a plan', () => {
           mode: combination.starter as 'coming-soon' | 'full',
           templateId: templateFor(combination.framework),
         });
-        return JSON.stringify(plan.operations.map((entry) => entry.path));
-      }),
-    );
-    expect(fingerprints.size).toBeGreaterThan(1);
-  });
+        fingerprints.add(JSON.stringify(plan.operations.map((entry) => entry.path)));
+      }
+      expect(fingerprints.size).toBeGreaterThan(1);
+    },
+  );
 });
 
 function readEnumerator(): string {
@@ -291,22 +296,31 @@ describe('the generated file list depends on the stack, not the site', () => {
       .plan.operations.map((entry) => entry.path)
       .sort();
 
-  it('is unchanged when every site field changes at once', { timeout: 60_000 }, () => {
-    const differing = enumeration.accepted.filter(
-      (combination) =>
-        pathsOf(combination).join('\n') !== pathsOf(combination, siteVariant).join('\n'),
-    );
-    expect(differing.map((c) => c.id)).toEqual([]);
+  it('is unchanged when every site field changes at once', { timeout: 60_000 }, async () => {
+    const differing: string[] = [];
+    for (const combination of enumeration.accepted) {
+      await breathe();
+      if (pathsOf(combination).join('\n') !== pathsOf(combination, siteVariant).join('\n')) {
+        differing.push(combination.id);
+      }
+    }
+    expect(differing).toEqual([]);
   });
 
-  it('does depend on the stack, so the invariant above is not vacuous', { timeout: 60_000 }, () => {
-    // If every stack produced the same file list, the test above would pass
-    // for the wrong reason.
-    const distinct = new Set(
-      enumeration.accepted.map((combination) => pathsOf(combination).join('\n')),
-    );
-    expect(distinct.size).toBeGreaterThan(1);
-  });
+  it(
+    'does depend on the stack, so the invariant above is not vacuous',
+    { timeout: 60_000 },
+    async () => {
+      // If every stack produced the same file list, the test above would pass
+      // for the wrong reason.
+      const distinct = new Set<string>();
+      for (const combination of enumeration.accepted) {
+        await breathe();
+        distinct.add(pathsOf(combination).join('\n'));
+      }
+      expect(distinct.size).toBeGreaterThan(1);
+    },
+  );
 
   it('identifies the orphans a stack change leaves behind', () => {
     /*

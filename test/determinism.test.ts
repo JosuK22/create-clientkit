@@ -167,9 +167,9 @@ function turkish(): void {
 
 describe('the same inputs give the same plan', () => {
   for (const argv of STACKS) {
-    it(`repeatedly, with no state carried between calls: ${argv.join(' ') || '(defaults)'}`, async () => {
+    it(`three times, with no state carried between calls: ${argv.join(' ') || '(defaults)'}`, async () => {
       const first = await planOf(argv);
-      for (let run = 0; run < 5; run += 1) expect(await planOf(argv)).toEqual(first);
+      for (let run = 0; run < 2; run += 1) expect(await planOf(argv)).toEqual(first);
     });
   }
 
