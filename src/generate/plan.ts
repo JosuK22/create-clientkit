@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { PlanningError } from '../errors.js';
@@ -24,6 +24,12 @@ export interface PlanFs {
   readDir(dir: string): readonly { name: string; isDirectory: boolean }[];
   readText(file: string): string;
   exists(dir: string): boolean;
+  /**
+   * Where a path finally resolves, through any links. Optional: template
+   * validation uses it to refuse a file linked from outside the template, and an
+   * in-memory filesystem has no links to follow.
+   */
+  realpath?(target: string): string;
 }
 
 export const realPlanFs: PlanFs = {
@@ -33,6 +39,7 @@ export const realPlanFs: PlanFs = {
       isDirectory: entry.isDirectory(),
     })),
   readText: (file) => readFileSync(file, 'utf8'),
+  realpath: (target) => realpathSync(target),
   exists: (dir) => {
     try {
       readdirSync(dir);

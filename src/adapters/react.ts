@@ -361,7 +361,9 @@ export const REACT_TEMPLATE_MANIFEST: TemplateManifest = {
   supportedModes: ['coming-soon', 'full'],
   defaults: { mode: 'coming-soon', locale: 'en' },
   availableFeatures: [],
-  tokens: ['siteName', 'siteUrl', 'description', 'projectName', 'author', 'locale', 'mode'],
+  // Exactly the tokens its files use: template validation reports a declared,
+  // unused one. `mode` was declared and never used until Stage 5 found it.
+  tokens: ['siteName', 'siteUrl', 'description', 'projectName', 'author', 'locale'],
   postSteps: ['install', 'git-init'],
   nextSteps: [
     'Edit src/config/site.config.ts - name, description, navigation and contact all live there.',

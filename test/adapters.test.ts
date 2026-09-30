@@ -482,6 +482,12 @@ describe('the bridge keeps its direction and its limits', () => {
       // The diagnosis itself, doctor/diagnose.ts, imports nothing from adapters.
       'commands\\doctor.ts',
       'commands/doctor.ts',
+      // Stage 5 (template validation). Plan-level template checks plan each
+      // template through `planManifest`, as a run does. A consumer at the top,
+      // like `detect/stack.ts` - deliberately not in `templates/`, which still
+      // imports nothing from adapters, and nothing below imports it.
+      'verify\\templates.ts',
+      'verify/templates.ts',
     ];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];

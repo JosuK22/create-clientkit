@@ -1,24 +1,16 @@
 import path from 'node:path';
 
 import { PlanningError } from '../errors.js';
-import {
-  comparePlanPaths,
-  isTextFile,
-  normalisePlanPath,
-  renameSpecialPath,
-  toPosix,
-} from '../generate/files.js';
-import { defaultLayers, realPlanFs, walkLayer, type PlanFs } from '../generate/plan.js';
-import { findTokens } from '../generate/tokens.js';
+import { realPlanFs, type PlanFs } from '../generate/plan.js';
 import type { TemplateMode } from '../types.js';
 import {
-  KNOWN_TOKENS,
   parseManifest,
   type PostStep,
   type TemplateManifest,
   type TemplateManifestDefaults,
   type TokenName,
 } from './manifest.js';
+import { assertValidTemplate, inspectTemplateFiles, toResult } from './validation.js';
 
 /**
  * A template, as a first-class thing.
@@ -205,83 +197,21 @@ export interface TemplateFile {
 }
 
 /**
- * The files a template contributes for one mode, in plan order.
+ * The files a template contributes for one mode, in plan order - or a
+ * `PlanningError` for the first problem with them.
  *
- * Enumerated with the planner's own walk over the planner's own default layers
- * (`base`, then `modes/<mode>`), destinations renamed and ordered exactly as a
- * plan would. Every destination must pass the plan's path rules, so a template
- * can never name a file outside the target. Two files in one layer that land on
- * the same destination (`_gitignore` beside `.gitignore`) are a template bug;
- * the same destination in two layers is an override, which is the point of
- * layers. A text file may only use the variables the template declares.
- *
- * Reads the template; writes nothing. This is a description of the template,
- * not a second planner: the plan still decides contents, merging and what the
- * adapters layer on top.
+ * The walk and its rules live in `validation.ts`, which reports every problem
+ * at once; this is the same walk for callers that want the files or nothing.
+ * The same destination in two layers is an override, which is the point of
+ * layers. Reads the template; writes nothing, and plans nothing: the plan
+ * still decides contents, merging and what the adapters layer on top.
  */
 export function templateFiles(
   definition: TemplateDefinition,
   mode: TemplateMode,
   fs: PlanFs = realPlanFs,
 ): readonly TemplateFile[] {
-  if (!definition.modes.includes(mode)) {
-    throw new PlanningError(`Template "${definition.id}" does not support mode "${mode}".`, {
-      hint: `Supported modes: ${definition.modes.join(', ')}.`,
-    });
-  }
-
-  const declared = new Set<string>(definition.variables.map((variable) => variable.name));
-  const byDestination = new Map<string, { source: string; layers: string[] }>();
-
-  for (const layer of defaultLayers(definition.source.root, mode)) {
-    const inLayer = new Map<string, string>();
-    for (const file of walkLayer(fs, layer.root, layer.name)) {
-      const destination = normalisePlanPath(renameSpecialPath(toPosix(file.rawRelativePath)));
-      const clash = inLayer.get(destination);
-      if (clash !== undefined) {
-        throw new PlanningError(
-          `Template "${definition.id}" has two files for "${destination}" in ${layer.name}: ` +
-            `${clash} and ${file.rawRelativePath}.`,
-          { hint: 'Each layer may provide a destination once. This is a bug in the template.' },
-        );
-      }
-      inLayer.set(destination, file.rawRelativePath);
-
-      if (isTextFile(destination)) {
-        const undeclared = findTokens(fs.readText(file.absolutePath)).filter(
-          (token) => (KNOWN_TOKENS as readonly string[]).includes(token) && !declared.has(token),
-        );
-        if (undeclared.length > 0) {
-          throw new PlanningError(
-            `Template "${definition.id}" uses ${undeclared.map((t) => `{{${t}}}`).join(', ')} in ` +
-              `${layer.name}/${file.rawRelativePath}, which its manifest does not declare.`,
-            { hint: 'Declare every token a template uses in its manifest "tokens" list.' },
-          );
-        }
-      }
-
-      const entry = byDestination.get(destination);
-      if (entry === undefined) {
-        byDestination.set(destination, { source: file.absolutePath, layers: [layer.name] });
-      } else {
-        entry.source = file.absolutePath;
-        entry.layers.push(layer.name);
-      }
-    }
-  }
-
-  if (byDestination.size === 0) {
-    throw new PlanningError(`Template "${definition.id}" produced no files.`, {
-      hint: 'The template directory appears to be empty or missing from the package.',
-    });
-  }
-
-  return [...byDestination]
-    .map(([destination, entry]) => ({
-      destination,
-      source: entry.source,
-      kind: isTextFile(destination) ? ('text' as const) : ('binary' as const),
-      layers: entry.layers,
-    }))
-    .sort((a, b) => comparePlanPaths(a.destination, b.destination));
+  const inspected = inspectTemplateFiles(definition, mode, fs);
+  assertValidTemplate(toResult(definition.id, inspected.issues));
+  return inspected.files;
 }

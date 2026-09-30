@@ -124,12 +124,92 @@ builds from. It refuses:
 - a text file using an undeclared token;
 - a template with no files, or a mode it does not offer.
 
-## When validation runs
+## Validation
 
-`planManifest` resolves the template through the catalog and checks its files
-before planning anything, on every run, `--dry-run` included. A malformed
-template fails there as a `PlanningError`, with nothing written. The plan then
-goes through `assertValidPlan` and the executor's own path checks as before.
+One validator reports every problem with a template at once, each with a stable
+code, in a fixed order: errors before warnings, then by mode, file and code
+through the plan's pinned collator. The result is plain data:
+
+```ts
+interface TemplateValidationResult {
+  templateId: string;
+  valid: boolean; // no errors; warnings never make a template invalid
+  errors: TemplateIssue[];
+  warnings: TemplateIssue[];
+}
+// TemplateIssue: code, severity, templateId, message, hint,
+//                and where relevant mode, source, destination, variable
+```
+
+It checks at three levels, each built on the one below:
+
+| Level      | What it answers                                 | Where                                                         |
+| ---------- | ----------------------------------------------- | ------------------------------------------------------------- |
+| Structural | Is the manifest well-formed?                    | `parseManifest`, via `defineTemplate`                         |
+| Semantic   | Does the template agree with itself?            | `validateTemplate`, `src/templates/validation.ts`             |
+| Catalog    | Does the set of templates agree with the build? | `validateTemplateCatalog`, `src/adapters/template-catalog.ts` |
+| Plan       | Does each template produce a valid plan?        | `verifyTemplatePlans`, `src/verify/templates.ts`              |
+| Package    | Does the installed package serve the same ones? | `scripts/smoke.mjs`, against the packed tarball               |
+
+Structural problems stop a manifest from becoming a definition at all. The
+catalog reports them as `manifest-invalid` and still validates the other
+templates.
+
+### Issue codes
+
+| Code                    | Level    | Severity | Means                                                                   |
+| ----------------------- | -------- | -------- | ----------------------------------------------------------------------- |
+| `manifest-invalid`      | catalog  | error    | The manifest validator refuses the manifest; the message says why.      |
+| `framework-owner`       | catalog  | error    | A template claims a framework other than the adapter declaring it.      |
+| `id-duplicate`          | catalog  | error    | Two templates share an id.                                              |
+| `catalog-orphan`        | catalog  | error    | A directory with a `base/` layer that no framework declares.            |
+| `source-missing`        | semantic | error    | The template directory, or its `base/` layer, does not exist.           |
+| `source-outside-root`   | semantic | error    | A file resolves, through a link, outside the template directory.        |
+| `source-unreadable`     | semantic | error    | An entry cannot be resolved or read as a file.                          |
+| `destination-unsafe`    | semantic | error    | A destination leaves the target: `..`, absolute or drive paths, NUL.    |
+| `destination-name`      | semantic | error    | A name Windows cannot create: `CON`, `aux.txt`, `a<b`, a trailing dot.  |
+| `destination-reserved`  | semantic | error    | The template provides `.client-site.json`, which the CLI writes itself. |
+| `layer-duplicate`       | semantic | error    | One layer provides a destination twice (`_gitignore` and `.gitignore`). |
+| `layer-file-directory`  | semantic | error    | A path is a file in one layer and a directory in another.               |
+| `token-undeclared`      | semantic | error    | A file uses a token the manifest does not declare.                      |
+| `mode-unsupported`      | semantic | error    | The requested mode is not one the template declares.                    |
+| `mode-incomplete`       | semantic | error    | A declared mode has no files under `modes/<mode>/`.                     |
+| `template-empty`        | semantic | error    | The template has no files at all.                                       |
+| `requirement-node`      | semantic | error    | `minNode` is not `>=MAJOR.MINOR.PATCH`, the only form the CLI checks.   |
+| `default-locale`        | semantic | error    | `defaults.locale` is not a BCP-47 tag.                                  |
+| `token-unused`          | semantic | warning  | A declared token no file uses, judged only when every file was read.    |
+| `plan-invalid`          | plan     | error    | The framework's default stack cannot be planned; the reason follows.    |
+| `plan-nondeterministic` | plan     | error    | Planning the same input twice gives two plans.                          |
+| `plan-source-outside`   | plan     | error    | A planned copy reads from outside the shipped templates.                |
+| `framework-version`     | plan     | error    | `frameworkVersion` is not the version the plan installs.                |
+
+The same destination in two layers is not an issue. It is an override, which
+is what layers are for. A mode always has files of its own: every starter
+provides at least its page, so an empty mode is incomplete, never intentional.
+
+### When it runs
+
+- **Every generation, and `--dry-run`.** `planManifest` resolves the template
+  and runs `validateTemplate` for the mode being planned before planning
+  anything. Any error stops the run as a `PlanningError`, with the first
+  problem as the message and the rest in the hint. Nothing is written. The plan
+  then goes through `assertValidPlan` and the executor's path checks, as before.
+- **The test suite** validates the whole catalog and every template's plans,
+  and requires every shipped template to be VALID with no warnings.
+- **The release preflight** runs the smoke test, which installs the packed
+  tarball and requires each Start from preset to plan the same template and
+  files from the installed package as from the source tree.
+
+### Reading an error
+
+```text
+x Template "react-vite" uses {{year}} in base/README.md, which its manifest does not declare.
+  Declare every token a template uses in its manifest "tokens" list.
+```
+
+The message names the template, the file (by layer and path) or the variable,
+and what is wrong; the indented hint says what to change. A validation error is
+a problem in ClientKit's own templates, never in your configuration.
 
 ## Sources
 
@@ -154,3 +234,9 @@ same pinned collator, which orders them identically on an `en` machine.
 Internal architecture, not a public interface: the package exports none of
 these types. The CLI is unchanged — the same templates, flags, prompts and
 generated output.
+
+There is no `templates validate` command. Every template a user can reach ships
+inside the package and is validated by the test suite before release and again
+on every run, so a command would validate what is already validated. It becomes
+worth adding when there is a template a user supplies, and the validator is
+shaped so that command would only format its result.

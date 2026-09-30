@@ -34,7 +34,7 @@ import {
   type GenerationPlan,
 } from '../generate/files.js';
 import { plan, realPlanFs, type PlanFs, type PlanLayer } from '../generate/plan.js';
-import { templateFiles } from '../templates/definition.js';
+import { assertValidTemplate, validateTemplate } from '../templates/validation.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext, TemplateMode } from '../types.js';
@@ -812,17 +812,20 @@ function composePlan(manifest: ProjectManifest, options: ManifestPlanOptions): A
 
   /*
    * The template, resolved and checked before anything is planned from it:
-   * it exists, it is this framework's, it offers the mode, its manifest passes
-   * the manifest validator, and every file it contributes has a safe
-   * destination and declares the tokens it uses. A malformed template fails
-   * here, as a PlanningError, with nothing written.
+   * it exists, it is this framework's, it offers the mode, and it passes the
+   * one template validator (`templates/validation.ts`) for that mode - safe
+   * destinations, declared tokens, readable sources inside the template, a
+   * checkable Node requirement. A malformed template fails here, as a
+   * PlanningError, with nothing written.
    */
   const definition = createTemplateCatalog(adapters, templatesRoot).resolve({
     framework: manifest.framework,
     id: options.templateId,
     mode: options.mode,
   });
-  templateFiles(definition, options.mode, options.fs ?? realPlanFs);
+  assertValidTemplate(
+    validateTemplate(definition, { fs: options.fs ?? realPlanFs, modes: [options.mode] }),
+  );
 
   const templateId = definition.id;
   const registry = registryFor(options.registry, templatesRoot, definition.manifest);

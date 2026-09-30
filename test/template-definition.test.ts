@@ -472,14 +472,22 @@ describe('files', () => {
         if (child !== null && dir === path.join(base, name)) {
           return [{ name: child, isDirectory: false }];
         }
+        // A normal mode file, so the unsafe path is the only problem.
+        if (dir === path.join(SYNTHETIC_ROOT, 'modes', 'coming-soon')) {
+          return [{ name: 'page.tsx', isDirectory: false }];
+        }
         return [];
       },
     };
     rejects(() => templateFiles(definition, 'coming-soon', unsafe), pattern);
   });
 
-  it('refuses an empty template and an unsupported mode', () => {
-    rejects(() => templateFiles(define(), 'coming-soon', files({})), /produced no files/);
+  it('refuses a missing template, an empty one and an unsupported mode', () => {
+    // No directory at all is a missing source; a directory with nothing in it
+    // is an empty template.
+    rejects(() => templateFiles(define(), 'coming-soon', files({})), /has no directory/);
+    const emptyDirs: PlanFs = { exists: () => true, readDir: () => [], readText: () => '' };
+    rejects(() => templateFiles(define(), 'coming-soon', emptyDirs), /produced no files/);
     rejects(
       () => templateFiles(define({ supportedModes: ['coming-soon'] }), 'full', files(MINIMAL)),
       /does not support mode "full"/,
@@ -570,6 +578,8 @@ describe('templates reach the filesystem only through the Generation Plan', () =
         ...(dir === base ? [{ name: 'NOTICE.md', isDirectory: false }] : []),
       ],
       readText: (file) => (file === extra ? '© {{year}}' : realPlanFs.readText(file)),
+      // The injected file exists only here, so it resolves to itself.
+      realpath: (target) => (target === extra ? extra : (realPlanFs.realpath?.(target) ?? target)),
     };
     let error: unknown;
     try {
@@ -587,7 +597,10 @@ describe('templates reach the filesystem only through the Generation Plan', () =
       'utf8',
     );
     expect(source).toContain('createTemplateCatalog(adapters, templatesRoot).resolve(');
-    expect(source).toContain('templateFiles(definition, options.mode');
+    // Stage 5: the one template validator, for the mode being planned.
+    expect(source).toContain(
+      'validateTemplate(definition, { fs: options.fs ?? realPlanFs, modes: [options.mode] })',
+    );
   });
 
   it('adds no writer: the contract module only reads', () => {

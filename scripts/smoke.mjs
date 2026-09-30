@@ -526,6 +526,33 @@ try {
   expect(!existsSync(dryDir), '--dry-run created a directory');
   console.log('  --dry-run: listed files, wrote nothing');
 
+  // The installed package serves the same templates as the source tree. Every
+  // dry run resolves its template through the catalog and validates it before
+  // planning, so a template missing from the tarball, a file left out of it, or
+  // a path that only works from the repository fails here - and an equal plan
+  // proves the packed catalog resolves and plans each one identically.
+  // Colour codes stripped: the CLI may colour even piped output.
+  const planned = (out) =>
+    (out ?? '')
+      // eslint-disable-next-line no-control-regex
+      .replace(/\u001b\[[0-9;]*m/g, '')
+      .split(/\r?\n/)
+      .filter((line) => /^ {2}(Template {2}|[+~] )/.test(line))
+      .join('\n');
+  const sourceCli = path.join(repoRoot, 'bin', 'cli.js');
+  for (const preset of ['astro-tailwind', 'react-tailwind', 'nextjs-tailwind']) {
+    const args = [`pk-${preset}`, '--yes', '--dry-run', '--preset', preset];
+    const fromPackage = planned(cliRun(cli, args, workspace, `packed ${preset} dry run`));
+    const fromSource = planned(cliRun(sourceCli, args, workspace, `source ${preset} dry run`));
+    expect(fromPackage !== '', `the packed CLI planned nothing for ${preset}`);
+    expect(fromPackage === fromSource, `the packed ${preset} plan differs from the source tree's`);
+    expect(
+      !existsSync(path.join(workspace, `pk-${preset}`)),
+      `${preset} dry run wrote a directory`,
+    );
+  }
+  console.log('  packed templates: resolved, validated and planned as from the source tree');
+
   // --no-git and --no-install are honoured.
   const flagsDir = path.join(workspace, 'flags');
   cliRun(cli, ['flags', '--yes', '--no-install', '--no-git'], workspace, '--no-install --no-git');
