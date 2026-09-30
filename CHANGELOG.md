@@ -630,3 +630,35 @@ output. No golden snapshot was touched.
   rest of the plan, so the machine's language setting cannot reorder them.
 
 See [docs/architecture/templates.md](./docs/architecture/templates.md).
+
+## 1.5.3 — 2026-09-30
+
+Internal groundwork: every template is now validated thoroughly, with every
+problem reported at once. Nothing you run changes: the same templates, flags,
+prompts and generated output. No golden snapshot was touched.
+
+### Changed
+
+- **Templates are checked for more than their files.** Before planning, each
+  run now also refuses:
+  - a template file linked from outside the template;
+  - a file name Windows cannot create;
+  - a template that ships ClientKit's own `.client-site.json`;
+  - a path that is a file in one layer and a folder in another;
+  - a starting mode with no files of its own;
+  - a Node requirement ClientKit cannot read;
+  - an invalid default locale.
+
+  A problem stops the run before anything is written, naming the template,
+  the file and what to change.
+
+- **The recorded framework version is checked.** The `frameworkVersion` every
+  project records in `.client-site.json` must match the version ClientKit
+  actually installs.
+- **The published package is checked against the source.** The release smoke
+  test installs the packed package and requires each Start from preset to
+  plan exactly the same files from it as from the repository.
+- The React and Next.js templates no longer declare a `{{mode}}` value they
+  never used.
+
+See [docs/architecture/templates.md](./docs/architecture/templates.md#validation).
