@@ -154,7 +154,10 @@ describe('what ClientKit recognises', () => {
     expect(inspectTarget(path.join(cwd, 'empty'), CLI_VERSION)).toEqual({ kind: 'empty' });
 
     const dir = await generated(cwd);
-    expect(inspectTarget(dir, CLI_VERSION)).toEqual({ kind: 'clientkit' });
+    expect(inspectTarget(dir, CLI_VERSION)).toMatchObject({
+      kind: 'clientkit',
+      recorded: { mode: 'coming-soon', template: { id: 'astro-tailwind' } },
+    });
 
     mkdirSync(path.join(cwd, 'other'));
     writeFileSync(path.join(cwd, 'other', 'notes.txt'), 'mine');
@@ -431,9 +434,10 @@ describe('changing the configuration of a generated project', () => {
 // ---------------------------------------------------------------------------
 
 describe('--dry-run uses the same decision', () => {
+  // Stage 8 headings: one section per kind of change, marked +, ~ or !.
   const listed = (text: string, heading: string): string[] => {
     const block = text.split(`${heading} (`)[1]?.split('\n\n')[0] ?? '';
-    return [...block.matchAll(/^ {2}[+~] (\S+)/gm)].map((match) => match[1] as string);
+    return [...block.matchAll(/^ {2}[+~!] (\S+)/gm)].map((match) => match[1] as string);
   };
 
   it('previews exactly what the confirmed run then writes', async () => {
@@ -448,8 +452,14 @@ describe('--dry-run uses the same decision', () => {
     expect(calls.applied).toEqual([]);
     const previewed = [
       ...listed(preview.text, 'Files to create'),
-      ...listed(preview.text, 'Files to replace'),
+      ...listed(preview.text, 'Files to restore'),
+      ...listed(preview.text, 'Files to modify'),
+      ...listed(preview.text, 'Conflicts'),
     ];
+    // Each in the section its kind belongs to.
+    expect(listed(preview.text, 'Files to restore')).toEqual(['src/pages/index.astro']);
+    expect(listed(preview.text, 'Files to modify')).toEqual(['.client-site.json']);
+    expect(listed(preview.text, 'Conflicts')).toEqual(['README.md']);
 
     await run(cwd, ['site', ...BASE], { confirm: true });
     expect([...(calls.applied[0] ?? [])].sort()).toEqual([...previewed].sort());
@@ -513,7 +523,14 @@ describe('the decision is deterministic', () => {
     for (let again = 0; again < 3; again += 1) expect(decideRegeneration(plan)).toEqual(first);
     expect(first.missing).toEqual(['src/pages/index.astro']);
     expect(first.conflicts).toEqual(['README.md']);
-    expect(pathsToWrite(first, false)).toEqual(['src/pages/index.astro', '.client-site.json']);
+    // Unagreed, a conflict blocks the whole run: nothing at all is written.
+    expect(pathsToWrite(first, false)).toEqual([]);
+    // Agreed, everything that is not unchanged, in the canonical order.
+    expect(pathsToWrite(first, true)).toEqual([
+      'src/pages/index.astro',
+      '.client-site.json',
+      'README.md',
+    ]);
   });
 
   it('plans post steps from what was written, not from the run', () => {

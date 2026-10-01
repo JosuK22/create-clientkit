@@ -799,7 +799,16 @@ describe('upgrade says when it is about to write its own description', () => {
     // Whatever ClientKit would put there, it says so rather than leaving the
     // developer to find out afterwards.
     expect(result.text).toMatch(/will write "[^"]+" instead/);
-    expect(result.text).not.toContain(CHOSEN);
+    // Since Stage 8 the dry run shows each conflict's diff, so the chosen
+    // wording does appear - but only ever as a line being removed, never as
+    // one ClientKit would write.
+    const mentions = result.text
+      // eslint-disable-next-line no-control-regex
+      .replace(/\u001b\[[0-9;]*m/g, '')
+      .split('\n')
+      .filter((line) => line.includes(CHOSEN));
+    expect(mentions.length).toBeGreaterThan(0);
+    for (const line of mentions) expect(line.trimStart(), line).toMatch(/^-/);
   });
 
   it('does not warn when --from supplies a description', async () => {

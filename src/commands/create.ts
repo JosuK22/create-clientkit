@@ -6,6 +6,7 @@ import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply, findCollisions } from '../generate/apply.js';
 import { planManifest } from '../adapters/bridge.js';
+import { createAdapterRegistry } from '../adapters/registry.js';
 import { narrowPlan } from '../generate/compare.js';
 import type { GenerationPlan } from '../generate/files.js';
 import { planPostSteps, runPostSteps, type PostStepResult } from '../generate/postSteps.js';
@@ -21,6 +22,7 @@ import {
   leftAlone,
   pathsToWrite,
   postStepsAfter,
+  previousPathsFor,
   type Regeneration,
 } from './regenerate.js';
 
@@ -118,7 +120,24 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   logger.debug(
     `target=${target.kind}${target.kind === 'unrecognised' && target.because ? ` (${target.because})` : ''}`,
   );
-  const regeneration = target.kind === 'clientkit' ? decideRegeneration(generationPlan) : undefined;
+  /*
+   * The change analysis (Stage 8), for a ClientKit project only: what the
+   * recorded configuration generated tells a restore from a create, and a
+   * preview asks for each conflict's text diff. A run decides from the same
+   * analysis, without the diffs it does not show.
+   */
+  const regeneration =
+    target.kind === 'clientkit'
+      ? decideRegeneration(generationPlan, {
+          withDiff: flags.dryRun,
+          ...withPrevious(
+            previousPathsFor(target.recorded, projectManifest, {
+              adapters: createAdapterRegistry(path.dirname(registry.rootFor('astro-tailwind'))),
+              plan: { registry, cliVersion, generatedAt: context.generatedAt },
+            }),
+          ),
+        })
+      : undefined;
   if (regeneration !== undefined) {
     logger.debug(
       `regeneration missing=${regeneration.missing.length} conflicts=${regeneration.conflicts.length} ` +
@@ -159,23 +178,10 @@ export async function runCreate(options: CreateOptions): Promise<number> {
               ? manifest.postSteps
               : postStepsAfter(manifest.postSteps, writes, generationPlan.targetDir),
           ),
-          ...(regeneration === undefined
-            ? {}
-            : {
-                // Listed from what a run would write once allowed, so the
-                // preview names every file - the record included - a write touches.
-                regeneration: {
-                  create: pathsToWrite(regeneration, true).filter((entry) =>
-                    regeneration.comparison.missing.includes(entry),
-                  ),
-                  replace: pathsToWrite(regeneration, true).filter(
-                    (entry) => !regeneration.comparison.missing.includes(entry),
-                  ),
-                  conflicts: regeneration.conflicts,
-                  unchanged: leftAlone(regeneration, pathsToWrite(regeneration, true)),
-                  upToDate: regeneration.upToDate,
-                },
-              }),
+          ...(regeneration === undefined ? {} : { changes: regeneration.changes }),
+          ...(target.kind === 'unrecognised' && target.because !== undefined
+            ? { unrecognisedBecause: target.because }
+            : {}),
         },
         { verbose: flags.debug },
       ),
@@ -369,4 +375,11 @@ async function regenerate(args: RegenerateArgs): Promise<number> {
   reportPostSteps(logger, postResults);
   args.finish(postResults);
   return EXIT_OK;
+}
+
+/** The option, only when there is a value - `exactOptionalPropertyTypes` will not take `undefined`. */
+function withPrevious(previousPaths: ReadonlySet<string> | undefined): {
+  previousPaths?: ReadonlySet<string>;
+} {
+  return previousPaths === undefined ? {} : { previousPaths };
 }

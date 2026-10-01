@@ -131,3 +131,6 @@ described in [deterministic-generation.md](./deterministic-generation.md).
 
 What happens when a plan meets a project ClientKit already generated is
 described in [idempotent-generation.md](./idempotent-generation.md).
+
+How each planned file relates to an existing project, and the diff shown for
+it, is described in [change-analysis.md](./change-analysis.md).

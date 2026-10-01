@@ -488,6 +488,11 @@ describe('the bridge keeps its direction and its limits', () => {
       // imports nothing from adapters, and nothing below imports it.
       'verify\\templates.ts',
       'verify/templates.ts',
+      // Stage 8 (change analysis). Telling a restore from a create needs the
+      // files the recorded configuration generates, which `upgrade` already
+      // plans through `planUpgrade`; this asks it rather than planning again.
+      'commands\\regenerate.ts',
+      'commands/regenerate.ts',
     ];
     const srcDir = path.resolve(import.meta.dirname, '..', 'src');
     const offenders: string[] = [];

@@ -7,6 +7,8 @@ import type { StackSources } from '../context/resolve.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ComposedPackage } from '../domain/package-composition.js';
 import type { GenerationPlan } from '../generate/files.js';
+import { CHANGE_ORDER, type ChangeKind, type ChangeSet } from '../generate/changes.js';
+import { renderDiff } from '../generate/diff.js';
 import type { PlannedPostStep, PostStepResult } from '../generate/postSteps.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { PackageManager, ProjectContext, SourceMap } from '../types.js';
@@ -131,18 +133,74 @@ export interface DryRunFacts {
   readonly interactive: boolean;
   readonly postSteps: readonly PlannedPostStep[];
   /**
-   * Present when the target is a ClientKit project, re-generated idempotently:
-   * the plan compared with what is there. Replaces the create/replace split
-   * above, which only knows whether a path exists.
+   * Present when the target is a ClientKit project: the change analysis, every
+   * planned file classified against what is there. Replaces the create/replace
+   * split above, which only knows whether a path exists.
    */
-  readonly regeneration?: {
-    readonly create: readonly string[];
-    readonly replace: readonly string[];
-    /** The replacements that need a person: everything but `.client-site.json`. */
-    readonly conflicts: readonly string[];
-    readonly unchanged: readonly string[];
-    readonly upToDate: boolean;
-  };
+  readonly changes?: ChangeSet;
+  /** Why a non-empty target is not treated as a ClientKit project, when there was a record. */
+  readonly unrecognisedBecause?: string;
+}
+
+/** How each kind of change is headed and marked, in `CHANGE_ORDER`. */
+const CHANGE_STYLE: Readonly<
+  Record<ChangeKind, { heading: string; mark: string; colour: (text: string) => string }>
+> = {
+  create: { heading: 'Files to create', mark: '+', colour: pc.green },
+  restore: { heading: 'Files to restore', mark: '+', colour: pc.green },
+  modify: { heading: 'Files to modify', mark: '~', colour: pc.yellow },
+  conflict: { heading: 'Conflicts', mark: '!', colour: pc.red },
+  unchanged: { heading: 'Unchanged', mark: '=', colour: pc.dim },
+};
+
+const SUMMARY_NOUN: Readonly<Record<ChangeKind, [string, string]>> = {
+  create: ['file to create', 'files to create'],
+  restore: ['file to restore', 'files to restore'],
+  modify: ['file to modify', 'files to modify'],
+  conflict: ['conflict', 'conflicts'],
+  unchanged: ['file unchanged', 'files unchanged'],
+};
+
+/**
+ * The change analysis for a person: each kind under its heading, conflicts
+ * with why and, for text, what differs. Read from the analysis alone - this
+ * renders it and decides nothing.
+ */
+export function renderChanges(set: ChangeSet, options: { verbose: boolean }): string[] {
+  const lines: string[] = [];
+  for (const kind of CHANGE_ORDER) {
+    const changes = set.changes.filter((change) => change.kind === kind);
+    if (changes.length === 0 && kind !== 'create') continue;
+    const style = CHANGE_STYLE[kind];
+    lines.push('');
+    lines.push(pc.bold(`${style.heading} (${changes.length})`));
+    if (kind === 'unchanged' && !options.verbose) {
+      lines.push(pc.dim('  already exactly as planned; --debug lists them'));
+      continue;
+    }
+    for (const change of changes) {
+      const binary = change.binary
+        ? pc.dim(kind === 'conflict' ? ' (binary changed)' : ' (binary)')
+        : '';
+      const why = options.verbose ? pc.dim(`  - ${change.reason}`) : '';
+      lines.push(`  ${style.colour(style.mark)} ${change.path}${binary}${why}`);
+      if (kind === 'conflict' && !options.verbose) lines.push(pc.dim(`      ${change.reason}`));
+      if (change.diff !== undefined) {
+        for (const line of renderDiff(change.diff, '      ')) {
+          const op = line.trimStart().charAt(0);
+          lines.push(op === '-' ? pc.red(line) : op === '+' ? pc.green(line) : pc.dim(line));
+        }
+      }
+    }
+  }
+  lines.push('');
+  lines.push(pc.bold('Changes'));
+  for (const kind of CHANGE_ORDER) {
+    const count = set.counts[kind];
+    const [one, many] = SUMMARY_NOUN[kind];
+    lines.push(`  ${count} ${count === 1 ? one : many}`);
+  }
+  return lines;
 }
 
 /**
@@ -178,55 +236,26 @@ export function renderDryRun(
     const origin = options.verbose ? pc.dim(`  <- ${operation.origin}`) : '';
     return `  ${mark} ${operation.path}${kind}${origin}`;
   };
-  const regeneration = facts.regeneration;
-  const replacedPaths = new Set(regeneration?.replace ?? facts.replaced);
-  const createdPaths = regeneration === undefined ? undefined : new Set(regeneration.create);
-  const creates = generationPlan.operations.filter((operation) =>
-    createdPaths === undefined
-      ? !replacedPaths.has(operation.path)
-      : createdPaths.has(operation.path),
-  );
-  const replaces = generationPlan.operations.filter((operation) =>
-    replacedPaths.has(operation.path),
-  );
-
-  if (regeneration !== undefined) {
+  const set = facts.changes;
+  if (set !== undefined) {
     lines.push('');
     lines.push(
       pc.bold('This is a ClientKit project.') +
         ' Only files that differ from the plan are written; the rest are left alone.',
     );
-  }
-  lines.push('');
-  lines.push(pc.bold(`Files to create (${creates.length})`));
-  for (const operation of creates) lines.push(entry(operation, pc.green('+')));
-  if (replaces.length > 0) {
+    lines.push(...renderChanges(set, options));
     lines.push('');
-    lines.push(pc.bold(`Files to replace (${replaces.length})`));
-    for (const operation of replaces) lines.push(entry(operation, pc.yellow('~')));
-  }
-  if (regeneration !== undefined) {
+    lines.push(`Total: ${generationPlan.operations.length} files`);
     lines.push('');
-    lines.push(pc.bold(`Unchanged (${regeneration.unchanged.length})`));
-    if (options.verbose) for (const file of regeneration.unchanged) lines.push(`  = ${file}`);
-    else if (regeneration.unchanged.length > 0) {
-      lines.push(pc.dim('  already exactly as planned; --debug lists them'));
-    }
-  }
-  lines.push('');
-  lines.push(`Total: ${generationPlan.operations.length} files`);
-
-  if (regeneration !== undefined) {
-    lines.push('');
-    if (regeneration.upToDate) {
+    if (set.upToDate) {
       lines.push(pc.green('Already up to date: without --dry-run, nothing would be written.'));
-    } else if (regeneration.conflicts.length === 0) {
+    } else if (set.counts.conflict === 0) {
       lines.push('Without --dry-run, the files above would be written without asking:');
       lines.push(pc.dim('  none of them replaces a file you could have changed.'));
     } else {
       lines.push(
         pc.yellow(
-          `${regeneration.conflicts.length} generated file(s) differ from what ClientKit would write now.`,
+          `${set.counts.conflict} generated file(s) differ from what ClientKit would write now.`,
         ),
       );
       lines.push(pc.dim('  They may be your edits; ClientKit cannot tell.'));
@@ -237,9 +266,35 @@ export function renderDryRun(
               '  an answer that --yes or a script cannot give.',
       );
     }
-  } else if (facts.nonEmpty) {
+  } else {
+    const replacedPaths = new Set(facts.replaced);
+    const creates = generationPlan.operations.filter((op) => !replacedPaths.has(op.path));
+    const replaces = generationPlan.operations.filter((op) => replacedPaths.has(op.path));
+    lines.push('');
+    lines.push(pc.bold(`Files to create (${creates.length})`));
+    for (const operation of creates) lines.push(entry(operation, pc.green('+')));
+    if (replaces.length > 0) {
+      lines.push('');
+      lines.push(pc.bold(`Files to replace (${replaces.length})`));
+      for (const operation of replaces) lines.push(entry(operation, pc.yellow('~')));
+    }
+    lines.push('');
+    lines.push(`Total: ${generationPlan.operations.length} files`);
+  }
+
+  if (set === undefined && facts.nonEmpty) {
     lines.push('');
     lines.push(pc.yellow('The target directory already contains files.'));
+    // Not a ClientKit project: no record of what is ClientKit's, so no diff -
+    // showing one would claim knowledge of ownership ClientKit does not have.
+    lines.push(
+      pc.dim(
+        facts.unrecognisedBecause === undefined
+          ? '  ClientKit did not generate it (there is no .client-site.json), so it cannot\n' +
+              '  tell which of these files are yours and shows no differences.'
+          : `  ClientKit cannot treat it as its own project: ${facts.unrecognisedBecause}.`,
+      ),
+    );
     if (facts.interactive) {
       lines.push('  Without --dry-run, you would be asked before anything is written into it.');
       lines.push(pc.dim('  Files it does not replace are never touched, and nothing is deleted.'));

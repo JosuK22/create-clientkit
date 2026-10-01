@@ -78,10 +78,10 @@ Post steps follow what was written. A run that writes nothing runs none.
 Otherwise install runs only if `package.json` was written, and `git init` only
 if there is no `.git` (`postStepsAfter`).
 
-`--dry-run` makes the same decision and shows it: files to create, files to
-replace (only with confirmation), a count of unchanged files, or "already up to
-date". It lists exactly the paths a confirmed run then writes, `.client-site.json`
-included.
+`--dry-run` makes the same decision and shows it, file by file, with a diff for
+each conflict. It lists exactly the paths a confirmed run then writes,
+`.client-site.json` included. Since Stage 8 the decision is read from the
+change analysis; see [change-analysis.md](./change-analysis.md).
 
 ## What it cannot tell: edited or just different
 

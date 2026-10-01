@@ -15,12 +15,13 @@ import { ClackPrompter, NonInteractivePrompter, type Prompter } from '../context
 import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply } from '../generate/apply.js';
+import type { ChangeKind } from '../generate/changes.js';
 import { narrowPlan } from '../generate/compare.js';
 import { comparePlanPaths } from '../generate/files.js';
 import { findTemplatesRoot, type TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
 import { decideRegeneration, leftAlone, pathsToWrite } from './regenerate.js';
-import { summarisePlan } from '../ui/plan.js';
+import { renderChanges, summarisePlan } from '../ui/plan.js';
 
 /**
  * Upgrading an existing ClientKit project.
@@ -288,12 +289,22 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
    * what already matches and what differs. Only the first and last are
    * written, and only the last needs anyone to agree.
    */
-  const regeneration = decideRegeneration(generationPlan);
-  // Listed from what would be written, so the summary is the write, exactly.
+  const regeneration = decideRegeneration(generationPlan, {
+    // What the recorded configuration generated: a missing one of those is a restore.
+    previousPaths: new Set(upgradePlan.paths.oldPaths),
+    withDiff: flags.dryRun,
+  });
+  // Listed from the change analysis, the same one `create` reads, so the two
+  // commands cannot classify a file differently: Replace is what is modified
+  // or in conflict, Add is what is created or restored.
   const writes = pathsToWrite(regeneration, true);
-  const missing = new Set(regeneration.comparison.missing);
-  const replacing = writes.filter((entry) => !missing.has(entry)).sort(comparePlanPaths);
-  const adding = writes.filter((entry) => missing.has(entry)).sort(comparePlanPaths);
+  const of = (...kinds: ChangeKind[]) =>
+    regeneration.changes.changes
+      .filter((change) => kinds.includes(change.kind))
+      .map((change) => change.path)
+      .sort(comparePlanPaths);
+  const replacing = of('modify', 'conflict');
+  const adding = of('create', 'restore');
 
   logger.print('');
   logger.print(
@@ -330,6 +341,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   if (flags.dryRun) {
+    // The same per-file view `create --dry-run` gives, diffs included.
+    logger.print(renderChanges(regeneration.changes, { verbose: flags.debug }).join('\n'));
     logger.print('');
     logger.info('Dry run: nothing was written.');
     return EXIT_OK;

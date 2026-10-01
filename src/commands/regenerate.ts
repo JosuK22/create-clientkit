@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
+import { planUpgrade, type RecordedConfiguration } from '../adapters/upgrade-plan.js';
+import type { ProjectManifest } from '../domain/manifest.js';
 import { readProvenance, PROVENANCE_DOCUMENT } from '../domain/provenance-reader.js';
+import { analyzeChanges, outcomeOf, type ChangeKind, type ChangeSet } from '../generate/changes.js';
 import {
   comparePlan,
   realCompareFs,
@@ -44,8 +47,11 @@ import type { PostStep } from '../templates/manifest.js';
 export type TargetState =
   | { readonly kind: 'new' }
   | { readonly kind: 'empty' }
-  /** A usable ClientKit record: this directory may be regenerated idempotently. */
-  | { readonly kind: 'clientkit' }
+  /**
+   * A usable ClientKit record: this directory may be regenerated idempotently.
+   * `recorded` is the configuration it records, as `upgrade` reads it.
+   */
+  | { readonly kind: 'clientkit'; readonly recorded: RecordedConfiguration }
   /** Content, and no record ClientKit can use. `because` says why, when there is a record. */
   | { readonly kind: 'unrecognised'; readonly because?: string };
 
@@ -64,7 +70,16 @@ export function inspectTarget(
   if (entries.length === 0) return { kind: 'empty' };
 
   const read = readProvenance(targetDir, readFile, cliVersion);
-  if (read.status === 'usable') return { kind: 'clientkit' };
+  if (read.status === 'usable') {
+    return {
+      kind: 'clientkit',
+      recorded: {
+        stack: read.stack,
+        mode: read.document.mode,
+        template: { id: read.document.template.id, framework: read.document.template.framework },
+      },
+    };
+  }
   if (read.status === 'missing') return { kind: 'unrecognised' };
   const because =
     read.status === 'unsupported'
@@ -75,6 +90,12 @@ export function inspectTarget(
 
 export interface Regeneration {
   readonly comparison: PlanComparison;
+  /**
+   * The change analysis (Stage 8): every planned file as a create, restore,
+   * modify, conflict or unchanged. The lists below are read from it, never
+   * computed beside it.
+   */
+  readonly changes: ChangeSet;
   /** Planned files, other than the record, that do not exist yet. Safe to write. */
   readonly missing: readonly string[];
   /** Planned files, other than the record, that exist with other content. */
@@ -85,36 +106,66 @@ export interface Regeneration {
   readonly upToDate: boolean;
 }
 
+export interface DecideOptions {
+  readonly fs?: CompareFs;
+  /** Everything the recorded configuration generates; makes a missing file a restore. */
+  readonly previousPaths?: ReadonlySet<string>;
+  /** Attach a text diff to every conflict, for a preview. */
+  readonly withDiff?: boolean;
+}
+
 export function decideRegeneration(
   plan: GenerationPlan,
-  fs: CompareFs = realCompareFs,
+  options: DecideOptions = {},
 ): Regeneration {
-  const comparison = comparePlan(plan, fs);
-  const notRecord = (entry: string) => entry !== PROVENANCE_DOCUMENT;
-  const missing = comparison.missing.filter(notRecord);
-  const conflicts = comparison.differs.filter(notRecord);
-  const recordChanged =
-    comparison.missing.includes(PROVENANCE_DOCUMENT) ||
-    comparison.differs.includes(PROVENANCE_DOCUMENT);
+  const comparison = comparePlan(plan, options.fs ?? realCompareFs);
+  const changes = analyzeChanges(plan, comparison, {
+    ...(options.fs === undefined ? {} : { fs: options.fs }),
+    ...(options.previousPaths === undefined ? {} : { previousPaths: options.previousPaths }),
+    ...(options.withDiff === undefined ? {} : { withDiff: options.withDiff }),
+  });
+  const of = (...kinds: ChangeKind[]) =>
+    changes.changes
+      .filter((change) => kinds.includes(change.kind) && change.path !== PROVENANCE_DOCUMENT)
+      .map((change) => change.path);
   return {
     comparison,
-    missing,
-    conflicts,
-    recordChanged,
-    upToDate: missing.length === 0 && conflicts.length === 0 && !recordChanged,
+    changes,
+    missing: of('create', 'restore'),
+    conflicts: of('conflict'),
+    recordChanged:
+      comparison.missing.includes(PROVENANCE_DOCUMENT) ||
+      comparison.differs.includes(PROVENANCE_DOCUMENT),
+    upToDate: changes.upToDate,
   };
 }
 
 /**
- * The paths a re-run writes: the missing files, the conflicts only when a
- * person agreed, and the record whenever it changed or anything else is
- * written - so it always describes the last generation that touched the
- * project.
+ * The paths a run writes, from the change analysis: everything that is not
+ * unchanged - or nothing, when a conflict has not been agreed to. The record
+ * is among them whenever anything else is, so it always describes the last
+ * generation that touched the project.
  */
-export function pathsToWrite(decision: Regeneration, includeConflicts: boolean): string[] {
-  const files = [...decision.missing, ...(includeConflicts ? decision.conflicts : [])];
-  if (files.length > 0 || decision.recordChanged) files.push(PROVENANCE_DOCUMENT);
-  return files;
+export function pathsToWrite(decision: Regeneration, conflictsAgreed: boolean): string[] {
+  return [...outcomeOf(decision.changes, conflictsAgreed).write];
+}
+
+/**
+ * The files the recorded configuration generates, from the plan `upgrade`
+ * already builds for it. `undefined` when that configuration cannot be planned
+ * any more - every missing file is then a create, never a guessed restore.
+ */
+export function previousPathsFor(
+  recorded: RecordedConfiguration,
+  manifest: ProjectManifest,
+  options: Parameters<typeof planUpgrade>[2],
+): ReadonlySet<string> | undefined {
+  try {
+    const planned = planUpgrade(recorded, manifest, options);
+    return planned.status === 'planned' ? new Set(planned.paths.oldPaths) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -138,5 +189,7 @@ export function postStepsAfter(
 /** The planned files a run leaves exactly as they are: unchanged, and not being written. */
 export function leftAlone(decision: Regeneration, writes: readonly string[]): string[] {
   const written = new Set(writes);
-  return decision.comparison.unchanged.filter((entry) => !written.has(entry));
+  return decision.changes.changes
+    .filter((change) => change.kind === 'unchanged' && !written.has(change.path))
+    .map((change) => change.path);
 }

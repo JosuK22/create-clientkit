@@ -348,11 +348,20 @@ Resolved configuration
 - **Non-empty targets.** If the directory already has files, the preview says
   what a real run would do. Interactively it would ask first; with `--yes` or
   without a terminal it would stop. The dry run itself asks nothing.
-- **A project ClientKit generated.** The preview lists only what differs from
-  the plan: missing files to create, differing files to replace (only with
-  your confirmation), and a count of files left unchanged. If nothing differs,
-  it says the project is already up to date. See
-  [upgrading.md](./upgrading.md#re-running-create-over-an-existing-project).
+- **A project ClientKit generated.** The preview classifies every planned
+  file:
+  - files to create (`+`), and files to restore (`+`) that the project had and
+    lost;
+  - `.client-site.json` to modify (`~`);
+  - conflicts (`!`): differing files that are replaced only with your
+    confirmation, each with its reason and a line diff (binary files are just
+    marked);
+  - unchanged files (`=`), counted.
+
+  A summary of each count follows, and if nothing differs it says the project
+  is already up to date. `upgrade --dry-run` shows the same view. See
+  [architecture/change-analysis.md](./architecture/change-analysis.md).
+
 - **Post steps are shown, never run.** It lists the exact install and
   `git init` commands a real run uses, or why one is skipped (`--no-install`,
   `--no-git`).

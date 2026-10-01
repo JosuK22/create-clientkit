@@ -665,6 +665,46 @@ try {
   );
   console.log('  idempotency: the same command again wrote nothing');
 
+  // The change analysis, packed against source. With a generated file edited,
+  // the installed package and the source tree classify every file the same way
+  // and show the same diff - and the preview changes nothing.
+  const readme = path.join(idemCwd, 'site', 'README.md');
+  writeFileSync(readme, `${readFileSync(readme, 'utf8')}Edited for the smoke test.\n`);
+  const beforePreview = stamps(path.join(idemCwd, 'site'));
+  const previewArgs = [
+    'site',
+    '--yes',
+    '--dry-run',
+    '--no-install',
+    '--no-git',
+    '--preset',
+    'nextjs-tailwind',
+  ];
+  const sections = (out) => {
+    // eslint-disable-next-line no-control-regex
+    const text = (out ?? '').replace(/\u001b\[[0-9;]*m/g, '');
+    const start = text.search(
+      /^(Files to create|Files to restore|Files to modify|Conflicts|Unchanged) \(/m,
+    );
+    return start < 0 ? '' : text.slice(start, text.indexOf('\nChanges\n'));
+  };
+  const packedChanges = sections(cliRun(cli, previewArgs, idemCwd, 'changes: packed preview'));
+  const sourceChanges = sections(
+    cliRun(sourceCli, previewArgs, idemCwd, 'changes: source preview'),
+  );
+  expect(packedChanges.includes('! README.md'), 'changes: the edited README was not a conflict');
+  expect(
+    packedChanges.includes('+ Edited for the smoke test.') ||
+      packedChanges.includes('- Edited for the smoke test.'),
+    'changes: the preview did not show the edit',
+  );
+  expect(packedChanges === sourceChanges, 'changes: packed and source analyses differ');
+  expect(
+    stamps(path.join(idemCwd, 'site')) === beforePreview,
+    'changes: the preview changed the project',
+  );
+  console.log('  changes: packed and source classify and diff an edited project identically');
+
   // --no-git and --no-install are honoured.
   const flagsDir = path.join(workspace, 'flags');
   cliRun(cli, ['flags', '--yes', '--no-install', '--no-git'], workspace, '--no-install --no-git');
