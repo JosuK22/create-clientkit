@@ -726,3 +726,38 @@ usable one keep the rules they always had.
 See
 [docs/architecture/idempotent-generation.md](./docs/architecture/idempotent-generation.md)
 and [docs/upgrading.md](./docs/upgrading.md#re-running-create-over-an-existing-project).
+
+## 1.7.0 — 2026-10-02
+
+`--dry-run` now shows what would change in a project ClientKit generated, file
+by file, with a diff for anything that conflicts. Real runs, first-time
+generation and generated output are unchanged; no golden snapshot was touched.
+
+### Added
+
+- **A change preview.** On a project ClientKit generated, `create --dry-run`
+  and `upgrade --dry-run` classify every planned file:
+  - `+` **create**: a file new to this configuration;
+  - `+` **restore**: a file the project had, now missing;
+  - `~` **modify**: ClientKit's own `.client-site.json`;
+  - `!` **conflict**: a file that differs and may hold your edits, replaced
+    only if you confirm;
+  - `=` **unchanged**: already as planned, counted.
+
+  A summary of each count follows.
+
+- **A diff for each conflict.** Removed and added lines, with a little
+  context. A missing final newline and Windows line endings show up as changes.
+  Binary files are marked "(binary changed)" and never dumped. Large files and
+  long diffs are summarised instead of flooding the terminal.
+- `--debug` adds the reason behind every file's classification.
+
+### Changed
+
+- `upgrade` lists what it would replace and add from the same analysis
+  `create` uses, so the two commands always agree.
+- A directory ClientKit did not generate gets no diff. The preview explains
+  that ClientKit cannot tell which of its files are yours.
+
+See
+[docs/architecture/change-analysis.md](./docs/architecture/change-analysis.md).
