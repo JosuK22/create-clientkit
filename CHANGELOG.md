@@ -761,3 +761,28 @@ generation and generated output are unchanged; no golden snapshot was touched.
 
 See
 [docs/architecture/change-analysis.md](./docs/architecture/change-analysis.md).
+
+## 1.7.1 — 2026-10-03
+
+Hardens the boundary between deciding what to write and writing it. Planning,
+`--dry-run`, `detect`, `doctor` and template validation were already
+read-only; this release enforces that with tests and closes one gap. Generated
+output, flags and defaults are unchanged; no golden snapshot was touched.
+
+### Fixed
+
+- **A file that changes while ClientKit is asking is no longer overwritten.**
+  If a planned file changes between ClientKit checking the project and writing
+  to it (typically while the confirmation question is open: an editor saving,
+  a formatter, a `git checkout`), the run now stops and writes nothing, naming
+  the files that changed. Before, the newer content was silently replaced.
+
+### Internal
+
+- Filesystem writes live only in the executor, and processes (install,
+  `git init`) only in post-step execution. Post-step planning has its own
+  module, and the test suite checks both rules against the source and at
+  runtime.
+
+See
+[docs/architecture/planning-execution.md](./docs/architecture/planning-execution.md).
