@@ -7,9 +7,11 @@ import { readProvenance, PROVENANCE_DOCUMENT } from '../domain/provenance-reader
 import { analyzeChanges, outcomeOf, type ChangeKind, type ChangeSet } from '../generate/changes.js';
 import {
   comparePlan,
+  narrowPlan,
   realCompareFs,
   type CompareFs,
   type PlanComparison,
+  type TargetObservation,
 } from '../generate/compare.js';
 import type { GenerationPlan } from '../generate/files.js';
 import type { PostStep } from '../templates/manifest.js';
@@ -184,6 +186,37 @@ export function postStepsAfter(
     if (step === 'git-init') return !existsSync(path.join(targetDir, '.git'));
     return true;
   });
+}
+
+/**
+ * Exactly what the executor may do, and nothing it has to work out.
+ *
+ * Built once every question has been answered, from the decision alone. The
+ * executor writes `plan` - the Generation Plan narrowed to the decided paths,
+ * not a new plan - refuses if any of them no longer matches `expected`, and
+ * then runs `postSteps`. It never re-plans, re-compares or re-asks.
+ */
+export interface ExecutionDecision {
+  /** The Generation Plan narrowed to the paths this run writes. Empty when it writes nothing. */
+  readonly plan: GenerationPlan;
+  /** What every planned path held when the decision was made. */
+  readonly expected: TargetObservation;
+  /** The post steps that follow these writes. None when nothing is written. */
+  readonly postSteps: readonly PostStep[];
+}
+
+export function decideExecution(
+  plan: GenerationPlan,
+  decision: Regeneration,
+  conflictsAgreed: boolean,
+  steps: readonly PostStep[],
+): ExecutionDecision {
+  const writes = pathsToWrite(decision, conflictsAgreed);
+  return {
+    plan: narrowPlan(plan, writes),
+    expected: decision.comparison.observed,
+    postSteps: postStepsAfter(steps, writes, plan.targetDir),
+  };
 }
 
 /** The planned files a run leaves exactly as they are: unchanged, and not being written. */

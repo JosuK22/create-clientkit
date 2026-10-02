@@ -127,7 +127,7 @@ const disk = (files: Record<string, string>): CompareFs => ({
     Buffer.from(files[path.relative(ROOT, file).split(path.sep).join('/')] ?? '', 'utf8'),
 });
 
-const compared = (over: Partial<PlanComparison>): PlanComparison => ({
+const compared = (over: Partial<PlanComparison>): Omit<PlanComparison, 'observed'> => ({
   missing: [],
   unchanged: [],
   differs: [],

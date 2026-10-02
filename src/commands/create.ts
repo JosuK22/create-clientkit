@@ -4,12 +4,13 @@ import type { ParsedFlags } from '../args.js';
 import { ClackPrompter, NonInteractivePrompter, type Prompter } from '../context/prompts.js';
 import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
-import { apply, findCollisions } from '../generate/apply.js';
+import { apply } from '../generate/apply.js';
 import { planManifest } from '../adapters/bridge.js';
 import { createAdapterRegistry } from '../adapters/registry.js';
-import { narrowPlan } from '../generate/compare.js';
+import { findCollisions, observeTarget } from '../generate/compare.js';
 import type { GenerationPlan } from '../generate/files.js';
-import { planPostSteps, runPostSteps, type PostStepResult } from '../generate/postSteps.js';
+import { planPostSteps } from '../generate/postStepPlan.js';
+import { runPostSteps, type PostStepResult } from '../generate/postSteps.js';
 import type { PostStep } from '../templates/manifest.js';
 import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext } from '../types.js';
@@ -17,6 +18,7 @@ import type { Logger } from '../ui/logger.js';
 import { renderDryRun, renderNextSteps, renderPlan, summarisePlan } from '../ui/plan.js';
 import { satisfiesMinimum } from '../util/node.js';
 import {
+  decideExecution,
   decideRegeneration,
   inspectTarget,
   leftAlone,
@@ -220,7 +222,10 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   }
 
   // ---- non-empty target directory ----------------------------------------
-  const collisions = findCollisions(generationPlan);
+  // What every planned path holds now, before the question: the executor
+  // writes nothing if any of them changes while a person is answering.
+  const observed = observeTarget(generationPlan);
+  const collisions = findCollisions(generationPlan, observed);
   let allowNonEmpty = false;
 
   if (target.kind === 'unrecognised') {
@@ -256,7 +261,7 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   }
 
   // ---- generate -----------------------------------------------------------
-  const result = apply(generationPlan, { allowNonEmpty });
+  const result = apply(generationPlan, { allowNonEmpty, expected: observed });
   logger.success(
     `Created ${result.written.length} files in ${path.relative(cwd, result.targetDir) || '.'}`,
   );
@@ -359,19 +364,16 @@ async function regenerate(args: RegenerateArgs): Promise<number> {
     }
   }
 
-  const writes = pathsToWrite(regeneration, replace);
-  const result = apply(narrowPlan(generationPlan, writes), { allowNonEmpty: true });
+  // ---- the execution boundary: everything below was decided above ----------
+  const execution = decideExecution(generationPlan, regeneration, replace, args.postSteps);
+  const result = apply(execution.plan, { allowNonEmpty: true, expected: execution.expected });
   const added = result.written.length - result.overwritten.length;
   logger.success(
     `Updated ${where}: ${added} added, ${result.overwritten.length} replaced, ` +
-      `${leftAlone(regeneration, writes).length} already up to date.`,
+      `${leftAlone(regeneration, result.written).length} already up to date.`,
   );
 
-  const postResults = runPostSteps({
-    context: args.context,
-    logger,
-    steps: postStepsAfter(args.postSteps, writes, generationPlan.targetDir),
-  });
+  const postResults = runPostSteps({ context: args.context, logger, steps: execution.postSteps });
   reportPostSteps(logger, postResults);
   args.finish(postResults);
   return EXIT_OK;

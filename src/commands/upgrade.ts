@@ -16,11 +16,10 @@ import { resolveContext } from '../context/resolve.js';
 import { CliError, EXIT_OK, EXIT_USAGE } from '../errors.js';
 import { apply } from '../generate/apply.js';
 import type { ChangeKind } from '../generate/changes.js';
-import { narrowPlan } from '../generate/compare.js';
 import { comparePlanPaths } from '../generate/files.js';
 import { findTemplatesRoot, type TemplateRegistry } from '../templates/registry.js';
 import type { Logger } from '../ui/logger.js';
-import { decideRegeneration, leftAlone, pathsToWrite } from './regenerate.js';
+import { decideExecution, decideRegeneration, leftAlone, pathsToWrite } from './regenerate.js';
 import { renderChanges, summarisePlan } from '../ui/plan.js';
 
 /**
@@ -377,9 +376,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   // The existing merge, narrowed to what was decided: planned files only,
   // nothing else touched, nothing deleted, files already as planned left
   // alone, and atomic - a failure leaves the project exactly as it was.
-  const result = apply(narrowPlan(generationPlan, writes), {
-    allowNonEmpty: true,
-  });
+  // Upgrade runs no post steps: it rewrites files and leaves installing to you.
+  const execution = decideExecution(generationPlan, regeneration, true, []);
+  const result = apply(execution.plan, { allowNonEmpty: true, expected: execution.expected });
 
   logger.success(
     `Updated ${result.overwritten.length} file(s) in ${path.relative(cwd, result.targetDir) || '.'}`,

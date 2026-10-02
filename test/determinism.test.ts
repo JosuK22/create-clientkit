@@ -17,7 +17,7 @@ import { NonInteractivePrompter } from '../src/context/prompts.js';
 import { resolveContext } from '../src/context/resolve.js';
 import type { ProjectManifest } from '../src/domain/manifest.js';
 import type { GenerationPlan } from '../src/generate/files.js';
-import { planPostSteps } from '../src/generate/postSteps.js';
+import { planPostSteps } from '../src/generate/postStepPlan.js';
 import { realPlanFs, type PlanFs } from '../src/generate/plan.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { validateTemplate } from '../src/templates/validation.js';

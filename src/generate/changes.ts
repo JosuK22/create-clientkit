@@ -5,6 +5,9 @@ import { diffText, type TextDiff } from './diff.js';
 import { comparePlanPaths, type GenerationPlan } from './files.js';
 import { PROVENANCE_FILE } from './provenance.js';
 
+/** The classification only: analysis reads which list a path is in, never what was observed. */
+type Classified = Pick<PlanComparison, 'missing' | 'unchanged' | 'differs'>;
+
 /**
  * The change analysis: how a Generation Plan relates to a project already on
  * disk, file by file, as data.
@@ -78,7 +81,7 @@ export interface AnalyzeOptions {
 }
 
 /** The record's own decision: it changes when what it records does, or when anything else is written. */
-function recordKind(comparison: PlanComparison, otherWrites: boolean): ChangeKind {
+function recordKind(comparison: Classified, otherWrites: boolean): ChangeKind {
   if (comparison.missing.includes(PROVENANCE_FILE)) return 'create';
   if (comparison.differs.includes(PROVENANCE_FILE) || otherWrites) return 'modify';
   return 'unchanged';
@@ -86,7 +89,7 @@ function recordKind(comparison: PlanComparison, otherWrites: boolean): ChangeKin
 
 export function analyzeChanges(
   plan: GenerationPlan,
-  comparison: PlanComparison,
+  comparison: Classified,
   options: AnalyzeOptions = {},
 ): ChangeSet {
   const fs = options.fs ?? realCompareFs;

@@ -9,7 +9,8 @@ import type { ComposedPackage } from '../domain/package-composition.js';
 import type { GenerationPlan } from '../generate/files.js';
 import { CHANGE_ORDER, type ChangeKind, type ChangeSet } from '../generate/changes.js';
 import { renderDiff } from '../generate/diff.js';
-import type { PlannedPostStep, PostStepResult } from '../generate/postSteps.js';
+import type { PlannedPostStep } from '../generate/postStepPlan.js';
+import type { PostStepResult } from '../generate/postSteps.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { PackageManager, ProjectContext, SourceMap } from '../types.js';
 

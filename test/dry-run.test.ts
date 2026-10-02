@@ -11,7 +11,8 @@ import type { Prompter } from '../src/context/prompts.js';
 import type * as ApplyModule from '../src/generate/apply.js';
 import type { GenerationPlan } from '../src/generate/files.js';
 import type * as PostStepsModule from '../src/generate/postSteps.js';
-import { planPostSteps, runPostSteps } from '../src/generate/postSteps.js';
+import { planPostSteps } from '../src/generate/postStepPlan.js';
+import { runPostSteps } from '../src/generate/postSteps.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { FakePrompter, makeContext, tempDir, testLogger } from './helpers.js';
 

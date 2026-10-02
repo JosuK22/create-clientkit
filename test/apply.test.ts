@@ -10,12 +10,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  apply,
-  findCollisions,
-  renameWithRetry,
-  TRANSIENT_RENAME_CODES,
-} from '../src/generate/apply.js';
+import { apply, renameWithRetry, TRANSIENT_RENAME_CODES } from '../src/generate/apply.js';
+import { findCollisions } from '../src/generate/compare.js';
 import type { GenerationPlan } from '../src/generate/files.js';
 import { tempDir } from './helpers.js';
 

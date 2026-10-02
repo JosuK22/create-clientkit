@@ -72,7 +72,9 @@ Then:
 
 The executor is handed the plan narrowed to exactly the decided paths
 (`narrowPlan`). The operations, their order and their content are the plan's
-own. There is no second generator.
+own. There is no second generator. It is handed what each path held when it
+was compared, too, and writes nothing if any of them changed while the
+question was open. See [planning-execution.md](./planning-execution.md).
 
 Post steps follow what was written. A run that writes nothing runs none.
 Otherwise install runs only if `package.json` was written, and `git init` only

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
@@ -37,7 +38,22 @@ export interface PlanComparison {
   readonly unchanged: readonly string[];
   /** Planned files that exist with other content. */
   readonly differs: readonly string[];
+  /**
+   * Every planned path as it was when compared, from the same reads. The
+   * executor is handed it and refuses to write if any of the paths it writes
+   * has changed since (see `apply`).
+   */
+  readonly observed: TargetObservation;
 }
+
+/**
+ * What one planned path held when ClientKit looked at it: nothing, something
+ * that is not a file, or a file with exactly these bytes.
+ */
+export type Observed = 'absent' | 'not-a-file' | `sha256:${string}`;
+
+/** Planned paths and what each held when the decision to write them was made. */
+export type TargetObservation = ReadonlyMap<string, Observed>;
 
 /** Read-only filesystem access, injectable for tests. */
 export interface CompareFs {
@@ -79,22 +95,79 @@ function sameContent(operation: FileOperation, existing: Buffer, fs: CompareFs):
   return existing.equals(Buffer.from(operation.content, 'utf8'));
 }
 
+function fingerprint(bytes: Buffer): Observed {
+  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
 export function comparePlan(plan: GenerationPlan, fs: CompareFs = realCompareFs): PlanComparison {
   const missing: string[] = [];
   const unchanged: string[] = [];
   const differs: string[] = [];
+  const observed = new Map<string, Observed>();
 
   for (const operation of plan.operations) {
     const target = path.join(plan.targetDir, ...operation.path.split('/'));
-    if (!fs.exists(target)) missing.push(operation.path);
-    // A directory where the plan puts a file is a difference, never a match.
-    else if (!fs.isFile(target)) differs.push(operation.path);
-    else if (sameContent(operation, fs.read(target), fs)) unchanged.push(operation.path);
-    else differs.push(operation.path);
+    if (!fs.exists(target)) {
+      missing.push(operation.path);
+      observed.set(operation.path, 'absent');
+    } else if (!fs.isFile(target)) {
+      // A directory where the plan puts a file is a difference, never a match.
+      differs.push(operation.path);
+      observed.set(operation.path, 'not-a-file');
+    } else {
+      const existing = fs.read(target);
+      observed.set(operation.path, fingerprint(existing));
+      if (sameContent(operation, existing, fs)) unchanged.push(operation.path);
+      else differs.push(operation.path);
+    }
   }
 
   const sorted = (list: string[]) => list.sort(comparePlanPaths);
-  return { missing: sorted(missing), unchanged: sorted(unchanged), differs: sorted(differs) };
+  return {
+    missing: sorted(missing),
+    unchanged: sorted(unchanged),
+    differs: sorted(differs),
+    observed,
+  };
+}
+
+/** What a path holds now, in the terms of an observation. Reads; never writes. */
+export function observePath(file: string, fs: CompareFs = realCompareFs): Observed {
+  if (!fs.exists(file)) return 'absent';
+  if (!fs.isFile(file)) return 'not-a-file';
+  return fingerprint(fs.read(file));
+}
+
+/**
+ * Every planned path as it is now, for a run that does not compare content -
+ * a first generation, or one into a directory ClientKit did not generate.
+ * Taken before the question is asked, so the executor can tell whether the
+ * directory changed while a person was answering it.
+ */
+export function observeTarget(
+  plan: GenerationPlan,
+  fs: CompareFs = realCompareFs,
+): TargetObservation {
+  return new Map(
+    plan.operations.map((operation) => [
+      operation.path,
+      observePath(path.join(plan.targetDir, ...operation.path.split('/')), fs),
+    ]),
+  );
+}
+
+/**
+ * Files a plan would replace in an existing target: every planned path that
+ * is already there. Drives the confirmation. Read-only, from an observation.
+ */
+export function findCollisions(
+  plan: GenerationPlan,
+  observed: TargetObservation = observeTarget(plan),
+): string[] {
+  return plan.operations
+    .map((operation) => operation.path)
+    .filter((relative) => (observed.get(relative) ?? 'absent') !== 'absent')
+    .sort();
 }
 
 /**

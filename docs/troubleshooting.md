@@ -86,6 +86,15 @@ release. Nothing was changed. Run interactively to review the list and confirm,
 or use `--dry-run` to see the whole plan. See
 [upgrading.md](./upgrading.md#re-running-create-over-an-existing-project).
 
+## "… file(s) changed after ClientKit checked them, so nothing was written"
+
+Something modified the project between ClientKit looking at it and writing to
+it, usually while the confirmation question was open: an editor saving, a
+formatter, a `git checkout`. ClientKit does not overwrite a file whose state
+changed after it decided to write it, so it wrote nothing. Run the command
+again to review the project as it is now. See
+[architecture/planning-execution.md](./architecture/planning-execution.md#between-deciding-and-writing).
+
 ## Nothing was written after an error
 
 By design. Generation writes into a temporary sibling directory and moves it

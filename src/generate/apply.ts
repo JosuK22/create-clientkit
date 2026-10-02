@@ -11,6 +11,7 @@ import {
 import path from 'node:path';
 
 import { CliError, ExecutionError } from '../errors.js';
+import { observePath, type TargetObservation } from './compare.js';
 import { isCanonicalPlanPath, type GenerationPlan } from './files.js';
 
 export interface ApplyResult {
@@ -24,6 +25,15 @@ export interface ApplyOptions {
   /** Required when the target already contains unrelated files. */
   readonly allowNonEmpty?: boolean;
   readonly onProgress?: (relativePath: string) => void;
+  /**
+   * What every planned path held when the decision to write it was made
+   * (`comparePlan(...).observed`, or `observeTarget`). Checked once more just
+   * before anything reaches the target: if a path changed in between - a file
+   * appeared, was edited again, or was removed - nothing is written. Every
+   * caller in `src/commands` passes it; a path missing from it counts as
+   * changed.
+   */
+  readonly expected?: TargetObservation;
   /**
    * The raw rename underneath the retry. Production uses `renameSync`.
    *
@@ -137,6 +147,11 @@ export function apply(plan: GenerationPlan, options: ApplyOptions = {}): ApplyRe
       options.onProgress?.(operation.path);
     }
 
+    // As late as possible: everything is staged, nothing has reached the target.
+    if (options.expected !== undefined) {
+      assertUnchangedSince(plan, targetDir, options.expected);
+    }
+
     if (!targetExists) {
       // Fast path: one rename publishes the whole tree at once.
       mkdirSync(parent, { recursive: true });
@@ -242,6 +257,41 @@ function assertInsideTarget(relativePath: string, targetDir: string): void {
   }
 }
 
+/**
+ * Refuses to publish if any planned path no longer holds what it held when the
+ * decision was made. An execution-time safety check, not a second planner: it
+ * compares fingerprints and decides nothing about what to write.
+ *
+ * It narrows the window between deciding and writing to the moment of
+ * publishing; it cannot close it. See docs/architecture/planning-execution.md.
+ */
+function assertUnchangedSince(
+  plan: GenerationPlan,
+  targetDir: string,
+  expected: TargetObservation,
+): void {
+  const changed = plan.operations
+    .map((operation) => operation.path)
+    .filter((relative) => {
+      const before = expected.get(relative);
+      return (
+        before === undefined || observePath(path.join(targetDir, ...relative.split('/'))) !== before
+      );
+    });
+  if (changed.length === 0) return;
+
+  const listed = changed.slice(0, 10).map((file) => `  ${file}`);
+  if (changed.length > 10) listed.push(`  ...and ${changed.length - 10} more`);
+  throw new ExecutionError(
+    `${changed.length} file(s) changed after ClientKit checked them, so nothing was written.`,
+    {
+      hint:
+        `${listed.join('\n')}\nSomething else modified the project while this run was deciding. ` +
+        'Run the command again to review it as it is now.',
+    },
+  );
+}
+
 /** A lone `.git` does not count as content. Mirrors the M1 validator. */
 function isEffectivelyEmpty(dir: string): boolean {
   try {
@@ -249,14 +299,4 @@ function isEffectivelyEmpty(dir: string): boolean {
   } catch {
     return false;
   }
-}
-
-/** Files a plan would replace in an existing target. Drives the confirmation. */
-export function findCollisions(plan: GenerationPlan): string[] {
-  const targetDir = path.resolve(plan.targetDir);
-  if (!existsSync(targetDir)) return [];
-  return plan.operations
-    .map((operation) => operation.path)
-    .filter((relative) => existsSync(path.join(targetDir, ...relative.split('/'))))
-    .sort();
 }

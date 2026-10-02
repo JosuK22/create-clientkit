@@ -18,7 +18,7 @@ Planning           planManifest()             src/adapters/bridge.ts
 GenerationPlan                                src/generate/files.ts
   ↓
 Execution          apply()                    src/generate/apply.ts
-  ↓                runPostSteps()             src/generate/postSteps.ts
+  ↓                runPostSteps()             src/generate/postSteps.ts (planned in postStepPlan.ts)
 Files on disk, then install / git init
 ```
 
@@ -33,6 +33,9 @@ Files on disk, then install / git init
 - **Adapters only describe.** No adapter imports `node:fs` or
   `node:child_process`; a test enforces it. Adapters return contributions; the
   planner composes them; the executor applies the result.
+
+Where exactly the boundary lies, what may cross it and what the executor
+checks before writing: [planning-execution.md](./planning-execution.md).
 
 ## What a plan contains
 
