@@ -110,7 +110,9 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
   // `starter:*` is not here on purpose. It selects a template layer rather than
   // an adapter - the arrangement V1's `mode` became - and asking the registry
   // for it would report a missing adapter for something that was never one.
-  const routers = new Map<RouterId, Adapter>([['react-router', createReactRouterAdapter()]]);
+  const routers = new Map<RouterId, Adapter>([
+    ['react-router', createReactRouterAdapter(templatesRoot)],
+  ]);
   const features = new Map<FeatureId, Adapter>([
     ['accessibility', createAccessibilityAdapter()],
     ['client-route-fallback', createClientRouteFallbackAdapter(templatesRoot)],

@@ -617,7 +617,7 @@ export function HomePage() {
 
 ---- src/pages/NotFoundPage.tsx ----
 type    write
-origin  feature:client-route-fallback
+origin  feature:client-route-fallback + router:react-router
 ----
 import { Container } from '../components/ui/Container';
 import { BaseLayout } from '../layouts/BaseLayout';

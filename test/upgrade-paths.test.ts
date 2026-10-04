@@ -273,6 +273,7 @@ describe('the path set does depend on the stack', () => {
     );
     expect(result.orphanCandidates).toEqual([
       'src/components/ui/AppProviders.tsx',
+      'src/pages/NotFoundPage.tsx',
       'src/routes/AppRouter.tsx',
     ]);
     expect(result.added).toEqual([]);
@@ -285,7 +286,10 @@ describe('the path set does depend on the stack', () => {
 
   it('reports a router removal alone', () => {
     const result = between(react({ router: 'react-router' }), react({ router: 'none' }));
-    expect(result.orphanCandidates).toEqual(['src/routes/AppRouter.tsx']);
+    expect(result.orphanCandidates).toEqual([
+      'src/pages/NotFoundPage.tsx',
+      'src/routes/AppRouter.tsx',
+    ]);
   });
 
   it('reports an addition as added, not as an orphan', () => {
@@ -302,6 +306,7 @@ describe('the path set does depend on the stack', () => {
     );
     expect(result.orphanCandidates).toEqual([
       'src/components/ui/AppProviders.tsx',
+      'src/pages/NotFoundPage.tsx',
       'src/routes/AppRouter.tsx',
     ]);
     // A styling swap changes content rather than the file list, which is

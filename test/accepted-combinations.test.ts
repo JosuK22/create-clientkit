@@ -350,6 +350,10 @@ describe('the generated file list depends on the stack, not the site', () => {
     const newPaths = new Set(pathsOf(after!));
     const orphans = [...oldPaths].filter((p) => !newPaths.has(p)).sort();
 
-    expect(orphans).toEqual(['src/components/ui/AppProviders.tsx', 'src/routes/AppRouter.tsx']);
+    expect(orphans).toEqual([
+      'src/components/ui/AppProviders.tsx',
+      'src/pages/NotFoundPage.tsx',
+      'src/routes/AppRouter.tsx',
+    ]);
   });
 });

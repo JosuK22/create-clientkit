@@ -205,7 +205,11 @@ describe('provenance records the resolved stack', () => {
     expect(stackOf(rich)).not.toEqual(stackOf(plain));
 
     const onlyInRich = filesOf(rich).filter((file) => !filesOf(plain).includes(file));
-    expect(onlyInRich).toEqual(['src/components/ui/AppProviders.tsx', 'src/routes/AppRouter.tsx']);
+    expect(onlyInRich).toEqual([
+      'src/components/ui/AppProviders.tsx',
+      'src/pages/NotFoundPage.tsx',
+      'src/routes/AppRouter.tsx',
+    ]);
   });
 
   it('distinguishes a change in any single dimension', () => {

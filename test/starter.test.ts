@@ -157,7 +157,8 @@ function collidingContributions(): readonly Contribution[] {
   const claim = (owner: string) => ({
     target: { kind: 'role', role: 'app.providers' } as const,
     intent: 'create' as const,
-    payload: { kind: 'text', content: '' } as const,
+    // Different content: the same content claimed twice is one shared file.
+    payload: { kind: 'text', content: owner } as const,
     owner,
     order: 0,
     reason: 'test',
@@ -836,6 +837,23 @@ describe('layers carry ownership through composition', () => {
     expect(messageFor(contributions)).toBe(messageFor([...contributions].reverse()));
     expect(messageFor(contributions)).toContain('ui-library:mui');
     expect(messageFor(contributions)).toContain('router:react-router');
+  });
+
+  it('two owners claiming one file with identical content share it, both recorded', () => {
+    const { project } = resolveProject(reactManifest(), adapters);
+    const same = collidingContributions().map((contribution) => ({
+      ...contribution,
+      files: contribution.files.map((file) => ({
+        ...file,
+        payload: { kind: 'text', content: 'shared' } as const,
+      })),
+    }));
+
+    const forward = contributedFiles(project, same, () => '');
+    const reverse = contributedFiles(project, [...same].reverse(), () => '');
+    expect(forward).toHaveLength(1);
+    expect(forward[0]?.origin).toBe('router:react-router + ui-library:mui');
+    expect(reverse).toEqual(forward);
   });
 });
 

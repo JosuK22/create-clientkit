@@ -18,6 +18,7 @@ import { STRUCTURED_DATA_DECLARATION } from '../src/adapters/structured-data.js'
 import { TAILWIND_DECLARATION } from '../src/adapters/tailwind.js';
 import { VITE_DECLARATION } from '../src/adapters/vite.js';
 import { appRootEntries } from '../src/domain/app-composition.js';
+import { CATCH_ALL_ORDER } from '../src/domain/client-route-fallback.js';
 import type { ConfigContribution, Contribution } from '../src/domain/contributions.js';
 import { emptyContribution } from '../src/domain/contributions.js';
 import type {
@@ -482,10 +483,43 @@ describe('contributions', () => {
     // The route table became composed when a second adapter needed to add a
     // catch-all. The alternative was editing another owner's file by string
     // replacement, which this codebase does not do.
-    expect(contribution()?.files).toEqual([]);
     const routes = (contribution()?.config ?? []).filter((entry) => entry.at === 'routes');
-    expect(routes).toHaveLength(1);
-    expect(routes[0]?.value).toEqual({ path: '/', element: { kind: 'children' }, order: 0 });
+    expect(routes.map((entry) => entry.value)).toContainEqual({
+      path: '/',
+      element: { kind: 'children' },
+      order: 0,
+    });
+  });
+
+  it('contributes a catch-all and its not-found view by default', () => {
+    // Without one, every address but `/` rendered an empty page. The route and
+    // view are the client-route-fallback feature's own, byte for byte.
+    const routes = (contribution()?.config ?? []).filter((entry) => entry.at === 'routes');
+    expect(routes).toHaveLength(2);
+    expect(routes.map((entry) => entry.value)).toContainEqual({
+      path: '*',
+      element: { kind: 'component', importName: 'NotFoundPage', role: 'page.notFound' },
+      order: CATCH_ALL_ORDER,
+    });
+    expect(contribution()?.files.map((file) => file.target)).toEqual([
+      { kind: 'role', role: 'page.notFound' },
+    ]);
+  });
+
+  it('wires the generated view into the route table, after the home route', () => {
+    const source = fileAt('src/routes/AppRouter.tsx');
+    expect(source).toContain("import { NotFoundPage } from '../pages/NotFoundPage';");
+    expect(source).toContain('<Route path="/" element={children} />');
+    expect(source).toContain('<Route path="*" element={<NotFoundPage />} />');
+    expect(source.indexOf('path="/"')).toBeLessThan(source.indexOf('path="*"'));
+  });
+
+  it('generates the view from the shared not-found template, unmodified', () => {
+    const template = readFileSync(
+      path.join(TEMPLATES_ROOT, 'feature', 'client-route-fallback', 'NotFoundPage.tsx'),
+      'utf8',
+    ).replace(/\r\n/g, '\n');
+    expect(fileAt('src/pages/NotFoundPage.tsx')).toBe(template);
   });
 
   it('asks to wrap the application root, naming only its own export and role', () => {

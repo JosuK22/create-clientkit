@@ -139,7 +139,11 @@ function contractsFor(entry: Combination, url: UrlState, added: readonly string[
     if (fileRouted) contracts.push('json-ld-absent-on-404');
   }
   if (has('accessibility')) contracts.push('accessibility-structure');
-  if (has('client-route-fallback')) contracts.push('client-fallback-200');
+  // React Router ships the catch-all and its view by default, so every project
+  // with it has the fallback; the feature only makes that a checked guarantee.
+  if (has('client-route-fallback') || entry.router === 'react-router') {
+    contracts.push('client-fallback-200');
+  }
 
   if (entry.styling !== 'none') contracts.push('stylesheet-loads');
   if (entry.uiLibrary === 'mui') contracts.push('mui-renders');

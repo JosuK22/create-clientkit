@@ -175,8 +175,11 @@ A single-page app with the same config-driven layout:
 
 - **Tailwind or Bootstrap**, optionally with **Material UI** or **Chakra UI**
   wired into a provider file you can edit.
-- **React Router** (optional), with an optional not-found view for unmatched
-  routes (`--features client-route-fallback`).
+- **React Router** (optional). Unmatched routes render a not-found view inside
+  the site layout. This happens in the browser: the server still answers
+  `200`, and your host has to serve `index.html` for unknown paths (see the
+  generated README). `--features client-route-fallback` makes that view a
+  checked guarantee.
 - **Page titles and descriptions** set per page with a small `useDocumentMeta`
   hook.
 

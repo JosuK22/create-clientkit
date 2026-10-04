@@ -500,9 +500,21 @@ describe('what the feature contributes, and what it refuses to', () => {
       (contribution) => contribution.owner,
     );
     expect(owners).not.toContain('feature:client-route-fallback');
-    expect(
-      planFor({ starter: 'full', features: [] }).plan.operations.map((o) => o.path),
-    ).not.toContain('src/pages/NotFoundPage.tsx');
+  });
+
+  it('is not what puts the view there when unselected - React Router ships it', () => {
+    const view = planFor({ starter: 'full', features: [] }).plan.operations.find(
+      (operation) => operation.path === 'src/pages/NotFoundPage.tsx',
+    );
+    expect(view?.origin).toBe('router:react-router');
+  });
+
+  it('shares the view with React Router as one file with both owners', () => {
+    const view = planFor().plan.operations.find(
+      (operation) => operation.path === 'src/pages/NotFoundPage.tsx',
+    );
+    expect(view?.origin).toContain('router:react-router');
+    expect(view?.origin).toContain('feature:client-route-fallback');
   });
 });
 
@@ -559,13 +571,10 @@ describe('the route table composes rather than being edited', () => {
     expect(operation?.origin).toContain('feature:client-route-fallback');
   });
 
-  it('emits no catch-all when the feature is not selected', () => {
-    // Matched against the JSX rather than the whole file: the routerless
-    // version documents what a catch-all would buy, and that prose quotes
-    // `path="*"` while emitting no such route.
-    const source = fileAt('src/routes/AppRouter.tsx', { starter: 'full', features: [] });
-    expect(source).not.toContain('<Route path="*"');
-    expect(source).not.toContain('NotFoundPage');
+  it('emits the same catch-all when the feature is not selected', () => {
+    // React Router contributes the identical route by default, so an unknown
+    // address renders the view rather than an empty page.
+    expect(fileAt('src/routes/AppRouter.tsx', { starter: 'full', features: [] })).toBe(router());
   });
 
   it('sorts the catch-all last however the contributions arrive', () => {
@@ -843,7 +852,7 @@ describe('the adapter stays inside the contract', () => {
 // ---------------------------------------------------------------------------
 
 describe('the rest of the project is untouched', () => {
-  it('every file except the router and the view is what it was without the feature', () => {
+  it('every file but the provenance record is what it was without the feature', () => {
     const withFeature = new Map(
       planFor().plan.operations.flatMap((operation) =>
         operation.type === 'write' ? [[operation.path, operation.content] as const] : [],
@@ -861,7 +870,6 @@ describe('the rest of the project is untouched', () => {
         added.push(file);
         continue;
       }
-      if (file === 'src/routes/AppRouter.tsx') continue;
       // Since Stage 14 the provenance file records which features were
       // selected, so it differs by exactly the name of this one. That is the
       // file's job; before then it reported every project as having none.
@@ -872,7 +880,9 @@ describe('the rest of the project is untouched', () => {
       }
       expect(content, `${file} changed`).toBe(without.get(file));
     }
-    expect(added).toEqual(['src/pages/NotFoundPage.tsx']);
+    // React Router already ships the view and the catch-all; selecting the
+    // feature adds the guarantee, not a file.
+    expect(added).toEqual([]);
   });
 
   it('Astro generates exactly what it did before', () => {

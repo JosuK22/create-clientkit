@@ -2,7 +2,11 @@ import path from 'node:path';
 
 import { adapterRef } from '../domain/adapters.js';
 import type { Adapter, AdapterDeclaration, AdapterResolution } from '../domain/adapters.js';
-import type { Contribution } from '../domain/contributions.js';
+import type {
+  ConfigContribution,
+  Contribution,
+  FileContribution,
+} from '../domain/contributions.js';
 import { emptyContribution } from '../domain/contributions.js';
 import { resolveClientRouteFallbackContract } from '../domain/client-route-fallback.js';
 import type { ProjectManifest } from '../domain/manifest.js';
@@ -54,7 +58,13 @@ import type { ResolvedProject } from '../domain/resolved.js';
  * configuration - a feature that quietly installed something would be the worst
  * version of this abstraction. The route is contributed through the same
  * generic mechanism the router itself uses; nothing here knows the router's
- * name, and nothing in the router knows this exists.
+ * name.
+ *
+ * React Router ships the same view and route by default, through the two
+ * helpers below, so an unknown address never renders an empty page. Selecting
+ * this feature on top of it then adds nothing to the output; what it adds is
+ * the guarantee - the plan is refused if no `page.notFound` view exists - and
+ * the requirement, which is what any future client-side router has to meet.
  */
 
 const CLIENT_ROUTE_FALLBACK_DECLARATION: AdapterDeclaration = {
@@ -73,6 +83,59 @@ const CLIENT_ROUTE_FALLBACK_DECLARATION: AdapterDeclaration = {
 };
 
 const OWNER = adapterRef(CLIENT_ROUTE_FALLBACK_DECLARATION);
+/**
+ * The view, addressed by role.
+ *
+ * A template rather than an inline string, for the same reason every other
+ * contributed component is one: it stays reviewable, formatted and diffable as
+ * the source it becomes. The architecture decides where it lands.
+ *
+ * Exported because a router may ship the same view by default - React Router
+ * does - and the two contributions have to be identical for the planner to
+ * treat them as cooperation rather than a collision. One definition is how
+ * that stays true.
+ */
+export function clientRouteFallbackView(owner: string, templatesRoot: string): FileContribution {
+  return {
+    target: { kind: 'role', role: 'page.notFound' },
+    intent: 'create',
+    payload: {
+      kind: 'template',
+      source: path.join(templatesRoot, 'feature', 'client-route-fallback', 'NotFoundPage.tsx'),
+    },
+    owner,
+    order: 0,
+    reason: 'the view a visitor sees when the router matches nothing',
+  };
+}
+
+/**
+ * The catch-all.
+ *
+ * The order comes from the contract rather than a number typed here, because it
+ * is a correctness property and not a preference: a catch-all that sorts above
+ * `/` matches first and swallows the home page. Ten thousand is not a guess at
+ * "large enough" so much as a statement that nothing else belongs after it.
+ *
+ * Addressed by role, like the file - so this never learns that the view is at
+ * `src/pages/NotFoundPage.tsx`, only that whatever fills `page.notFound` is what
+ * an unmatched address should render. Identical route claims de-duplicate, so a
+ * router contributing this as well is cooperation, not a conflict.
+ */
+export function clientRouteFallbackRoute(owner: string): ConfigContribution {
+  const contract = resolveClientRouteFallbackContract();
+  return {
+    target: 'app.router',
+    at: 'routes',
+    value: {
+      path: contract.catchAllPath,
+      element: { kind: 'component', importName: 'NotFoundPage', role: 'page.notFound' },
+      order: contract.routeOrder,
+    },
+    owner,
+    reason: 'an address that matches no route renders the fallback view',
+  };
+}
 
 export function createClientRouteFallbackAdapter(templatesRoot: string): Adapter {
   return {
@@ -92,64 +155,10 @@ export function createClientRouteFallbackAdapter(templatesRoot: string): Adapter
     },
 
     contribute(_project: ResolvedProject): Contribution {
-      const contract = resolveClientRouteFallbackContract();
-
       return {
         ...emptyContribution(OWNER),
-
-        files: [
-          {
-            /**
-             * The view, addressed by role.
-             *
-             * A template rather than an inline string, for the same reason
-             * every other contributed component is one: it stays reviewable,
-             * formatted and diffable as the source it becomes. The architecture
-             * decides where it lands.
-             */
-            target: { kind: 'role', role: 'page.notFound' },
-            intent: 'create',
-            payload: {
-              kind: 'template',
-              source: path.join(
-                templatesRoot,
-                'feature',
-                'client-route-fallback',
-                'NotFoundPage.tsx',
-              ),
-            },
-            owner: OWNER,
-            order: 0,
-            reason: 'the view a visitor sees when the router matches nothing',
-          },
-        ],
-
-        config: [
-          {
-            /**
-             * The catch-all.
-             *
-             * The order comes from the contract rather than a number typed
-             * here, because it is a correctness property and not a preference:
-             * a catch-all that sorts above `/` matches first and swallows the
-             * home page. Ten thousand is not a guess at "large enough" so much
-             * as a statement that nothing else belongs after it.
-             *
-             * Addressed by role, like the file - so this never learns that the
-             * view is at `src/pages/NotFoundPage.tsx`, only that whatever fills
-             * `page.notFound` is what an unmatched address should render.
-             */
-            target: 'app.router',
-            at: 'routes',
-            value: {
-              path: contract.catchAllPath,
-              element: { kind: 'component', importName: 'NotFoundPage', role: 'page.notFound' },
-              order: contract.routeOrder,
-            },
-            owner: OWNER,
-            reason: 'an address that matches no route renders the fallback view',
-          },
-        ],
+        files: [clientRouteFallbackView(OWNER, templatesRoot)],
+        config: [clientRouteFallbackRoute(OWNER)],
       };
     },
   };

@@ -164,8 +164,9 @@ export function layersFrom(contributions: readonly Contribution[]): readonly Pla
  * that React puts it in `src/styles/index.css`. A contribution aimed at a role
  * the framework satisfies from its own template is skipped: Astro ships
  * `global.css`, so Tailwind's stylesheet is not composed there and Astro's
- * output is untouched. Two adapters claiming the same path is a collision and
- * is reported, never resolved by running order.
+ * output is untouched. Two adapters claiming the same path with different content
+ * is a collision and is reported, never resolved by running order; the same
+ * content claimed twice is one file with both owners as provenance.
  */
 export function contributedFiles(
   project: ResolvedProject,
@@ -173,7 +174,8 @@ export function contributedFiles(
   readText: (file: string) => string,
 ): readonly FileOperation[] {
   const templateOwned = new Set(project.templateOwnedRoles);
-  const claimed = new Map<string, string>();
+  /** Each claimed path, and the index of the operation that holds it. */
+  const claimed = new Map<string, number>();
   const operations: FileOperation[] = [];
 
   const files = contributions
@@ -193,28 +195,36 @@ export function contributedFiles(
     // attaches to. Only `create` claims a path outright.
     if (file.intent === 'merge') continue;
 
-    const previous = claimed.get(target);
-    if (previous !== undefined) {
-      throw new CliError(`Two adapters both claim "${target}".`, {
-        hint: `${previous} and ${file.owner} each contributed it. Exactly one should own the file.`,
-      });
-    }
-    claimed.set(target, file.owner);
-
-    const content =
+    const raw =
       file.payload.kind === 'text'
         ? file.payload.content
         : file.payload.kind === 'template'
           ? readText(file.payload.source)
           : `${JSON.stringify(file.payload.value, null, 2)}\n`;
+    // LF on every platform, matching every other generated file.
+    const content = raw.replace(/\r\n/g, '\n');
 
-    operations.push({
-      type: 'write',
-      path: target,
-      // LF on every platform, matching every other generated file.
-      content: content.replace(/\r\n/g, '\n'),
-      origin: file.owner,
-    });
+    /*
+     * Identical claims are cooperation, the rule `domain/claims.ts` applies to
+     * slots: React Router and `client-route-fallback` both ship the same
+     * not-found view, and either may be selected without the other. Both are
+     * kept as provenance. Differing content is still a collision, because one
+     * path cannot hold two files and running order is not a reason to pick.
+     */
+    const previous = claimed.get(target);
+    if (previous !== undefined) {
+      const existing = operations[previous];
+      if (existing?.type === 'write' && existing.content === content) {
+        operations[previous] = { ...existing, origin: `${existing.origin} + ${file.owner}` };
+        continue;
+      }
+      throw new CliError(`Two adapters both claim "${target}".`, {
+        hint: `${existing?.origin ?? 'another adapter'} and ${file.owner} each contributed it, differently. Exactly one should own the file.`,
+      });
+    }
+    claimed.set(target, operations.length);
+
+    operations.push({ type: 'write', path: target, content, origin: file.owner });
   }
 
   return operations;

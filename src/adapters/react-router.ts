@@ -5,6 +5,8 @@ import { emptyContribution } from '../domain/contributions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
 
+import { clientRouteFallbackRoute, clientRouteFallbackView } from './client-route-fallback.js';
+
 /**
  * React Router, the first router adapter.
  *
@@ -42,10 +44,21 @@ import type { ResolvedProject } from '../domain/resolved.js';
  *
  * ## What it contributes
  *
- * Its package, a wrapper that mounts the router above the application, and the
- * home route. Since Stage 13 the route table is composed rather than templated,
- * because a second adapter needed to add a catch-all and the alternative was
- * editing someone else's file with string replacement.
+ * Its package, a wrapper that mounts the router above the application, the
+ * home route, and a catch-all that renders a not-found view. Since Stage 13 the
+ * route table is composed rather than templated, because a second adapter
+ * needed to add a catch-all and the alternative was editing someone else's file
+ * with string replacement.
+ *
+ * The catch-all is contributed here as well, by default, because a router with
+ * only `/` renders *nothing* for every other address - no header, no footer, an
+ * empty `#root` - and that is what a visitor following a stale link saw. Astro
+ * and Next ship their not-found page in the base template whether or not a
+ * feature asks for it; this is the same default for the one routed stack that
+ * had none. The view and route are the `client-route-fallback` feature's own,
+ * reused through its helpers, so selecting that feature as well de-duplicates
+ * to the same output. It is still a rendered view and not an HTTP 404 - see
+ * above - which is why `not-found` stays refused.
  */
 
 const REACT_ROUTER_DECLARATION: AdapterDeclaration = {
@@ -93,7 +106,7 @@ const REACT_ROUTER_DECLARATION: AdapterDeclaration = {
 
 const OWNER = adapterRef(REACT_ROUTER_DECLARATION);
 
-export function createReactRouterAdapter(): Adapter {
+export function createReactRouterAdapter(templatesRoot: string): Adapter {
   return {
     declaration: REACT_ROUTER_DECLARATION,
 
@@ -106,7 +119,13 @@ export function createReactRouterAdapter(): Adapter {
       return {
         ...emptyContribution(OWNER),
 
+        // The not-found view the catch-all renders. See the header for why the
+        // router ships it rather than leaving unknown addresses empty.
+        files: [clientRouteFallbackView(OWNER, templatesRoot)],
+
         config: [
+          // Sorts last by contract, so it never shadows `/` or a route added later.
+          clientRouteFallbackRoute(OWNER),
           {
             /**
              * The home route.

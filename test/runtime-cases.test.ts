@@ -99,7 +99,9 @@ describe('no case claims a contract its stack does not have', () => {
     'mui-renders': (entry) => entry.combination.uiLibrary === 'mui',
     'chakra-renders': (entry) => entry.combination.uiLibrary === 'chakra',
     'router-route-loads': (entry) => entry.combination.router === 'react-router',
-    'client-fallback-200': (entry) => entry.combination.features.includes('client-route-fallback'),
+    'client-fallback-200': (entry) =>
+      entry.combination.features.includes('client-route-fallback') ||
+      entry.combination.router === 'react-router',
   };
 
   it('derives each contract from the configuration', () => {
@@ -118,6 +120,14 @@ describe('no case claims a contract its stack does not have', () => {
       expect(entry.contracts).not.toContain('canonical-present');
       expect(entry.contracts).not.toContain('canonical-added-route');
     }
+  });
+
+  it('expects the client fallback from every React Router case', () => {
+    // The regression this guards: a router with only `/` rendered an empty page
+    // for every other address.
+    const routed = matrix.cases.filter((entry) => entry.combination.router === 'react-router');
+    expect(routed.length).toBeGreaterThan(0);
+    for (const entry of routed) expect(entry.contracts).toContain('client-fallback-200');
   });
 
   it('never expects an HTTP 404 from a client-side router', () => {
