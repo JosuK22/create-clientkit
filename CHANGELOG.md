@@ -786,3 +786,30 @@ output, flags and defaults are unchanged; no golden snapshot was touched.
 
 See
 [docs/architecture/planning-execution.md](./docs/architecture/planning-execution.md).
+
+## 1.7.2 — 2026-10-04
+
+React + React Router projects now show a not-found page for addresses that
+match no route. Before this release, they rendered an empty page.
+
+### Fixed
+
+- **Unknown routes render a not-found view instead of a blank page.** A React
+  Router project had a single route, `/`, so `/does-not-exist` or any stale
+  link rendered nothing at all: no header, no footer, no content. The route
+  table now ends with a catch-all that renders `src/pages/NotFoundPage.tsx`
+  inside the site layout, with a link back home. It is the same view
+  `--features client-route-fallback` already generated, and selecting that
+  feature now produces the same files.
+
+  This is a client-side view: the server still answers `200`, so it is not an
+  HTTP 404. In production your host must serve `index.html` for unknown paths,
+  as the generated README describes. `--features not-found` stays unavailable
+  on React Router for that reason.
+
+### Upgrading
+
+`upgrade` and `regenerate` on an existing React Router project will offer the
+new `src/pages/NotFoundPage.tsx` and a changed `src/routes/AppRouter.tsx`.
+Projects without a router, Astro and Next.js generate exactly what they did
+before.
