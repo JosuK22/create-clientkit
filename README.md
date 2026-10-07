@@ -64,9 +64,13 @@ Styling                   only if the framework offers a choice
 Component library         only if the framework can mount one
 Routing                   only if the framework offers a choice
 Features                  any number, or none
-Starting mode             Coming Soon or Full Starter
-Setup                     Install dependencies, Initialize Git (both on)
+Starting mode             Coming Soon — Minimal launch page, or
+                          Full Starter — Full application starter
 ```
+
+Then it writes the files, installs dependencies and initialises Git, printing
+each step as it runs. Neither is a question: `--no-install` and `--no-git` turn
+them off, and `--dry-run` lists them without running either.
 
 Pick one of the three presets and the framework and styling are set for you.
 Pick **Custom** to choose every part of the stack yourself. It reaches every

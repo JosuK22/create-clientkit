@@ -135,6 +135,7 @@ const operationsFor = (paths: readonly string[]): readonly FileOperation[] =>
 const definition = (over: Partial<StarterDefinition> = {}): StarterDefinition => ({
   id: 'coming-soon',
   displayName: 'Name',
+  summary: 'summary',
   description: 'description',
   guarantees: ['page.home'],
   ...over,
@@ -230,6 +231,8 @@ describe('a starter is an identity, not a stack', () => {
         'displayName',
         'guarantees',
         'id',
+        // Shown beside the name in the Starting mode menu and the summary.
+        'summary',
       ]);
     }
   });
@@ -289,10 +292,11 @@ describe('the registry validates what it is given', () => {
     ).toThrow(/twice/);
   });
 
-  it('refuses a starter with no name or no description', () => {
+  it('refuses a starter with no name, summary or description', () => {
     expect(() => createStarterRegistry([definition({ displayName: '  ' })])).toThrow(
       /display name/,
     );
+    expect(() => createStarterRegistry([definition({ summary: ' ' })])).toThrow(/summary/);
     expect(() => createStarterRegistry([definition({ description: '' })])).toThrow(/description/);
   });
 
@@ -388,6 +392,7 @@ describe('there is exactly one starter resolution path', () => {
 const PORTFOLIO: StarterDefinition = {
   id: 'portfolio' as StarterId,
   displayName: 'Portfolio',
+  summary: 'Work-first home page',
   description: 'a work-first home page - hypothetical, and not registered',
   guarantees: ['page.home'],
 };

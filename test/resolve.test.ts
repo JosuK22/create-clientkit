@@ -123,14 +123,14 @@ describe('interactive flow', () => {
     const { asked } = await run({ argv: ['acme-website'] });
     // Enter on Start from takes Astro + Tailwind; see the next test for why
     // nothing else about the stack is asked.
-    expect(asked).toEqual(['siteName', 'url', 'preset', 'features', 'mode', 'setup']);
+    expect(asked).toEqual(['siteName', 'url', 'preset', 'features', 'mode']);
   });
 
   it('asks the client questions, then the stack, then the starter', async () => {
     /*
      * Stage 15 inserted the stack block. The four V1 questions are all still
-     * asked, in the order they always were; `mode` and `setup` are still the
-     * last two.
+     * asked, in the order they always were; `mode` is still the last one.
+     * (`setup` followed it until install and git became automatic.)
      *
      * Stage 17 added the preset question at the head of that block. The fake
      * answers it with the question's own default, which is now "Astro +
@@ -151,23 +151,14 @@ describe('interactive flow', () => {
      * the question comes back.
      */
     const { asked } = await run({ answers: { dir: 'acme-website' } });
-    expect(asked).toEqual(['dir', 'siteName', 'url', 'preset', 'features', 'mode', 'setup']);
+    expect(asked).toEqual(['dir', 'siteName', 'url', 'preset', 'features', 'mode']);
   });
 
   it('choosing Custom asks the framework, as the flow always did', async () => {
     const { asked } = await run({
       answers: { dir: 'acme-website', dimensions: { preset: 'custom' } },
     });
-    expect(asked).toEqual([
-      'dir',
-      'siteName',
-      'url',
-      'preset',
-      'framework',
-      'features',
-      'mode',
-      'setup',
-    ]);
+    expect(asked).toEqual(['dir', 'siteName', 'url', 'preset', 'framework', 'features', 'mode']);
   });
 
   it('asks about styling on a framework that offers a choice', async () => {
@@ -184,15 +175,12 @@ describe('interactive flow', () => {
         siteName: 'Acme Ltd',
         url: 'https://acme.example/',
         mode: 'full',
-        setup: { install: false, git: true },
       },
     });
 
     expect(context.site.name).toBe('Acme Ltd');
     expect(context.site.url).toBe('https://acme.example');
     expect(context.template.mode).toBe('full');
-    expect(context.install).toBe(false);
-    expect(context.git).toBe(true);
     expect(sources['site.name']).toBe('prompt');
     expect(sources['template.mode']).toBe('prompt');
   });
@@ -246,20 +234,36 @@ describe('precedence', () => {
     expect(sources['template.mode']).toBe('prompt');
   });
 
-  it('applies flags over prompt answers for setup', async () => {
-    const { context, sources } = await run({
-      argv: ['acme-website', '--no-install'],
-      answers: { setup: { install: true, git: true } },
-    });
+  it('installs and initialises git by default in an interactive run, without asking', async () => {
+    const { context, sources, asked } = await run({ answers: { dir: 'acme-website' } });
+    expect(context.install).toBe(true);
+    expect(context.git).toBe(true);
+    expect(sources['install']).toBe('default');
+    expect(sources['git']).toBe('default');
+    expect(asked).not.toContain('setup');
+  });
+
+  it('still honours --no-install and --no-git in an interactive run', async () => {
+    const { context, sources } = await run({ argv: ['acme-website', '--no-install'] });
     expect(context.install).toBe(false);
     expect(context.git).toBe(true);
     expect(sources['install']).toBe('flag');
-    expect(sources['git']).toBe('prompt');
+    expect(sources['git']).toBe('default');
+
+    const both = await run({ argv: ['acme-website', '--no-install', '--no-git'] });
+    expect(both.context.install).toBe(false);
+    expect(both.context.git).toBe(false);
   });
 
-  it('skips the setup question when both values are explicit', async () => {
-    const { asked } = await run({ argv: ['acme-website', '--no-install', '--no-git'] });
-    expect(asked).not.toContain('setup');
+  it('still honours install and git from the config file in an interactive run', async () => {
+    const { context, sources } = await run({
+      argv: ['acme-website', '--from', 'preset.json'],
+      files: { 'preset.json': JSON.stringify({ install: false, git: false }) },
+    });
+    expect(context.install).toBe(false);
+    expect(context.git).toBe(false);
+    expect(sources['install']).toBe('file');
+    expect(sources['git']).toBe('file');
   });
 });
 
@@ -417,7 +421,7 @@ describe('--name / --url / --mode (M1 flag parity)', () => {
     });
     // The stack is still unanswered, so Start from is still asked; the three V1
     // values are not.
-    expect(asked).toEqual(['preset', 'features', 'setup']);
+    expect(asked).toEqual(['preset', 'features']);
   });
 
   it('--name overrides the site name from --from', async () => {

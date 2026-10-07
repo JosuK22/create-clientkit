@@ -126,8 +126,9 @@ Run with no options in a terminal and it asks:
 7. **Component library** — only when the framework can mount one
 8. **Routing** — only when the framework offers a choice
 9. **Features** — any number, or none
-10. **Starting mode** — Coming Soon or Full Starter
-11. **Setup** — install dependencies, initialise git (both on by default)
+10. **Starting mode** — **Coming Soon — Minimal launch page** (a single page you
+    can put live today) or **Full Starter — Full application starter** (home
+    page and sections, with the coming-soon route included)
 
 Only questions worth asking are asked:
 
@@ -147,6 +148,28 @@ Only questions worth asking are asked:
 
 The menus come from the same compatibility rules that validate flags, so the
 prompts and the flags can never disagree.
+
+### After the questions
+
+Setup is not a question. Once the files are written, ClientKit installs
+dependencies with the resolved package manager and initialises a Git
+repository, one line per step:
+
+```text
+i Creating project files...
+* Created 24 files in acme-website
+i Installing dependencies with npm...
+* Dependencies installed
+i Initializing Git...
+* Git initialized
+```
+
+The output is plain lines with no spinner, so it reads the same in a CI log or
+a redirected file. A failed step is reported by name with the command's error
+(`x Failed to install dependencies`) and does not stop the other step or
+undo the generated files; finish it by hand. `--no-install` and `--no-git`
+(or `"install": false` / `"git": false` in a `--from` file) skip them, and
+`--dry-run` lists them under "Post steps (not run)" without running either.
 
 ## Non-interactive mode
 

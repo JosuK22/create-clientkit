@@ -6,13 +6,20 @@ import { explainStack } from '../context/explain.js';
 import type { StackSources } from '../context/resolve.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ComposedPackage } from '../domain/package-composition.js';
+import { starterTitle } from '../domain/starter.js';
 import type { GenerationPlan } from '../generate/files.js';
 import { CHANGE_ORDER, type ChangeKind, type ChangeSet } from '../generate/changes.js';
 import { renderDiff } from '../generate/diff.js';
 import type { PlannedPostStep } from '../generate/postStepPlan.js';
 import type { PostStepResult } from '../generate/postSteps.js';
 import type { TemplateManifest } from '../templates/manifest.js';
-import type { PackageManager, ProjectContext, SourceMap } from '../types.js';
+import {
+  TEMPLATE_MODES,
+  type PackageManager,
+  type ProjectContext,
+  type SourceMap,
+  type TemplateMode,
+} from '../types.js';
 
 function label(text: string): string {
   return pc.dim(text.padEnd(18));
@@ -57,6 +64,12 @@ export function summarisePlan(plan: GenerationPlan, composed?: ComposedPackage):
  * Renders the resolved context. Only known ProjectContext fields are printed;
  * raw environment and raw config-file contents are never echoed.
  */
+/** "Coming Soon — Minimal launch page (coming-soon)": what it is, and the `--mode` value. */
+function modeTitle(mode: string): string {
+  const known = (TEMPLATE_MODES as readonly string[]).includes(mode);
+  return known ? `${starterTitle(mode as TemplateMode)} ${pc.dim(`(${mode})`)}` : mode;
+}
+
 export function renderPlan(
   context: ProjectContext,
   manifest: ProjectManifest,
@@ -81,7 +94,7 @@ export function renderPlan(
   row('Author', context.site.author, 'site.author');
   row('Template', context.template.id, 'template.id');
   row('Template version', context.template.version, 'template.version');
-  row('Mode', context.template.mode, 'template.mode');
+  row('Mode', modeTitle(context.template.mode), 'template.mode');
   row(
     'Features',
     context.features.length === 0 ? pc.dim('none') : context.features.join(', '),
@@ -230,7 +243,7 @@ export function renderDryRun(
   lines.push(
     `  ${label('Template')}${generationPlan.templateId} ${pc.dim(`v${generationPlan.templateVersion}`)}`,
   );
-  lines.push(`  ${label('Mode')}${generationPlan.mode}`);
+  lines.push(`  ${label('Mode')}${modeTitle(generationPlan.mode)}`);
 
   const entry = (operation: GenerationPlan['operations'][number], mark: string): string => {
     const kind = operation.type === 'copy' ? pc.dim(' (binary)') : '';

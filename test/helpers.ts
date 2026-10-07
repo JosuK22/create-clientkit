@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import type {
+  ChoiceOption,
   DimensionQuestion,
   MultiChoiceQuestion,
   Prompter,
-  SetupAnswer,
 } from '../src/context/prompts.js';
 import type { TargetDirFs } from '../src/context/validate.js';
 import { CancelledError, CliError } from '../src/errors.js';
@@ -45,7 +45,6 @@ export interface FakeAnswers {
   siteName?: string;
   url?: string | null;
   mode?: TemplateMode;
-  setup?: SetupAnswer;
   confirmNonEmpty?: boolean;
   /**
    * An answer per dimension, keyed by the dimension name.
@@ -68,6 +67,8 @@ export class FakePrompter implements Prompter {
   /** Every dimension question put to the user, so a test can read the menu. */
   readonly questions: DimensionQuestion[] = [];
   readonly multiQuestions: MultiChoiceQuestion[] = [];
+  /** The Starting mode menu, as last offered. */
+  modeOptions: readonly ChoiceOption[] = [];
   readonly #answers: FakeAnswers;
 
   constructor(answers: FakeAnswers = {}) {
@@ -89,14 +90,10 @@ export class FakePrompter implements Prompter {
     return this.#answers.url ?? null;
   }
 
-  async mode(defaultValue: TemplateMode): Promise<TemplateMode> {
+  async mode(defaultValue: TemplateMode, options: readonly ChoiceOption[]): Promise<TemplateMode> {
     this.asked.push('mode');
+    this.modeOptions = options;
     return this.#answers.mode ?? defaultValue;
-  }
-
-  async setup(defaults: SetupAnswer): Promise<SetupAnswer> {
-    this.asked.push('setup');
-    return this.#answers.setup ?? defaults;
   }
 
   async selectDimension(question: DimensionQuestion): Promise<string> {

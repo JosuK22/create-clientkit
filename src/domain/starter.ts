@@ -96,6 +96,12 @@ export type StarterId = (typeof STARTER_IDS)[number];
 export interface StarterDefinition {
   readonly id: StarterId;
   readonly displayName: string;
+  /**
+   * What the starter is, in a few words, shown beside its name wherever a
+   * person chooses or reads back a mode: "Coming Soon — Minimal launch page".
+   * The name alone did not say how the two differ.
+   */
+  readonly summary: string;
   readonly description: string;
   /**
    * Semantic roles a project built from this starter must end up with.
@@ -160,10 +166,15 @@ export function createStarterRegistry(definitions: readonly StarterDefinition[])
         hint: 'A starter id names one starting experience. Rename one of them.',
       });
     }
-    if (definition.displayName.trim() === '' || definition.description.trim() === '') {
-      throw new CliError(`Starter "${definition.id}" is missing a display name or description.`, {
-        hint: 'Both are shown to users choosing a starter.',
-      });
+    if (
+      definition.displayName.trim() === '' ||
+      definition.summary.trim() === '' ||
+      definition.description.trim() === ''
+    ) {
+      throw new CliError(
+        `Starter "${definition.id}" is missing a display name, summary or description.`,
+        { hint: 'All three are shown to users choosing a starter.' },
+      );
     }
     if (definition.guarantees.length === 0) {
       // The quiet failure: a starter that promises nothing generates nothing
@@ -223,12 +234,14 @@ export const STARTERS: StarterRegistry = createStarterRegistry([
   {
     id: 'coming-soon',
     displayName: 'Coming Soon',
+    summary: 'Minimal launch page',
     description: 'a single launch page you can put live today',
     guarantees: ['page.home'],
   },
   {
     id: 'full',
     displayName: 'Full Starter',
+    summary: 'Full application starter',
     description: 'home page and sections, coming-soon route included',
     guarantees: ['page.home'],
   },
@@ -267,6 +280,12 @@ export function selectStarter(
   registry: StarterRegistry = STARTERS,
 ): StarterDefinition {
   return registry.get(id);
+}
+
+/** A starter's name with what it is: "Coming Soon — Minimal launch page". */
+export function starterTitle(id: StarterId, registry: StarterRegistry = STARTERS): string {
+  const starter = registry.get(id);
+  return `${starter.displayName} — ${starter.summary}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ import type { TemplateRegistry } from '../templates/registry.js';
 import type { ProjectContext } from '../types.js';
 import type { Logger } from '../ui/logger.js';
 import { renderDryRun, renderNextSteps, renderPlan, summarisePlan } from '../ui/plan.js';
+import { postStepProgress, reportPostStep } from '../ui/postSteps.js';
 import { satisfiesMinimum } from '../util/node.js';
 import {
   decideExecution,
@@ -261,6 +262,7 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   }
 
   // ---- generate -----------------------------------------------------------
+  logger.info('Creating project files...');
   const result = apply(generationPlan, { allowNonEmpty, expected: observed });
   logger.success(
     `Created ${result.written.length} files in ${path.relative(cwd, result.targetDir) || '.'}`,
@@ -270,8 +272,7 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   }
 
   // ---- post steps ---------------------------------------------------------
-  const postResults = runPostSteps({ context, logger, steps: manifest.postSteps });
-  reportPostSteps(logger, postResults);
+  const postResults = runAndReportPostSteps(logger, context, manifest.postSteps);
 
   logger.print('');
   logger.print(renderPlan(context, projectManifest, sources, stack, { showSources: flags.debug }));
@@ -281,19 +282,28 @@ export async function runCreate(options: CreateOptions): Promise<number> {
   return EXIT_OK;
 }
 
-function reportPostSteps(logger: Logger, postResults: readonly PostStepResult[]): void {
-  for (const postResult of postResults) {
-    if (postResult.status === 'ok') {
-      logger.success(
-        postResult.step === 'install' ? 'Dependencies installed.' : 'Git repository initialised.',
-      );
-    } else if (postResult.status === 'failed') {
-      logger.warn(`Post-step "${postResult.step}" failed: ${postResult.detail ?? 'unknown error'}`);
-      logger.hint('The project was generated; finish this step yourself.');
-    } else {
-      logger.debug(`post-step "${postResult.step}" skipped: ${postResult.detail ?? ''}`);
-    }
+/**
+ * Runs the post steps with their progress shown as each one starts and ends.
+ *
+ * Every step is attempted: a failed install does not stop `git init`, and
+ * neither failure fails the run, because the files are already written. A
+ * skipped step (`--no-install`, `--no-git`) is reported only under `--debug`.
+ */
+function runAndReportPostSteps(
+  logger: Logger,
+  context: ProjectContext,
+  steps: readonly PostStep[],
+): PostStepResult[] {
+  const results = runPostSteps({
+    context,
+    logger,
+    steps,
+    progress: postStepProgress(logger, context),
+  });
+  for (const result of results) {
+    if (result.status === 'skipped') reportPostStep(logger, result);
   }
+  return results;
 }
 
 interface RegenerateArgs {
@@ -373,8 +383,7 @@ async function regenerate(args: RegenerateArgs): Promise<number> {
       `${leftAlone(regeneration, result.written).length} already up to date.`,
   );
 
-  const postResults = runPostSteps({ context: args.context, logger, steps: execution.postSteps });
-  reportPostSteps(logger, postResults);
+  const postResults = runAndReportPostSteps(logger, args.context, execution.postSteps);
   args.finish(postResults);
   return EXIT_OK;
 }

@@ -26,6 +26,16 @@ export interface PostStepOptions {
   readonly steps: readonly PostStep[];
   /** Injected in tests so nothing is actually spawned. */
   readonly run?: CommandRunner;
+  /**
+   * Told as each command starts and as it ends, so the caller can show what is
+   * happening while it happens. Presentation only: it cannot change what runs.
+   */
+  readonly progress?: PostStepProgress;
+}
+
+export interface PostStepProgress {
+  started(step: PostStep): void;
+  finished(result: PostStepResult): void;
 }
 
 export type CommandRunner = (
@@ -60,22 +70,22 @@ export function runPostSteps(options: PostStepOptions): PostStepResult[] {
       continue;
     }
 
-    if (step === 'install') {
-      logger.info(`Installing dependencies with ${context.packageManager}...`);
-    }
+    options.progress?.started(step);
     const [program, ...args] = planned.command;
     const result = run(program, args, context.targetDir);
-    results.push(
+    const outcome: PostStepResult =
       result.status === 0
         ? { step, status: 'ok' }
-        : { step, status: 'failed', detail: firstLine(result.stderr) },
-    );
+        : { step, status: 'failed', detail: firstLine(result.stderr) };
+    results.push(outcome);
+    options.progress?.finished(outcome);
   }
 
   return results;
 }
 
 function firstLine(text: string): string {
-  const line = text.trim().split('\n')[0] ?? '';
+  // CRLF on Windows: a stray \r would reach the terminal or a CI log.
+  const line = text.trim().split(/\r?\n/)[0]?.trim() ?? '';
   return line.length > 200 ? `${line.slice(0, 200)}...` : line;
 }

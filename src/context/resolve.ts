@@ -28,7 +28,7 @@ import {
 } from './dimensions.js';
 import { loadConfigFile, NO_CONFIG, type FileReader } from './fromFile.js';
 import { presetDimensions, PRESETS, type PresetRegistry } from './presets.js';
-import { promptDimensions } from './interactive.js';
+import { promptDimensions, startingModeOptions } from './interactive.js';
 import type { Prompter } from './prompts.js';
 import {
   deriveProjectName,
@@ -393,9 +393,8 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
    * that is follows from the framework. Asking for the starter first would mean
    * defaulting it from `astro-tailwind` and then possibly generating React -
    * true by coincidence today, since both templates declare the same default,
-   * and the kind of coincidence this codebase does not build on. Everything V1
-   * asked is still asked, in the order it always was; the stack block is
-   * inserted, and `mode` and `setup` remain the last two questions.
+   * and the kind of coincidence this codebase does not build on. The stack
+   * block is inserted before `mode`, which remains the last question.
    */
   const interactiveDimensions = await promptDimensions({
     input: dimensionInput,
@@ -492,7 +491,7 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
   if (mode !== undefined) {
     mark('template.mode', sourceOf('mode'));
   } else if (prompter.interactive) {
-    mode = await prompter.mode(templateDefaults.mode ?? DEFAULTS.mode);
+    mode = await prompter.mode(templateDefaults.mode ?? DEFAULTS.mode, startingModeOptions());
     mark('template.mode', 'prompt');
   } else if (templateDefaults.mode !== undefined) {
     mode = templateDefaults.mode;
@@ -510,25 +509,15 @@ export async function resolveContext(options: ResolveOptions): Promise<ContextRe
   }
 
   // ---- setup (install / git) ---------------------------------------------
-  let install: boolean;
-  let git: boolean;
-  const bothExplicit = explicit.install !== undefined && explicit.git !== undefined;
-  if (!bothExplicit && prompter.interactive) {
-    const answer = await prompter.setup({
-      install: explicit.install ?? DEFAULTS.install,
-      git: explicit.git ?? DEFAULTS.git,
-    });
-    // Flags and the config file still win over the answer.
-    install = explicit.install ?? answer.install;
-    git = explicit.git ?? answer.git;
-    mark('install', explicit.install !== undefined ? sourceOf('install') : 'prompt');
-    mark('git', explicit.git !== undefined ? sourceOf('git') : 'prompt');
-  } else {
-    install = explicit.install ?? DEFAULTS.install;
-    git = explicit.git ?? DEFAULTS.git;
-    mark('install', explicit.install !== undefined ? sourceOf('install') : 'default');
-    mark('git', explicit.git !== undefined ? sourceOf('git') : 'default');
-  }
+  /*
+   * Not a question. Installing and initialising git are what creating a
+   * project means, so both are on unless `--no-install` / `--no-git` or the
+   * config file says otherwise - the same answer interactive and not.
+   */
+  const install = explicit.install ?? DEFAULTS.install;
+  const git = explicit.git ?? DEFAULTS.git;
+  mark('install', explicit.install !== undefined ? sourceOf('install') : 'default');
+  mark('git', explicit.git !== undefined ? sourceOf('git') : 'default');
 
   // ---- non-prompted fields ------------------------------------------------
   const description =

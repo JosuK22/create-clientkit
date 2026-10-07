@@ -5,11 +5,6 @@ import { CancelledError, CliError } from '../errors.js';
 import type { TemplateMode } from '../types.js';
 import type { Validation } from './validate.js';
 
-export interface SetupAnswer {
-  readonly install: boolean;
-  readonly git: boolean;
-}
-
 /** One selectable answer. `value` is a domain id; the rest is presentation. */
 export interface ChoiceOption {
   readonly value: string;
@@ -53,8 +48,8 @@ export interface Prompter {
   projectDir(defaultValue: string, validate: (value: string) => Validation): Promise<string>;
   siteName(defaultValue: string, validate: (value: string) => Validation): Promise<string>;
   productionUrl(validate: (value: string) => Validation): Promise<string | null>;
-  mode(defaultValue: TemplateMode): Promise<TemplateMode>;
-  setup(defaults: SetupAnswer): Promise<SetupAnswer>;
+  /** The starting mode, from `options` - which the caller reads from the starter registry. */
+  mode(defaultValue: TemplateMode, options: readonly ChoiceOption[]): Promise<TemplateMode>;
   /** One dimension, one answer. Returns a domain id from `question.options`. */
   selectDimension(question: DimensionQuestion): Promise<string>;
   /** One dimension, several answers. Returns domain ids from `question.options`. */
@@ -118,44 +113,18 @@ export class ClackPrompter implements Prompter {
     return trimmed === '' ? null : trimmed;
   }
 
-  async mode(defaultValue: TemplateMode): Promise<TemplateMode> {
+  async mode(defaultValue: TemplateMode, options: readonly ChoiceOption[]): Promise<TemplateMode> {
     return unwrap(
       await p.select<TemplateMode>({
         message: 'Starting mode',
         initialValue: defaultValue,
-        options: [
-          {
-            value: 'coming-soon',
-            label: 'Coming Soon',
-            hint: 'a single launch page you can put live today',
-          },
-          {
-            value: 'full',
-            label: 'Full Starter',
-            hint: 'home page and sections, coming-soon route included',
-          },
-        ],
+        options: options.map((option) => ({
+          value: option.value as TemplateMode,
+          label: option.label,
+          ...(option.hint === undefined ? {} : { hint: option.hint }),
+        })),
       }),
     );
-  }
-
-  async setup(defaults: SetupAnswer): Promise<SetupAnswer> {
-    const initial: string[] = [];
-    if (defaults.install) initial.push('install');
-    if (defaults.git) initial.push('git');
-
-    const selected = unwrap(
-      await p.multiselect<string>({
-        message: 'Setup',
-        initialValues: initial,
-        required: false,
-        options: [
-          { value: 'install', label: 'Install dependencies' },
-          { value: 'git', label: 'Initialize Git' },
-        ],
-      }),
-    );
-    return { install: selected.includes('install'), git: selected.includes('git') };
   }
 
   async selectDimension(question: DimensionQuestion): Promise<string> {
@@ -231,9 +200,6 @@ export class NonInteractivePrompter implements Prompter {
   }
   mode(): Promise<TemplateMode> {
     this.#fail('the starting mode');
-  }
-  setup(): Promise<SetupAnswer> {
-    this.#fail('the setup options');
   }
   selectDimension(question: DimensionQuestion): Promise<string> {
     this.#fail(`the ${question.dimension}`);

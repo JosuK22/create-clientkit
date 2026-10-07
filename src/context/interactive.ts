@@ -2,6 +2,7 @@ import type { AdapterRegistry } from '../adapters/registry.js';
 import { checkCompatibility } from '../adapters/selection.js';
 import type { DimensionOptions } from '../domain/adapters.js';
 import type { ProjectManifest } from '../domain/manifest.js';
+import { STARTERS, starterTitle } from '../domain/starter.js';
 import type { TemplateMode } from '../types.js';
 import { manifestFrom, resolveDimensions, type DimensionInput } from './dimensions.js';
 import type { PresetRegistry } from './presets.js';
@@ -158,6 +159,21 @@ function candidates<T extends string>(options: DimensionOptions<T>): readonly T[
 function countStated(dimensions: DimensionInput): number {
   return Object.values(dimensions).filter((value) => value !== undefined && value.length > 0)
     .length;
+}
+
+/**
+ * The Starting mode menu, read from the starter registry.
+ *
+ * The label carries the distinction - "Coming Soon — Minimal launch page" - so
+ * it is visible on every row, not only on the focused one where a hint shows;
+ * the hint keeps the longer description.
+ */
+export function startingModeOptions(): ChoiceOption[] {
+  return STARTERS.all().map((starter) => ({
+    value: starter.id,
+    label: starterTitle(starter.id),
+    hint: starter.description,
+  }));
 }
 
 export async function promptDimensions(options: InteractiveOptions): Promise<InteractiveResult> {
