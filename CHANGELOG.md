@@ -813,3 +813,33 @@ match no route. Before this release, they rendered an empty page.
 new `src/pages/NotFoundPage.tsx` and a changed `src/routes/AppRouter.tsx`.
 Projects without a router, Astro and Next.js generate exactly what they did
 before.
+
+## 1.8.0 — 2026-10-07
+
+Creating a project now installs its dependencies and initialises Git without
+asking, and shows each step as it runs. The Starting mode choices say what each
+one is. Generated output is unchanged; no golden snapshot was touched.
+
+### Changed
+
+- **Setup is no longer a question.** The interactive flow used to end with a
+  Setup multiselect for "Install dependencies" and "Initialize Git". Both now
+  run automatically once the files are written, as `--yes` already did.
+  `--no-install`, `--no-git` and `"install"` / `"git"` in a `--from` file still
+  turn them off. `--dry-run` still lists them under "Post steps (not run)" and
+  runs neither.
+- **Clearer Starting mode.** The choices read **Coming Soon — Minimal launch
+  page** and **Full Starter — Full application starter**. The resolved
+  configuration and the dry run show the mode the same way, with its `--mode`
+  value.
+- **Progress for every step.** `Creating project files...`,
+  `Installing dependencies with <pm>...` and `Initializing Git...` are each
+  followed by a result line in words: `Dependencies installed`,
+  `Git initialized`, or `Failed to install dependencies` with the command's
+  error. These are plain lines with no spinner, so CI logs and redirected
+  output stay clean.
+
+### Fixed
+
+- A failed post step on Windows no longer prints a stray carriage return from
+  the command's error output.
