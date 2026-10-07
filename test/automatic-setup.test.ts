@@ -84,7 +84,9 @@ async function create(
     cwd,
     env: {},
     isTTY: prompter !== undefined,
-    nodeVersion: process.versions.node,
+    // Fixed, so the output does not depend on the runner: on Node 20 the
+    // "template targets a newer Node" warning would join the progress lines.
+    nodeVersion: '24.0.0',
     ...(prompter === undefined ? {} : { prompter }),
   });
   return { code, out: plain(out.text), err: plain(err.text), raw: out.text + err.text };
