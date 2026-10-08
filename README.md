@@ -13,7 +13,7 @@ sitemap, a favicon. `create-clientkit` generates that foundation for Astro,
 React + Vite or Next.js, so the first thing you work on is the client's site.
 
 ```sh
-npm create clientkit@latest acme-website
+npm create clientkit@latest
 ```
 
 It asks a few questions, writes plain source files you own, installs
