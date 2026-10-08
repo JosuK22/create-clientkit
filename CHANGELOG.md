@@ -843,3 +843,12 @@ one is. Generated output is unchanged; no golden snapshot was touched.
 
 - A failed post step on Windows no longer prints a stray carriage return from
   the command's error output.
+
+## 1.8.1 — 2026-10-08
+
+Documentation only. The CLI and generated output are unchanged.
+
+### Changed
+
+- The README's opening example is now `npm create clientkit@latest`, without
+  a directory name; the CLI asks for one.
