@@ -1,4 +1,7 @@
-import { CONTACT, NAV } from '../lib/site.config';
+import Link from 'next/link';
+
+import { Mark } from '../components/ui/Mark';
+import { CONTACT, NAV, SITE } from '../lib/site.config';
 
 /**
  * The not-found page.
@@ -10,39 +13,60 @@ import { CONTACT, NAV } from '../lib/site.config';
  *
  * A server component with no interactivity, like every other page this template
  * ships. The class names are the shared style contract, so this markup is
- * identical whether the project was generated with plain CSS or with Tailwind.
+ * identical whether the project was generated with plain CSS, Tailwind or
+ * Bootstrap.
  *
  * Every optional piece is omitted rather than filled in: an empty
  * `CONTACT.email` renders no link, and an empty `NAV` renders no suggestions.
  */
 export default function NotFound() {
   const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+  // One string, so a formatter cannot split it and lose the space.
+  const copyright = `© ${String(new Date().getFullYear())} ${SITE.name}`;
 
   return (
     <div className="app-shell">
+      <header className="site-header">
+        <div className="container-page site-header-inner">
+          <Link href="/" className="brand-link">
+            <Mark size="sm" />
+          </Link>
+        </div>
+      </header>
+
       <main className="app-main">
-        <div className="container-page hero">
-          <div className="hero-inner">
-            <p className="eyebrow">404</p>
-
-            <h1 className="page-title">This page doesn&apos;t exist.</h1>
-
-            <p className="lead">
-              The link may be out of date, or the address may have been mistyped.
+        <div className="notice">
+          <div className="container-page notice-body">
+            {/* Decorative: the heading below carries the meaning. */}
+            <p className="notice-code" aria-hidden="true">
+              404
             </p>
 
-            <a href="/" className="button-primary">
-              Return home
-            </a>
+            <h1 className="notice-title">Page not found</h1>
 
-            {CONTACT.email ? <a href={`mailto:${CONTACT.email}`}>Report a broken link</a> : null}
+            <p className="notice-lead">
+              The page you&apos;re looking for may have moved, or the link may have been mistyped.
+            </p>
+
+            <div className="notice-actions">
+              <Link href="/" className="button-primary">
+                Back to home
+              </Link>
+              {CONTACT.email ? (
+                <a href={`mailto:${CONTACT.email}`} className="notice-link">
+                  Report a broken link
+                </a>
+              ) : null}
+            </div>
 
             {links.length > 0 ? (
-              <nav aria-label="Other pages">
+              <nav className="notice-links" aria-label="Other pages">
                 <ul>
                   {links.map((item) => (
                     <li key={item.href}>
-                      <a href={item.href}>{item.label}</a>
+                      <a href={item.href} className="notice-link">
+                        {item.label}
+                      </a>
                     </li>
                   ))}
                 </ul>
@@ -51,6 +75,12 @@ export default function NotFound() {
           </div>
         </div>
       </main>
+
+      <footer className="site-footer">
+        <div className="container-page site-footer-inner">
+          <p className="copyright">{copyright}</p>
+        </div>
+      </footer>
     </div>
   );
 }

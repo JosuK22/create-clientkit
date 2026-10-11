@@ -139,7 +139,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 type    write
 origin  base
 ----
-import { CONTACT, NAV } from '../lib/site.config';
+import Link from 'next/link';
+
+import { Mark } from '../components/ui/Mark';
+import { CONTACT, NAV, SITE } from '../lib/site.config';
 
 /**
  * The not-found page.
@@ -151,39 +154,60 @@ import { CONTACT, NAV } from '../lib/site.config';
  *
  * A server component with no interactivity, like every other page this template
  * ships. The class names are the shared style contract, so this markup is
- * identical whether the project was generated with plain CSS or with Tailwind.
+ * identical whether the project was generated with plain CSS, Tailwind or
+ * Bootstrap.
  *
  * Every optional piece is omitted rather than filled in: an empty
  * `CONTACT.email` renders no link, and an empty `NAV` renders no suggestions.
  */
 export default function NotFound() {
   const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+  // One string, so a formatter cannot split it and lose the space.
+  const copyright = `© ${String(new Date().getFullYear())} ${SITE.name}`;
 
   return (
     <div className="app-shell">
+      <header className="site-header">
+        <div className="container-page site-header-inner">
+          <Link href="/" className="brand-link">
+            <Mark size="sm" />
+          </Link>
+        </div>
+      </header>
+
       <main className="app-main">
-        <div className="container-page hero">
-          <div className="hero-inner">
-            <p className="eyebrow">404</p>
-
-            <h1 className="page-title">This page doesn&apos;t exist.</h1>
-
-            <p className="lead">
-              The link may be out of date, or the address may have been mistyped.
+        <div className="notice">
+          <div className="container-page notice-body">
+            {/* Decorative: the heading below carries the meaning. */}
+            <p className="notice-code" aria-hidden="true">
+              404
             </p>
 
-            <a href="/" className="button-primary">
-              Return home
-            </a>
+            <h1 className="notice-title">Page not found</h1>
 
-            {CONTACT.email ? <a href={`mailto:${CONTACT.email}`}>Report a broken link</a> : null}
+            <p className="notice-lead">
+              The page you&apos;re looking for may have moved, or the link may have been mistyped.
+            </p>
+
+            <div className="notice-actions">
+              <Link href="/" className="button-primary">
+                Back to home
+              </Link>
+              {CONTACT.email ? (
+                <a href={`mailto:${CONTACT.email}`} className="notice-link">
+                  Report a broken link
+                </a>
+              ) : null}
+            </div>
 
             {links.length > 0 ? (
-              <nav aria-label="Other pages">
+              <nav className="notice-links" aria-label="Other pages">
                 <ul>
                   {links.map((item) => (
                     <li key={item.href}>
-                      <a href={item.href}>{item.label}</a>
+                      <a href={item.href} className="notice-link">
+                        {item.label}
+                      </a>
                     </li>
                   ))}
                 </ul>
@@ -192,6 +216,12 @@ export default function NotFound() {
           </div>
         </div>
       </main>
+
+      <footer className="site-footer">
+        <div className="container-page site-footer-inner">
+          <p className="copyright">{copyright}</p>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -212,34 +242,54 @@ import { CONTACT, SITE } from '../lib/site.config';
  * and a launch page that silently passes its own deadline is worse than one
  * that never made the claim.
  *
+ * The headline and the line under it are page copy - edit them here. The site
+ * description stays in the layout's metadata, where search engines and link
+ * previews read it.
+ *
  * Every optional piece is omitted rather than filled with a placeholder - an
- * empty `CONTACT.email` renders nothing, not `hello@example.com`.
+ * empty `CONTACT.email` renders no button, not `hello@example.com`.
  *
  * The class names are the shared style contract, so this markup is identical
- * whether the project was generated with plain CSS or with Tailwind.
+ * whether the project was generated with plain CSS, Tailwind or Bootstrap.
  */
 export default function HomePage() {
+  // One string, so a formatter cannot split it and lose the space.
+  const copyright = `© ${String(new Date().getFullYear())} ${SITE.name}`;
+
   return (
     <div className="app-shell">
       <main className="app-main">
-        <div className="container-page hero">
-          <div className="hero-inner">
-            <Mark />
+        <div className="notice">
+          <div className="container-page notice-bar">
+            <Mark size="sm" />
+            <p className="status-label">Coming soon</p>
+          </div>
 
-            <p className="eyebrow">Coming soon</p>
+          <div className="container-page notice-body">
+            <span className="notice-rule" aria-hidden="true" />
 
-            <h1 className="page-title">{SITE.name}</h1>
+            <h1 className="notice-title">Something great is on the way.</h1>
 
-            {SITE.description ? <p className="lead">{SITE.description}</p> : null}
+            <p className="notice-lead">
+              We&apos;re putting the finishing touches on our new website. Stay tuned.
+            </p>
 
             {CONTACT.email ? (
-              <a href={`mailto:${CONTACT.email}`} className="button-primary">
-                Get in touch
-              </a>
+              <div className="notice-actions">
+                <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                  Contact us
+                </a>
+              </div>
             ) : null}
           </div>
         </div>
       </main>
+
+      <footer className="site-footer">
+        <div className="container-page site-footer-inner">
+          <p className="copyright">{copyright}</p>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -614,7 +664,7 @@ origin  framework:nextjs
 /*
  * Plain CSS, implementing the project's shared style contract.
  *
- * The markup names what a thing *is* - `hero`, `page-title`, `button-primary` -
+ * The markup names what a thing *is* - `notice`, `page-title`, `button-primary` -
  * and a stylesheet decides how it looks. This file is the plain-CSS
  * implementation of that contract; `templates/styling/tailwind/` is the
  * Tailwind one, and `templates/styling/bootstrap/` the Bootstrap one. Every one
@@ -636,6 +686,7 @@ origin  framework:nextjs
   --color-ink-muted: oklch(0.52 0.01 260);
   --color-surface: oklch(1 0 0);
   --color-line: oklch(0.92 0.005 260);
+  --color-line-strong: oklch(0.84 0.008 260);
   --measure-page: 64rem;
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -679,7 +730,9 @@ svg {
 }
 
 .app-main {
+  display: flex;
   flex: 1;
+  flex-direction: column;
 }
 
 .container-page {
@@ -767,23 +820,12 @@ svg {
   font-weight: 600;
 }
 
-.hero,
 .intro {
   padding-block: 5rem;
 }
 
-.hero-inner,
 .intro-inner {
   max-width: 42rem;
-}
-
-.eyebrow {
-  margin: 2.5rem 0 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-ink-muted);
 }
 
 .page-title {
@@ -804,6 +846,7 @@ svg {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
+  justify-content: center;
   margin-top: 2rem;
   border-radius: 0.5rem;
   background-color: var(--color-ink);
@@ -842,6 +885,171 @@ svg {
   margin: 0.75rem 0 0;
   line-height: 1.7;
   color: var(--color-ink-muted);
+}
+
+/* Notice pages: the launch page and the not-found page ---------------------
+ *
+ * One quiet column, centred in whatever height is left between the top of the
+ * page and the footer. Nothing here is fixed to the viewport, so a short
+ * screen scrolls rather than clipping, and a tall one does not leave the
+ * content stranded at the top.
+ */
+
+.notice {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.notice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-block: 1.25rem;
+}
+
+/* The status pill. The dot is decoration; the words carry the meaning. */
+.status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 0.3125rem 0.75rem;
+  color: var(--color-ink-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-label::before {
+  content: '';
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background-color: var(--color-ink);
+}
+
+.notice-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-block: clamp(3rem, 2rem + 6vw, 6rem);
+  text-align: center;
+}
+
+/* The one decorative detail on the launch page: a short accent rule. */
+.notice-rule {
+  display: block;
+  width: 2.5rem;
+  height: 2px;
+  margin-bottom: 2rem;
+  border-radius: 1px;
+  background-color: var(--color-ink);
+}
+
+/* Large and quiet. Hidden from assistive technology; the heading says it. */
+.notice-code {
+  margin: 0 0 1.25rem;
+  color: var(--color-line-strong);
+  font-size: clamp(4.5rem, 3rem + 8vw, 7.5rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  user-select: none;
+}
+
+.notice-title {
+  margin: 0;
+  max-width: 18ch;
+  font-size: clamp(2rem, 1.4rem + 3vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.notice-lead {
+  margin: 1.25rem 0 0;
+  max-width: 34rem;
+  color: var(--color-ink-muted);
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.125rem);
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1.5rem;
+  margin-top: 2.25rem;
+}
+
+.notice-actions .button-primary {
+  margin-top: 0;
+}
+
+.notice-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 0.25em;
+  transition:
+    color 160ms ease,
+    text-decoration-color 160ms ease;
+}
+
+.notice-link:hover {
+  color: var(--color-ink);
+  text-decoration-color: currentColor;
+}
+
+.notice-links {
+  width: 100%;
+  max-width: 24rem;
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1rem;
+}
+
+.notice-links ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A brand that links home looks like the brand, not like a link. */
+.brand-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* On the narrowest screens the action goes full width: an easy target. */
+@media (max-width: 30rem) {
+  .notice-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
 }
 
 /* Respect the reader's preference; never animate for someone who asked not to. */

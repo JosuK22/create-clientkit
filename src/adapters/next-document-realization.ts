@@ -65,7 +65,7 @@ export const NEXT_REALIZATION: RealizationSupport = {
 const LAYOUT_ANCHOR = 'export const metadata: Metadata = {';
 
 /** The anchor in the shipped not-found page, which declares no metadata yet. */
-const NOT_FOUND_ANCHOR = "import { CONTACT, NAV } from '../lib/site.config';";
+const NOT_FOUND_ANCHOR = "import { CONTACT, NAV, SITE } from '../lib/site.config';";
 
 /**
  * One target's canonical, as the Next metadata it becomes.

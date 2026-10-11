@@ -237,7 +237,9 @@ describe('it provides what is true and nothing that is convenient', () => {
     ).not.toContain(resolveRole(NEXTJS_ARCHITECTURE, 'page.notFound'));
 
     // And the planned project still ships the template's own page.
-    expect(fileAt('app/not-found.tsx')).toContain('This page doesn&apos;t exist.');
+    expect(fileAt('app/not-found.tsx')).toContain(
+      '<h1 className="notice-title">Page not found</h1>',
+    );
   });
 
   it('still does not provide a composed head', () => {

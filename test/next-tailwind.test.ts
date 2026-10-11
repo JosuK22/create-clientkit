@@ -291,9 +291,18 @@ describe('both starters render through one shared style contract', () => {
     }
   });
 
-  it('the coming-soon page has a centred hero with the contract classes', () => {
+  it('the coming-soon page is a centred notice with the contract classes', () => {
     const page = fileAt(tw(), 'app/page.tsx');
-    for (const className of ['app-shell', 'container-page', 'hero', 'hero-inner', 'page-title']) {
+    for (const className of [
+      'app-shell',
+      'container-page',
+      'notice',
+      'notice-bar',
+      'status-label',
+      'notice-body',
+      'notice-title',
+      'site-footer',
+    ]) {
       expect(page, className).toContain(className);
     }
   });

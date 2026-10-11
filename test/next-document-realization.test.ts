@@ -523,7 +523,7 @@ describe('the declaration lands somewhere that compiles', () => {
 
   it('declares below the imports and above the page', () => {
     const page = fileIn(['seo'], NOT_FOUND);
-    const importLine = page.indexOf('import { CONTACT, NAV }');
+    const importLine = page.lastIndexOf('import ');
     const declaration = page.indexOf('export const metadata');
     const component = page.indexOf('export default function NotFound');
     expect(importLine).toBeGreaterThanOrEqual(0);

@@ -33,30 +33,34 @@ import { BaseLayout } from '../layouts/BaseLayout';
 export function NotFoundPage() {
   return (
     <BaseLayout>
-      <Container className="hero">
-        <div className="hero-inner">
-          <p className="eyebrow">Not found</p>
-
-          <h1 className="page-title">This page does not exist</h1>
-
-          <p className="lead">
-            The address you followed does not match anything on this site. It may have moved, or the
-            link may have been mistyped.
+      <div className="notice">
+        <Container className="notice-body">
+          {/* Decorative: the heading below carries the meaning. */}
+          <p className="notice-code" aria-hidden="true">
+            404
           </p>
 
-          {/*
-            A plain anchor rather than the router's own link component, and that
-            is deliberate. This file is contributed by a feature that requires
-            client-side routing in general, not React Router in particular, so
-            it names no router package - swap the router and this page still
-            works. The cost is a real page load on click, which on the way back
-            to a page that exists is no cost at all.
-          */}
-          <a href="/" className="button-primary">
-            Back to home
-          </a>
-        </div>
-      </Container>
+          <h1 className="notice-title">Page not found</h1>
+
+          <p className="notice-lead">
+            The page you&apos;re looking for may have moved, or the link may have been mistyped.
+          </p>
+
+          <div className="notice-actions">
+            {/*
+              A plain anchor rather than the router's own link component, and
+              that is deliberate. This file is contributed by a feature that
+              requires client-side routing in general, not React Router in
+              particular, so it names no router package - swap the router and
+              this page still works. The cost is a real page load on click,
+              which on the way back to a page that exists is no cost at all.
+            */}
+            <a href="/" className="button-primary">
+              Back to home
+            </a>
+          </div>
+        </Container>
+      </div>
     </BaseLayout>
   );
 }

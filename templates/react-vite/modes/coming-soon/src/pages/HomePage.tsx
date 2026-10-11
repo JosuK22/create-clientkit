@@ -7,32 +7,44 @@ import { CONTACT, SITE } from '../config/site.config';
 /**
  * The launch page.
  *
- * No header: the page carries its own brand lockup below, and repeating it in
- * a bar would say the same thing twice on one screen. A launch page also has
- * nowhere to navigate to yet.
+ * No header: the brand and the status sit in a quiet bar of their own, and a
+ * launch page has nowhere to navigate to yet. The footer still comes from the
+ * layout, so the copyright and any contact details appear as on every page.
+ *
+ * The headline and the line under it are page copy - edit them here. The site
+ * description stays in the document's meta description, where search engines
+ * and link previews read it. The button appears only once `CONTACT.email` is
+ * set; there is no form, because there is nowhere for one to send to.
  */
 export function HomePage() {
   useDocumentMeta(SITE.name, SITE.description);
 
   return (
     <BaseLayout showHeader={false}>
-      <Container className="hero">
-        <div className="hero-inner">
-          <Brand size="lg" />
+      <div className="notice">
+        <Container className="notice-bar">
+          <Brand />
+          <p className="status-label">Coming soon</p>
+        </Container>
 
-          <p className="eyebrow">Coming soon</p>
+        <Container className="notice-body">
+          <span className="notice-rule" aria-hidden="true" />
 
-          <h1 className="page-title">{SITE.name}</h1>
+          <h1 className="notice-title">Something great is on the way.</h1>
 
-          <p className="lead">{SITE.description}</p>
+          <p className="notice-lead">
+            We&apos;re putting the finishing touches on our new website. Stay tuned.
+          </p>
 
           {CONTACT.email !== '' && (
-            <a href={`mailto:${CONTACT.email}`} className="button-primary">
-              Get in touch
-            </a>
+            <div className="notice-actions">
+              <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                Contact us
+              </a>
+            </div>
           )}
-        </div>
-      </Container>
+        </Container>
+      </div>
     </BaseLayout>
   );
 }
