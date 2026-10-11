@@ -852,3 +852,28 @@ Documentation only. The CLI and generated output are unchanged.
 
 - The README's opening example is now `npm create clientkit@latest`, without
   a directory name; the CLI asks for one.
+
+## 1.8.2 — 2026-10-12
+
+A design refresh of the Coming Soon and 404 pages for React and Next.js. The
+generated file set is unchanged; the content of the two pages and the global
+stylesheet is new.
+
+### Changed
+
+- **Coming Soon (React and Next.js).** A minimal launch page: the brand and a
+  `Coming soon` status label along the top, a centred headline ("Something
+  great is on the way."), one line of supporting copy, a short accent rule,
+  and the copyright footer. The `Contact us` button appears only once
+  `CONTACT.email` is set; there is still no form and no countdown.
+- **404 (React Router fallback and Next.js).** A large, decorative `404`
+  hidden from assistive technology, the heading **Page not found**, a short
+  explanation and a `Back to home` button, styled to match the launch page.
+  Next.js links home with `next/link` and keeps its real HTTP 404; the React
+  Router catch-all still renders the page.
+- **One style contract across plain CSS, Tailwind and Bootstrap.** All three
+  stylesheets define the same new `notice-*` and `status-label` classes, so the
+  pages look equivalent whichever styling system was chosen, including under
+  MUI and Chakra. Bootstrap uses its own colours, border and focus-ring
+  variables. Tailwind projects now have a visible `:focus-visible` outline.
+- Astro's pages already had this design and are unchanged.
