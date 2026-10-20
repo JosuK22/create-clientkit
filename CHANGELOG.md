@@ -877,3 +877,44 @@ stylesheet is new.
   MUI and Chakra. Bootstrap uses its own colours, border and focus-ring
   variables. Tailwind projects now have a visible `:focus-visible` outline.
 - Astro's pages already had this design and are unchanged.
+
+## 1.9.0 — 2026-10-20
+
+Next.js projects can now generate `robots.txt`, a sitemap and schema.org
+structured data. Each one is a separate feature you opt into, and a project
+that selects none of them is unchanged apart from one comment in
+`app/layout.tsx`.
+
+### Added
+
+- **`robots` (Next.js).** Adds `app/robots.ts`, served as `/robots.txt`. It
+  allows every crawler, and includes a `Sitemap:` line only when `sitemap` is
+  also selected and `SITE.url` is set.
+- **`sitemap` (Next.js).** Adds `app/sitemap.ts`, served as `/sitemap.xml`. It
+  lists the home page as an absolute URL. Next.js does not discover routes for
+  it, so add each page you create to its `ROUTES` list.
+- **`structured-data` on Next.js.** Previously refused. It now adds
+  `components/StructuredData.tsx`: schema.org `Organization` JSON-LD built from
+  the name, URL, description, email and phone you have configured. It renders
+  on the home page, not the 404. Render `<StructuredData />` on any other page
+  that should carry it.
+- `sitemap` and `structured-data` also add `lib/seo.ts`, which holds the URL
+  and JSON-LD helpers those files share.
+
+### Changed
+
+- **No guessed domains.** On Next.js, the search features use only the
+  origin of `SITE.url`. A value that is not an absolute `http:` or `https:`
+  URL counts as empty and does not fail the build. When `SITE.url` is empty,
+  there is no canonical, the sitemap is empty and `robots.txt` has no
+  `Sitemap:` line. Crawling is always allowed: Next.js has no `noindex`
+  setting yet.
+- **Astro accepts `robots` and `sitemap` and changes nothing.** Every Astro
+  project already serves `robots.txt` and builds a sitemap.
+- **React refuses `robots` and `sitemap`,** as it already refuses `seo` and
+  `structured-data`, and explains why. The docs now say more precisely that
+  this is a limit of ClientKit's client-rendered React starter, not of React
+  or Vite.
+- Internally, stack validation now gathers every invalid or incompatible
+  choice instead of stopping at the first one. The CLI still reports the first
+  problem, with the same message and hint as before.
