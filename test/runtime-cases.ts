@@ -43,6 +43,8 @@ export type Contract =
   | 'canonical-absent-url-less'
   | 'json-ld-present'
   | 'json-ld-absent-on-404'
+  | 'robots-served'
+  | 'sitemap-served'
   | 'accessibility-structure'
   | 'stylesheet-loads'
   | 'mui-renders'
@@ -138,6 +140,11 @@ function contractsFor(entry: Combination, url: UrlState, added: readonly string[
     contracts.push('json-ld-present');
     if (fileRouted) contracts.push('json-ld-absent-on-404');
   }
+  // Served from route modules the features contribute. What they must contain
+  // depends on the URL state and on each other, which the check reads from
+  // this same list rather than from the configuration.
+  if (has('robots')) contracts.push('robots-served');
+  if (has('sitemap')) contracts.push('sitemap-served');
   if (has('accessibility')) contracts.push('accessibility-structure');
   // React Router ships the catch-all and its view by default, so every project
   // with it has the fallback; the feature only makes that a checked guarantee.

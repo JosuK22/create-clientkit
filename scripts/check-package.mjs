@@ -55,8 +55,10 @@ const ALLOWED = [
   // The feature tree, same shape again: one directory per feature, holding the
   // source that feature contributes. Most features contribute no file at all -
   // `not-found` owns a guarantee and `seo` owns data - so a directory here is
-  // the exception rather than the rule.
-  /^templates\/feature\/[^/]+\/[^/]+\.tsx$/,
+  // the exception rather than the rule. `.ts` as well as `.tsx` since SEO
+  // Stage 2: Next's robots and sitemap routes are modules with no markup.
+  // `shared/` holds the one file several features contribute identically.
+  /^templates\/feature\/[^/]+\/[^/]+\.tsx?$/,
 ];
 
 /** Nothing shipped may match one of these, whatever the allow-list says. */
@@ -124,6 +126,14 @@ const REQUIRED = [
   // route is composed, so the failure surfaces as a broken build rather than a
   // quietly missing page.
   'templates/feature/client-route-fallback/NotFoundPage.tsx',
+  // The Next search features, contributed by role. If one stops shipping, a
+  // project that selected it is planned with a file the generator cannot read,
+  // and the helpers are imported by every one of them.
+  'templates/feature/robots/robots.ts',
+  'templates/feature/robots/robots-with-sitemap.ts',
+  'templates/feature/sitemap/sitemap.ts',
+  'templates/feature/structured-data/StructuredData.tsx',
+  'templates/feature/shared/seo.ts',
 ];
 
 const packed = JSON.parse(

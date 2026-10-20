@@ -171,6 +171,45 @@ export const CAPABILITIES = [
   'composed-canonical',
 
   /**
+   * A stated Organization document reaches the pages that should carry it, as
+   * markup rendered with the page rather than added after it loads.
+   *
+   * Separate from `composed-metadata` for the reason `composed-canonical` is:
+   * Next's shell does not cover the metadata features, but it can render a
+   * contributed JSON-LD component into the pages it ships. A capability that
+   * required the whole shell would refuse the one thing Next can do.
+   *
+   * The mechanism is the architecture's. Next has no way to exclude a route
+   * from its root layout, so it places the component on each page that does
+   * not suppress it - which is what keeps the not-found page out.
+   */
+  'composed-structured-data',
+
+  /**
+   * The framework serves crawler files - `robots.txt` and a sitemap - from
+   * route modules the project owns.
+   *
+   * Next's metadata routes: `app/robots.ts` and `app/sitemap.ts` return typed
+   * objects and the framework serialises them. Astro is deliberately not here:
+   * its template ships its own `robots.txt` route and sitemap integration
+   * unconditionally, so a feature contributing either would be a second owner.
+   */
+  'metadata-routes',
+
+  /**
+   * The template already serves `robots.txt` and builds a sitemap, on every
+   * project, with nothing contributed.
+   *
+   * Astro's: `src/pages/robots.txt.ts` and the `@astrojs/sitemap` integration
+   * ship in its base layer. A `robots` or `sitemap` feature on such a stack has
+   * nothing to add, and says so by contributing nothing - the same position
+   * `structured-data` has always held on Astro. Distinct from `metadata-routes`
+   * because the two promise opposite things about ownership: there the feature
+   * writes the file, here the template already did.
+   */
+  'template-crawler-files',
+
+  /**
    * The application has a client-rendered root that React context can be
    * mounted above.
    *

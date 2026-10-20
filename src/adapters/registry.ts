@@ -17,11 +17,13 @@ import { createChakraAdapter } from './chakra.js';
 import { createClientRouteFallbackAdapter } from './client-route-fallback.js';
 import { createReactAdapter } from './react.js';
 import { createReactRouterAdapter } from './react-router.js';
+import { createRobotsAdapter } from './robots.js';
 import { createTailwindAdapter } from './tailwind.js';
 import { createMuiAdapter } from './mui.js';
 import { createNextjsAdapter } from './nextjs.js';
 import { createNotFoundAdapter } from './not-found.js';
 import { createSeoAdapter } from './seo.js';
+import { createSitemapAdapter } from './sitemap.js';
 import { createStructuredDataAdapter } from './structured-data.js';
 import { createViteAdapter } from './vite.js';
 
@@ -29,10 +31,11 @@ import { createViteAdapter } from './vite.js';
  * The adapter registry, holding exactly what exists.
  *
  * Three frameworks, one build tool, two styling systems, two UI libraries, one
- * router and five features - because those are what is implemented. The id
+ * router and seven features - because those are what is implemented. The id
  * unions in `domain/dimensions.ts` name more (`angular`, `angular-material`,
- * `scss`, `sitemap`), and asking for any of them fails here rather than resolving to a
- * stub or, far worse, quietly falling back to something that happens to work.
+ * `scss`, `social-metadata`), and asking for any of them fails here rather than
+ * resolving to a stub or, far worse, quietly falling back to something that
+ * happens to work.
  *
  * That distinction is the registry's job and nobody else's: a **domain id** is
  * a name the vocabulary knows, an **implemented adapter** is code that exists.
@@ -117,8 +120,10 @@ export function createAdapterRegistry(templatesRoot: string): AdapterRegistry {
     ['accessibility', createAccessibilityAdapter()],
     ['client-route-fallback', createClientRouteFallbackAdapter(templatesRoot)],
     ['not-found', createNotFoundAdapter()],
+    ['robots', createRobotsAdapter(templatesRoot)],
     ['seo', createSeoAdapter()],
-    ['structured-data', createStructuredDataAdapter()],
+    ['sitemap', createSitemapAdapter(templatesRoot)],
+    ['structured-data', createStructuredDataAdapter(templatesRoot)],
   ]);
 
   // Sorted so the list in an error message is stable.

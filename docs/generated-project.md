@@ -67,6 +67,8 @@ client-side JavaScript by default; deploy `dist/` to any static host.
 With `--features`, Astro also gets a composed head component the layout
 renders: `src/components/DocumentHead.astro` for `seo`, `structured-data` and
 `accessibility`, and `DocumentHeadPageNotFound.astro` for `not-found`.
+`robots` and `sitemap` are accepted and add nothing: `robots.txt.ts` and the
+sitemap integration are already part of every Astro project.
 
 ## React + Vite
 
@@ -151,6 +153,18 @@ acme-web/
 Tailwind adds a `postcss.config.mjs`. The Full Starter adds
 `components/ui/Section.tsx`.
 
+The search features add files only when selected:
+
+| Feature           | Adds                                          | Changes                                    |
+| ----------------- | --------------------------------------------- | ------------------------------------------ |
+| `seo`             | —                                             | canonical in `app/layout.tsx`, `not-found` |
+| `robots`          | `app/robots.ts`                               | —                                          |
+| `sitemap`         | `app/sitemap.ts`, `lib/seo.ts`                | —                                          |
+| `structured-data` | `components/StructuredData.tsx`, `lib/seo.ts` | renders it in `app/page.tsx`               |
+
+`lib/seo.ts` holds the URL and JSON-LD helpers those files share. `robots`
+alone does not need it; with `sitemap` it does, to build the `Sitemap:` line.
+
 | Script              | What it does               |
 | ------------------- | -------------------------- |
 | `npm run dev`       | Start the dev server       |
@@ -223,14 +237,29 @@ staging deployments.
 Only the origin of `SITE.url` is used. To deploy an Astro site under a subpath,
 also set `base` in `astro.config.mjs`.
 
-On **Next.js** with `--features seo`, `SITE.url` sets `metadataBase` and the
-canonical link. On **React**, it is available to your code but nothing is
-generated from it.
+On **Next.js**, the search features read `SITE.url` at build time and use
+only its origin — a path, query or fragment in it is ignored, the same as on
+Astro:
+
+| `SITE.url` | `seo`                           | `robots`                      | `sitemap`               | `structured-data` |
+| ---------- | ------------------------------- | ----------------------------- | ----------------------- | ----------------- |
+| set        | `metadataBase` and canonical    | allow all, `Sitemap:` line\*  | the home page, absolute | includes `url`    |
+| empty      | no `metadataBase`, no canonical | allow all, no `Sitemap:` line | empty                   | no `url`          |
+
+\* Only when `sitemap` is also selected. A missing URL never blocks indexing:
+there is no `noindex` setting on Next.js, and nothing is disallowed. A value
+that is not an absolute `http:` or `https:` URL — whitespace, a bare domain, a
+typo — counts as empty for all four, rather than failing the build.
+
+On **React**, `SITE.url` is available to your code but nothing is generated
+from it.
 
 ## Before you deploy
 
-1. **Set `SITE.url`** — on Astro and Next.js, canonical URLs (and on Astro the
-   sitemap) depend on it.
+1. **Set `SITE.url`** — canonical URLs, the sitemap and the `Sitemap:` line
+   in `robots.txt` depend on it (on Next.js, for the features you selected).
+   **Next.js with `sitemap`:** add every page you create to `ROUTES` in
+   `app/sitemap.ts`; it is not discovered automatically.
 2. **Rewrite `SITE.description`.** It is generated as
    `Official website of <Name>.` — deliberately generic, because the CLI won't
    make claims about a business it knows nothing about. It becomes the meta
@@ -238,7 +267,9 @@ generated from it.
    roughly 120–160 characters of real copy.
 3. **Replace `public/favicon.svg`** with the client's mark.
 4. **Fill in `CONTACT`** (and on Astro, `SOCIAL`). Anything left empty is not
-   rendered, and not claimed in the structured data.
+   rendered, and not claimed in the structured data. On Next.js with
+   `structured-data`, render `<StructuredData />` on any page you add that
+   should carry it.
 5. **Astro: add a social image.** Put a 1200×630 image in `public/` and set
    `SEO.image`. Until you do, no `og:image` is emitted and the X card stays
    `summary`.

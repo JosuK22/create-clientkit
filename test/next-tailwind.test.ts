@@ -405,8 +405,9 @@ describe('adding Tailwind made nothing else compatible', () => {
 
   it('the head features are still refused', () => {
     // SEO left this list in Stage 51: it asks for the canonical surface Next
-    // has, not the whole metadata surface it does not.
-    for (const feature of ['structured-data', 'accessibility'] as const) {
+    // has, not the whole metadata surface it does not. Structured data left it
+    // in SEO Stage 2, when Next started rendering a contributed component.
+    for (const feature of ['accessibility'] as const) {
       expect(
         checkCompatibility(manifestFor({ features: [feature] }), adapters).compatible,
         feature,

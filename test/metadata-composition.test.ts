@@ -279,8 +279,9 @@ describe('Next remains without the capability', () => {
 
   it('refuses the features that need the whole surface, naming the capability', () => {
     // SEO left this set in Stage 51: it composes a canonical and asks for the
-    // capability that names one.
-    for (const feature of ['structured-data', 'accessibility'] as FeatureId[]) {
+    // capability that names one. Structured data left it in SEO Stage 2: it
+    // also accepts `composed-structured-data`, which Next provides.
+    for (const feature of ['accessibility'] as FeatureId[]) {
       const report = checkCompatibility(
         nextManifest({ features: [feature] as FeatureId[] }),
         adapters,
@@ -292,9 +293,9 @@ describe('Next remains without the capability', () => {
 
   it('refuses every combination of them', () => {
     // Every combination that still contains a feature needing the whole
-    // metadata surface. SEO alone left the set in Stage 51.
+    // metadata surface. SEO left the set in Stage 51, structured data in SEO
+    // Stage 2; accessibility alone keeps a combination refused.
     const combinations: FeatureId[][] = [
-      ['seo', 'structured-data'],
       ['seo', 'accessibility'],
       ['structured-data', 'accessibility'],
       ['seo', 'structured-data', 'accessibility'],
@@ -309,7 +310,7 @@ describe('Next remains without the capability', () => {
   });
 
   it('writes nothing when refused', () => {
-    for (const feature of ['structured-data', 'accessibility'] as FeatureId[]) {
+    for (const feature of ['accessibility'] as FeatureId[]) {
       let planned = false;
       try {
         planOf(nextManifest({ features: [feature] as FeatureId[] }));

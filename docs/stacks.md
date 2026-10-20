@@ -8,11 +8,11 @@ refused before a file is written, with the reason.
 
 ## At a glance
 
-| Framework                   | Styling                         | Component library            | Routing            | Features                                               |
-| --------------------------- | ------------------------------- | ---------------------------- | ------------------ | ------------------------------------------------------ |
-| **Astro 7** (default)       | Tailwind CSS 4                  | —                            | file-based         | `seo`, `structured-data`, `accessibility`, `not-found` |
-| **React 19 + Vite 8**       | Tailwind CSS 4, Bootstrap       | none, Material UI, Chakra UI | none, React Router | `client-route-fallback` (requires React Router)        |
-| **Next.js 16** (App Router) | Tailwind CSS 4, Bootstrap, none | none, Material UI, Chakra UI | file-based         | `seo`, `not-found`                                     |
+| Framework                   | Styling                         | Component library            | Routing            | Features                                                                    |
+| --------------------------- | ------------------------------- | ---------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| **Astro 7** (default)       | Tailwind CSS 4                  | —                            | file-based         | `seo`, `robots`, `sitemap`, `structured-data`, `accessibility`, `not-found` |
+| **React 19 + Vite 8**       | Tailwind CSS 4, Bootstrap       | none, Material UI, Chakra UI | none, React Router | `client-route-fallback` (requires React Router)                             |
+| **Next.js 16** (App Router) | Tailwind CSS 4, Bootstrap, none | none, Material UI, Chakra UI | file-based         | `seo`, `robots`, `sitemap`, `structured-data`, `not-found`                  |
 
 Within a row, every styling option works with every component library, and
 every feature can be combined with the others. Every project is TypeScript.
@@ -31,11 +31,15 @@ The default. A static site that ships no client-side JavaScript by default.
   [The generated project](./generated-project.md#astro).
 - **Features:** `seo`, `structured-data`, `accessibility` and `not-found` are
   all accepted, and add a composed document head. The base template already
-  covers these areas, so they are optional on Astro.
+  covers these areas, so they are optional on Astro. `robots` and `sitemap`
+  are accepted and change nothing: the template serves `robots.txt` and builds
+  the sitemap on every project, selected or not.
 
 ## React + Vite
 
-A client-rendered single-page app.
+A client-rendered single-page app. ClientKit's React starter generates no
+server rendering or prerendering; that is a limit of this starter, not of
+React or Vite.
 
 - **Styling:** Tailwind or Bootstrap. `--styling none` is refused — the React
   template's entry point imports a stylesheet built by one of them.
@@ -46,12 +50,13 @@ A client-rendered single-page app.
 - **Features:** only `client-route-fallback`, which renders a not-found view for
   unmatched routes. It requires React Router.
 
-### Why React refuses `seo`, `structured-data` and `not-found`
+### Why React refuses `seo`, `robots`, `sitemap`, `structured-data` and `not-found`
 
 These features need to put something in the HTML the server sends — a
-canonical link, JSON-LD, or a real 404 status. A client-rendered React app
-builds the page in the browser, after the response has already been sent, so
-it cannot do that honestly. Rather than generate tags that crawlers may never
+canonical link, JSON-LD, or a real 404 status — or a route the server answers,
+like `/robots.txt`. The React app ClientKit generates builds the page in
+the browser, after the response has already been sent, so it cannot do that
+honestly. Rather than generate tags that crawlers may never
 see, the CLI refuses and explains why:
 
 ```text
@@ -79,13 +84,24 @@ App Router, with the root layout kept as a server component.
   hydration errors.
 - **Routing:** file-based (the App Router). React Router is refused — it needs
   a route table, and a file-routed framework does not have one.
-- **Features:** `seo` adds a canonical URL (built from `SITE.url`) to the
-  metadata; `not-found` adds metadata to the custom not-found page.
-  `structured-data` and `accessibility` are refused: they need more control of
-  the document head than Next's metadata API exposes to a generator.
+- **Features:** each generates only what it names.
+  - `seo` adds a canonical URL (built from the origin of `SITE.url`) to the
+    root layout's metadata.
+  - `robots` adds `app/robots.ts`, which allows every crawler.
+  - `sitemap` adds `app/sitemap.ts`, which lists `/`. Next.js does not
+    discover routes for a sitemap, so pages you add later go in its `ROUTES`
+    list.
+  - `structured-data` adds `components/StructuredData.tsx` and renders it on
+    the home page. It is not rendered in the root layout, because Next renders
+    the not-found page inside that layout too.
+  - `not-found` adds metadata to the custom not-found page.
 
-Next.js projects do not currently include `robots.txt`, a sitemap or structured
-data.
+  `accessibility` is refused: it needs more control of the document head than
+  Next's metadata API exposes to a generator.
+
+Unlike Astro, a Next.js project has none of these unless you ask for them.
+`seo` does not switch on the others. There is no `noindex` setting on Next.js
+yet, so `app/robots.ts` always allows crawling.
 
 ## Presets
 

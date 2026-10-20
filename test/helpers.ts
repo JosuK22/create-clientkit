@@ -11,7 +11,7 @@ import type {
 import type { TargetDirFs } from '../src/context/validate.js';
 import { CancelledError, CliError } from '../src/errors.js';
 import type { GenerationPlan } from '../src/generate/files.js';
-import type { PlanFs } from '../src/generate/plan.js';
+import { realPlanFs, type PlanFs } from '../src/generate/plan.js';
 import type { ResolvedStack } from '../src/generate/provenance.js';
 import { manifestFromProjectContext } from '../src/domain/manifest.js';
 import type { TemplateManifest } from '../src/templates/manifest.js';
@@ -369,6 +369,35 @@ export function stackOf(context: ProjectContext): ResolvedStack {
     uiLibrary: manifest.uiLibrary,
     router: manifest.router,
     architecture: manifest.architecture,
+  };
+}
+
+/**
+ * The real filesystem, read once per path.
+ *
+ * For a test that plans every accepted stack. Measured in SEO Stage 4: about
+ * 88% of a plan's time was reading the same template files from disk again
+ * (185 plans, 2.6s uncached, 0.3s cached), and the accepted set had grown past
+ * 700. The bytes returned are the bytes on disk, so a plan is unchanged; only
+ * the repeated reads go. Templates do not change while a test file runs.
+ *
+ * Read-only by construction - `PlanFs` has no write operation - so caching
+ * cannot hide a write a test should have seen.
+ */
+export function cachedPlanFs(): PlanFs {
+  const cache = new Map<string, unknown>();
+  const once = <T>(key: string, read: () => T): T => {
+    if (!cache.has(key)) cache.set(key, read());
+    return cache.get(key) as T;
+  };
+  const realpath = realPlanFs.realpath;
+  return {
+    readDir: (dir) => once(`dir:${dir}`, () => realPlanFs.readDir(dir)),
+    readText: (file) => once(`text:${file}`, () => realPlanFs.readText(file)),
+    exists: (dir) => once(`exists:${dir}`, () => realPlanFs.exists(dir)),
+    ...(realpath === undefined
+      ? {}
+      : { realpath: (target: string) => once(`real:${target}`, () => realpath(target)) }),
   };
 }
 

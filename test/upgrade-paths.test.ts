@@ -14,7 +14,7 @@ import type { ProjectManifest } from '../src/domain/index.js';
 import { planUpgradePaths } from '../src/domain/upgrade-paths.js';
 import { createRegistry, findTemplatesRoot } from '../src/templates/registry.js';
 import { enumerateCombinations, type Combination } from './accepted-combinations.js';
-import { TEST_CWD } from './helpers.js';
+import { TEST_CWD, breathe, cachedPlanFs } from './helpers.js';
 
 /**
  * What an upgrade would do to the file list, and what it refuses to claim.
@@ -43,6 +43,9 @@ const OPTIONS: UpgradePlanOptions = {
     registry: v1Registry,
     cliVersion: '9.9.9',
     generatedAt: '2026-01-01T00:00:00.000Z',
+    // Several tests here plan every accepted stack twice; reading the same
+    // templates from disk each time was most of their runtime. See the helper.
+    fs: cachedPlanFs(),
   },
 };
 
@@ -195,9 +198,11 @@ describe('an unchanged configuration plans no change', () => {
    * assertion. That made the release gate flaky, which is worse than slow:
    * it teaches people to re-run until green. The assertion is unchanged.
    */
-  it('holds for every accepted stack', { timeout: 60_000 }, () => {
+  it('holds for every accepted stack', { timeout: 60_000 }, async () => {
     const wrong: string[] = [];
     for (const combination of enumeration.accepted) {
+      // Yields per stack: see `breathe`. The matrix grew past 700 in SEO Stage 3.
+      await breathe();
       const manifest = manifestFor(combination);
       const result = between(manifest, manifest);
       if (result.added.length > 0 || result.orphanCandidates.length > 0) wrong.push(combination.id);
@@ -214,7 +219,7 @@ describe('the path set does not depend on site configuration', () => {
   it(
     'is identical when every site field changes, across all accepted stacks',
     { timeout: 60_000 },
-    () => {
+    async () => {
       /*
        * Stage 61's measurement, kept as a regression. The upgrade contract rests
        * on it: if a template ever branched on `{{locale}}` to emit a different
@@ -235,6 +240,7 @@ describe('the path set does not depend on site configuration', () => {
 
       const differing: string[] = [];
       for (const combination of enumeration.accepted) {
+        await breathe();
         const before = manifestFor(combination);
         const after = manifestOf({ ...before, ...variant } as Partial<ProjectManifest>);
         const result = between(before, after);
@@ -314,14 +320,20 @@ describe('the path set does depend on the stack', () => {
     expect(result.added).toEqual([]);
   });
 
-  it('produces more than one distinct path set across the matrix', { timeout: 60_000 }, () => {
-    const sets = new Set(
-      enumeration.accepted.map((combination) =>
-        between(manifestFor(combination), manifestFor(combination)).currentPaths.join('\n'),
-      ),
-    );
-    expect(sets.size).toBeGreaterThan(1);
-  });
+  it(
+    'produces more than one distinct path set across the matrix',
+    { timeout: 60_000 },
+    async () => {
+      const sets = new Set<string>();
+      for (const combination of enumeration.accepted) {
+        await breathe();
+        sets.add(
+          between(manifestFor(combination), manifestFor(combination)).currentPaths.join('\n'),
+        );
+      }
+      expect(sets.size).toBeGreaterThan(1);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

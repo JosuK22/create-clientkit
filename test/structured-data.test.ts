@@ -170,9 +170,13 @@ describe('it requires a capability and names nothing', () => {
     // `composed-metadata` was split out of `document-metadata` in Stage 22:
     // a head rendered before the response is sent is not the same as a head
     // this generator writes into, and Next has the first without the second.
+    // SEO Stage 2 made the second half one of two: a shell that already states
+    // the organisation, or an architecture that renders a contributed
+    // component into its pages.
     expect(requiredCapabilities(STRUCTURED_DATA_DECLARATION)).toEqual([
       'document-metadata',
       'composed-metadata',
+      'composed-structured-data',
     ]);
   });
 
@@ -321,12 +325,14 @@ describe('compatibility is decided by capability', () => {
   });
 
   it('refuses a known but unimplemented feature, with no fallback', () => {
-    for (const id of ['sitemap', 'social-metadata'] as const) {
+    for (const id of ['social-metadata'] as const) {
       expect(() => adapters.feature(id)).toThrow(CliError);
     }
     let refs: readonly string[];
     try {
-      refs = selectAdapters(astro(['sitemap']), adapters).adapters.map((entry) => entry.ref);
+      refs = selectAdapters(astro(['social-metadata']), adapters).adapters.map(
+        (entry) => entry.ref,
+      );
     } catch {
       refs = [];
     }

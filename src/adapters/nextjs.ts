@@ -128,6 +128,20 @@ const NEXTJS_DECLARATION: AdapterDeclaration = {
      * styles while rendering.
      */
     'server-inserted-head',
+    /*
+     * `app/robots.ts` and `app/sitemap.ts` are route modules Next serves as
+     * `/robots.txt` and `/sitemap.xml`. Both roles are mapped below and neither
+     * file is shipped by the template, so a feature that contributes one is its
+     * only owner.
+     */
+    'metadata-routes',
+    /*
+     * A contributed JSON-LD component, rendered into each page that does not
+     * suppress it. Narrower than `composed-metadata`, which Next still does not
+     * provide: the head is not composed here, but a page's markup can carry a
+     * component the realization places in it.
+     */
+    'composed-structured-data',
   ],
   requires: [],
   /** Next 16's own floor. */
@@ -203,6 +217,15 @@ const NEXTJS_ARCHITECTURE: ArchitectureDefinition = {
      * the role. Accepted and then unbuildable is the gap that mapping closes.
      */
     'page.notFound': 'app/not-found.tsx',
+    /*
+     * The search-feature surfaces, mapped since SEO Stage 2. None of them is
+     * shipped by the template: each is written only when a selected feature
+     * contributes it, so a project that selects none is unchanged.
+     */
+    'route.robots': 'app/robots.ts',
+    'route.sitemap': 'app/sitemap.ts',
+    'app.document.structuredData': 'components/StructuredData.tsx',
+    'lib.urls': 'lib/seo.ts',
     'config.site': 'lib/site.config.ts',
     'config.framework': 'next.config.ts',
     /*

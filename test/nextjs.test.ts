@@ -318,8 +318,9 @@ describe('every refusal comes from the engine, not from a branch', () => {
     // Each of these produced a byte-identical project before Stage 22 added
     // `composed-metadata`: the contribution was accepted and then dropped.
     // SEO left this list in Stage 51: it asks for the canonical surface Next
-    // has, not the whole metadata surface it does not.
-    for (const feature of ['structured-data', 'accessibility'] as const) {
+    // has, not the whole metadata surface it does not. Structured data left it
+    // in SEO Stage 2, when Next started rendering a contributed component.
+    for (const feature of ['accessibility'] as const) {
       expect(refusalText({ features: [feature] }), feature).toContain('composed-metadata');
     }
   });
@@ -882,6 +883,39 @@ describe('golden: Next.js + TypeScript', () => {
           author: null,
         },
       } as Partial<ProjectManifest>,
+    },
+    /*
+     * SEO Stage 2. Every search feature with the canonical, on the starter
+     * with the most to say; the same set with no URL, where nothing absolute
+     * may be claimed; and robots alone, which must not pull in helpers it
+     * never calls.
+     */
+    {
+      name: 'search features + seo, Full + URL',
+      file: './golden/next-search-seo-full-url.txt',
+      over: {
+        starter: 'full',
+        features: ['robots', 'seo', 'sitemap', 'structured-data'],
+      } as Partial<ProjectManifest>,
+    },
+    {
+      name: 'search features, Coming Soon, URL-less',
+      file: './golden/next-search-url-less.txt',
+      over: {
+        features: ['robots', 'sitemap', 'structured-data'],
+        site: {
+          name: 'Acme Ltd',
+          url: null,
+          description: 'Bespoke widgets.',
+          locale: 'en',
+          author: null,
+        },
+      } as Partial<ProjectManifest>,
+    },
+    {
+      name: 'robots alone',
+      file: './golden/next-robots.txt',
+      over: { features: ['robots'] } as Partial<ProjectManifest>,
     },
   ];
 

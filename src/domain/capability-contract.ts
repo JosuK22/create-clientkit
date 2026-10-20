@@ -206,6 +206,11 @@ export const CAPABILITY_CONTRACTS: Readonly<Record<Capability, CapabilityContrac
     category: 'tooling',
     because: 'styles are generated at runtime by a library, which no generated role represents',
   },
+  'template-crawler-files': {
+    category: 'tooling',
+    because:
+      'the template ships its own robots.txt route and sitemap integration, so a feature asking for them has nothing to place and no surface to require',
+  },
   'vite-plugins': {
     category: 'tooling',
     because: 'there is a Vite plugin array to add to, which lives in the build configuration',
@@ -223,6 +228,15 @@ export const CAPABILITY_CONTRACTS: Readonly<Record<Capability, CapabilityContrac
     because:
       'routes are declared and matched in the browser, which needs a route table the project owns rather than the framework',
     surfaces: [{ role: 'app.router', via: 'file' }],
+  },
+  'metadata-routes': {
+    category: 'architectural',
+    because:
+      'robots.txt and the sitemap are route modules the project owns, so each is a file that has to go somewhere the framework serves it from',
+    surfaces: [
+      { role: 'route.robots', via: 'file' },
+      { role: 'route.sitemap', via: 'file' },
+    ],
   },
 
   // --- composition ----------------------------------------------------------
@@ -260,6 +274,22 @@ export const CAPABILITY_CONTRACTS: Readonly<Record<Capability, CapabilityContrac
     because:
       'the document shell is where a canonical address is declared, and the architecture resolves it for each route. A feature contributes the address as a value rather than a file, so mapping the shell is the whole structural requirement',
     surfaces: [{ role: 'app.layout', via: 'data' }],
+  },
+
+  'composed-structured-data': {
+    category: 'composition',
+    /*
+     * Two surfaces of different kinds. The component is a file a feature
+     * contributes, so it must be mapped and left unowned; the home page is
+     * where the realization renders it, and the page ships with the template,
+     * so mapping it is the whole requirement there.
+     */
+    because:
+      'the Organization JSON-LD is a component a feature contributes, rendered into the pages the template ships by the architecture realization',
+    surfaces: [
+      { role: 'app.document.structuredData', via: 'file' },
+      { role: 'page.home', via: 'data' },
+    ],
   },
 };
 

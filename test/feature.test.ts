@@ -119,11 +119,13 @@ describe('not-found is a feature, not a framework concern', () => {
       'accessibility',
       'client-route-fallback',
       'not-found',
+      'robots',
       'seo',
+      'sitemap',
       'structured-data',
     ]);
     expect(adapters.hasFeature('not-found')).toBe(true);
-    expect(adapters.hasFeature('sitemap')).toBe(false);
+    expect(adapters.hasFeature('social-metadata')).toBe(false);
   });
 });
 
@@ -356,9 +358,10 @@ describe('selection', () => {
   });
 
   it('refuses a known but unimplemented feature, with no fallback', () => {
-    // 'seo' is implemented as of Stage 9; these three are not.
-    // 'structured-data' became implemented in Stage 10 and moved off this list.
-    for (const id of ['sitemap', 'social-metadata', 'robots'] as const) {
+    // 'seo' is implemented as of Stage 9; this one is not.
+    // 'structured-data' became implemented in Stage 10, and 'robots' and
+    // 'sitemap' in SEO Stage 2, and each moved off this list.
+    for (const id of ['social-metadata'] as const) {
       expect(() => adapters.feature(id)).toThrow(CliError);
       expect(() => selectAdapters(astro([id]), adapters)).toThrow(CliError);
     }
@@ -367,7 +370,9 @@ describe('selection', () => {
   it('an unimplemented feature never becomes not-found', () => {
     let refs: readonly string[];
     try {
-      refs = selectAdapters(astro(['sitemap']), adapters).adapters.map((entry) => entry.ref);
+      refs = selectAdapters(astro(['social-metadata']), adapters).adapters.map(
+        (entry) => entry.ref,
+      );
     } catch {
       refs = [];
     }

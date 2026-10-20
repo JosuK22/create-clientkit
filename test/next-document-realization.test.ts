@@ -141,8 +141,8 @@ describe('Next is chosen for Next', () => {
 describe('the canonical is declared, not computed', () => {
   it('extends the root layout for the site document', () => {
     const layout = fileIn(['seo'], LAYOUT);
-    expect(layout).toContain('metadataBase: SITE.url ? new URL(SITE.url) : null,');
-    expect(layout).toContain("alternates: { canonical: SITE.url ? './' : null },");
+    expect(layout).toContain('  metadataBase,\n');
+    expect(layout).toContain("alternates: { canonical: metadataBase ? './' : null },");
   });
 
   it('keeps the title and description the template already stated', () => {
@@ -174,7 +174,7 @@ describe('the canonical is declared, not computed', () => {
     // URL-less project emitted relative canonicals. Astro omits the tag
     // entirely when no origin is configured, and both should say the same.
     const layout = fileIn(['seo'], LAYOUT, null);
-    expect(layout).toContain("canonical: SITE.url ? './' : null");
+    expect(layout).toContain("canonical: metadataBase ? './' : null");
     for (const fabricated of ['localhost', 'example.com', 'http://']) {
       expect(layout, fabricated).not.toContain(fabricated);
     }
@@ -413,7 +413,8 @@ describe('Next gained a canonical and nothing else', () => {
     expect(checkCompatibility(nextManifest(['seo']), adapters).compatible).toBe(true);
   });
 
-  it.each(['structured-data', 'accessibility'] as const)('still refuses %s', (feature) => {
+  // Structured data left this list in SEO Stage 2; see next-seo-features.test.ts.
+  it.each(['accessibility'] as const)('still refuses %s', (feature) => {
     const report = checkCompatibility(nextManifest([feature]), adapters);
     expect(report.compatible).toBe(false);
     expect(JSON.stringify(report.violations)).toContain('composed-metadata');
@@ -535,8 +536,14 @@ describe('the declaration lands somewhere that compiles', () => {
     const layout = fileIn(['seo'], LAYOUT);
     // One metadata export, not a second one appended beside the first.
     expect(layout.split('export const metadata').length - 1).toBe(1);
-    expect(layout.indexOf('metadataBase')).toBeGreaterThan(layout.indexOf('export const metadata'));
-    expect(layout.indexOf('metadataBase')).toBeLessThan(layout.indexOf('title: SITE.name'));
+    const entry = layout.indexOf('  metadataBase,');
+    expect(entry).toBeGreaterThan(layout.indexOf('export const metadata'));
+    expect(entry).toBeLessThan(layout.indexOf('title: SITE.name'));
+    // The origin it reads is declared after the imports, not between the
+    // export and its documentation.
+    const declared = layout.indexOf('const metadataBase =');
+    expect(declared).toBeGreaterThan(layout.lastIndexOf('import '));
+    expect(declared).toBeLessThan(layout.indexOf(' * The root layout'));
   });
 });
 

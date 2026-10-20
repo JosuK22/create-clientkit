@@ -22,7 +22,13 @@ import type {
 } from '../domain/dimensions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import { LEGACY_STARTER_PREFIX, starterFromMode } from '../domain/starter.js';
-import { CliError, EXIT_USAGE } from '../errors.js';
+import {
+  compatibilityResult,
+  issueError,
+  type CompatibilityField,
+  type CompatibilityIssue,
+} from '../domain/compatibility.js';
+import { CliError } from '../errors.js';
 import type { TemplateManifest } from '../templates/manifest.js';
 import type { PackageManager, SiteContext, TemplateMode } from '../types.js';
 
@@ -194,18 +200,29 @@ const LANGUAGE_ALIASES: Readonly<Record<string, LanguageId>> = {
   javascript: 'js',
 };
 
+/**
+ * The value, when it is a word the domain knows for its dimension; otherwise
+ * `undefined`, with the reason recorded as an `invalid-value` issue.
+ */
 function known<T extends string>(
   value: string,
   vocabulary: readonly T[],
   dimension: string,
   flag: string,
   supported: readonly string[],
-): T {
+  field: CompatibilityField,
+  issues: CompatibilityIssue[],
+): T | undefined {
   if ((vocabulary as readonly string[]).includes(value)) return value as T;
-  throw new CliError(`Unknown ${dimension} "${value}".`, {
-    exitCode: EXIT_USAGE,
+  issues.push({
+    code: 'invalid-value',
+    field,
+    message: `Unknown ${dimension} "${value}".`,
     hint: `Supported values for ${flag}:\n${supported.map((id) => `  ${id}`).join('\n')}`,
+    actual: value,
+    expected: [...supported],
   });
+  return undefined;
 }
 
 /**
@@ -238,31 +255,55 @@ export function assertFrameworkOffers(
   dimensions: ResolvedDimensions,
   adapters: AdapterRegistry,
 ): void {
+  const [first] = frameworkOffersIssues(dimensions, adapters);
+  if (first !== undefined) throw issueError(first);
+}
+
+/**
+ * The framework ↔ build tool / language / router / architecture rule: every
+ * dimension the framework fixes or limits, checked against what the stack
+ * names. One `framework-offers` issue per refusal, all of them, in dimension
+ * order. The framework's own declaration is the only source of truth.
+ */
+export function frameworkOffersIssues(
+  dimensions: ResolvedDimensions,
+  adapters: AdapterRegistry,
+): CompatibilityIssue[] {
   const adapter = adapters.framework(dimensions.framework);
   const checks = [
-    ['build tool', '--build-tool', dimensions.buildTool, adapter.buildTools],
-    ['language', '--language', dimensions.language, adapter.languages],
-    ['router', '--router', dimensions.router, adapter.routers],
-    ['architecture', '--architecture', dimensions.architecture, adapter.architectures],
+    ['buildTool', 'build tool', '--build-tool', dimensions.buildTool, adapter.buildTools],
+    ['language', 'language', '--language', dimensions.language, adapter.languages],
+    ['router', 'router', '--router', dimensions.router, adapter.routers],
+    [
+      'architecture',
+      'architecture',
+      '--architecture',
+      dimensions.architecture,
+      adapter.architectures,
+    ],
   ] as const;
 
-  for (const [dimension, flag, value, options] of checks) {
+  const issues: CompatibilityIssue[] = [];
+  for (const [field, dimension, flag, value, options] of checks) {
     const choices = offered(options as DimensionOptions<string>);
     if (choices.includes(value)) continue;
 
-    throw new CliError(
-      options.kind === 'fixed'
-        ? `The ${dimensions.framework} adapter fixes the ${dimension} to "${options.value}".`
-        : `The ${dimensions.framework} adapter does not offer the ${dimension} "${value}".`,
-      {
-        exitCode: EXIT_USAGE,
-        hint:
-          `On ${dimensions.framework}, ${flag} accepts ${choices.map((id) => `"${id}"`).join(' or ')}. ` +
-          'Leave it out to take what the framework ships with, or choose a framework that ' +
-          'offers what you asked for.',
-      },
-    );
+    issues.push({
+      code: 'framework-offers',
+      field,
+      message:
+        options.kind === 'fixed'
+          ? `The ${dimensions.framework} adapter fixes the ${dimension} to "${options.value}".`
+          : `The ${dimensions.framework} adapter does not offer the ${dimension} "${value}".`,
+      hint:
+        `On ${dimensions.framework}, ${flag} accepts ${choices.map((id) => `"${id}"`).join(' or ')}. ` +
+        'Leave it out to take what the framework ships with, or choose a framework that ' +
+        'offers what you asked for.',
+      actual: value,
+      expected: [...choices],
+    });
   }
+  return issues;
 }
 
 /** Whether a raw input value was actually supplied. */
@@ -298,19 +339,29 @@ function parseFeatures(
   occurrences: readonly string[],
   implemented: readonly string[],
   origin: InputOrigin,
-): FeatureId[] {
+  issues: CompatibilityIssue[],
+): FeatureId[] | undefined {
   const seen = new Set<string>();
   const features: FeatureId[] = [];
+  /*
+   * One issue per list, the first: a list malformed in one place is one
+   * mistake, and the rest of it cannot be read reliably once it is.
+   */
+  const malformed = (message: string, hint: string, actual: string): undefined => {
+    issues.push({ code: 'invalid-features', field: 'features', message, hint, actual });
+    return undefined;
+  };
 
   for (const occurrence of occurrences) {
     for (const raw of occurrence.split(',')) {
       const value = raw.trim();
 
       if (value === '') {
-        throw new CliError(`${origin.features} contains an empty value.`, {
-          exitCode: EXIT_USAGE,
-          hint: 'Separate features with a single comma: --features seo,accessibility',
-        });
+        return malformed(
+          `${origin.features} contains an empty value.`,
+          'Separate features with a single comma: --features seo,accessibility',
+          occurrence,
+        );
       }
 
       /*
@@ -319,19 +370,30 @@ function parseFeatures(
        * legacy spelling is recognised purely to say where starters are chosen.
        */
       if (value.startsWith(LEGACY_STARTER_PREFIX)) {
-        throw new CliError(`"${value}" cannot be selected with --features.`, {
-          exitCode: EXIT_USAGE,
-          hint: 'Starters are chosen with --mode: coming-soon | full.',
-        });
+        return malformed(
+          `"${value}" cannot be selected with --features.`,
+          'Starters are chosen with --mode: coming-soon | full.',
+          value,
+        );
       }
 
-      const feature = known(value, FEATURE_IDS, 'feature', origin.features, implemented);
+      const feature = known(
+        value,
+        FEATURE_IDS,
+        'feature',
+        origin.features,
+        implemented,
+        'features',
+        issues,
+      );
+      if (feature === undefined) return undefined;
 
       if (seen.has(feature)) {
-        throw new CliError(`${origin.features} lists "${feature}" more than once.`, {
-          exitCode: EXIT_USAGE,
-          hint: 'Name each feature once.',
-        });
+        return malformed(
+          `${origin.features} lists "${feature}" more than once.`,
+          'Name each feature once.',
+          feature,
+        );
       }
       seen.add(feature);
       features.push(feature);
@@ -357,48 +419,112 @@ export function resolveDimensions(
   adapters: AdapterRegistry,
   origin: InputOrigin = FLAG_ORIGIN,
 ): ResolvedDimensions {
+  const normalized = normalizeDimensions(input, adapters, origin);
+  if (normalized.dimensions === undefined) {
+    const [first] = compatibilityResult(normalized.issues).issues;
+    throw first === undefined ? new CliError('The stack could not be read.') : issueError(first);
+  }
+  return normalized.dimensions;
+}
+
+/** The dimensions, when every word was valid; otherwise every reason they were not. */
+export interface NormalizedDimensions {
+  readonly dimensions: ResolvedDimensions | undefined;
+  readonly issues: readonly CompatibilityIssue[];
+}
+
+/**
+ * The one normalisation: every input - flags, a config file, answers, a
+ * detected project - becomes `ResolvedDimensions` here, or a list of issues
+ * saying why it cannot.
+ *
+ * The framework is the root. An unknown or unimplemented framework is the only
+ * issue reported, because every other dimension's defaults and vocabulary are
+ * read from it. Past the framework, every invalid word is reported, not just
+ * the first. Never throws for a user's input; `resolveDimensions` is the
+ * throwing form.
+ */
+export function normalizeDimensions(
+  input: DimensionInput,
+  adapters: AdapterRegistry,
+  origin: InputOrigin = FLAG_ORIGIN,
+): NormalizedDimensions {
+  const issues: CompatibilityIssue[] = [];
   const framework = known(
     input.framework ?? DIMENSION_DEFAULTS.framework,
     FRAMEWORK_IDS,
     'framework',
     '--framework',
     adapters.implementedFrameworks(),
+    'framework',
+    issues,
   );
+  if (framework === undefined) return { dimensions: undefined, issues };
 
-  // Throws for a known id with no adapter - `nextjs` - in the registry's own
-  // words. Reached here rather than at selection because the framework is what
-  // the remaining defaults are read from, and there is nothing to read.
-  const adapter: FrameworkAdapter = adapters.framework(framework);
+  // A known id with no adapter - `nextjs` once - in the registry's own words.
+  // Settled here rather than at selection because the framework is what the
+  // remaining defaults are read from, and there is nothing to read.
+  let adapter: FrameworkAdapter;
+  try {
+    adapter = adapters.framework(framework);
+  } catch (error) {
+    if (!(error instanceof CliError)) throw error;
+    issues.push({
+      code: 'unsupported-value',
+      field: 'framework',
+      message: error.message,
+      ...(error.hint === undefined ? {} : { hint: error.hint }),
+      actual: framework,
+    });
+    return { dimensions: undefined, issues };
+  }
 
   const languageInput = input.language === undefined ? undefined : input.language.toLowerCase();
   const language =
     languageInput === undefined
       ? undefined
       : (LANGUAGE_ALIASES[languageInput] ??
-        known(languageInput, LANGUAGE_IDS, 'language', '--language', [
-          ...LANGUAGE_IDS,
-          ...Object.keys(LANGUAGE_ALIASES),
-        ]));
+        known(
+          languageInput,
+          LANGUAGE_IDS,
+          'language',
+          '--language',
+          [...LANGUAGE_IDS, ...Object.keys(LANGUAGE_ALIASES)],
+          'language',
+          issues,
+        ));
 
   const buildTool =
     input.buildTool === undefined
       ? undefined
-      : known(input.buildTool, BUILD_TOOL_IDS, 'build tool', '--build-tool', [
-          ...adapters.implementedBuildTools(),
-          // Astro's build tool is Astro, and there is no adapter for it
-          // because the framework owns it. A user reading this list would
-          // otherwise be told `astro` is not a build tool.
-          'astro',
-        ]);
+      : known(
+          input.buildTool,
+          BUILD_TOOL_IDS,
+          'build tool',
+          '--build-tool',
+          [
+            ...adapters.implementedBuildTools(),
+            // Astro's build tool is Astro, and there is no adapter for it
+            // because the framework owns it. A user reading this list would
+            // otherwise be told `astro` is not a build tool.
+            'astro',
+          ],
+          'buildTool',
+          issues,
+        );
 
   const router =
     input.router === undefined
       ? undefined
-      : known(input.router, ROUTER_IDS, 'router', '--router', [
-          ...adapters.implementedRouters(),
-          'none',
-          'file-based',
-        ]);
+      : known(
+          input.router,
+          ROUTER_IDS,
+          'router',
+          '--router',
+          [...adapters.implementedRouters(), 'none', 'file-based'],
+          'router',
+          issues,
+        );
 
   const architecture =
     input.architecture === undefined
@@ -409,6 +535,8 @@ export function resolveDimensions(
           'architecture',
           '--architecture',
           adapter.architectureDefinitions.map((definition) => definition.id),
+          'architecture',
+          issues,
         );
 
   /*
@@ -425,6 +553,8 @@ export function resolveDimensions(
     'styling system',
     '--styling',
     [...adapters.implementedStyling(), 'none'],
+    'styling',
+    issues,
   );
 
   const uiLibrary = known(
@@ -433,11 +563,23 @@ export function resolveDimensions(
     'UI library',
     '--ui-library',
     [...adapters.implementedUiLibraries(), 'none'],
+    'uiLibrary',
+    issues,
   );
 
-  const features = parseFeatures(input.features ?? [], adapters.implementedFeatures(), origin);
+  const features = parseFeatures(
+    input.features ?? [],
+    adapters.implementedFeatures(),
+    origin,
+    issues,
+  );
 
-  return {
+  if (styling === undefined || uiLibrary === undefined || features === undefined) {
+    return { dimensions: undefined, issues };
+  }
+  if (issues.length > 0) return { dimensions: undefined, issues };
+
+  const dimensions: ResolvedDimensions = {
     framework,
     buildTool: fromFramework(buildTool, adapter.buildTools),
     language: fromFramework(language, adapter.languages),
@@ -476,6 +618,7 @@ export function resolveDimensions(
       features: originOf(input.features, 'default'),
     },
   };
+  return { dimensions, issues };
 }
 
 /** The non-dimension half of a manifest, resolved by the existing V1 layers. */

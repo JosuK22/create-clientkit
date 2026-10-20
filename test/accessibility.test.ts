@@ -360,12 +360,14 @@ describe('compatibility is decided by capability', () => {
   });
 
   it('refuses a known but unimplemented feature, with no fallback', () => {
-    for (const id of ['sitemap', 'social-metadata'] as const) {
+    for (const id of ['social-metadata'] as const) {
       expect(() => adapters.feature(id)).toThrow(CliError);
     }
     let refs: readonly string[];
     try {
-      refs = selectAdapters(astro(['sitemap']), adapters).adapters.map((entry) => entry.ref);
+      refs = selectAdapters(astro(['social-metadata']), adapters).adapters.map(
+        (entry) => entry.ref,
+      );
     } catch {
       refs = [];
     }

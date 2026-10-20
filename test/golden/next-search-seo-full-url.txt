@@ -1,0 +1,1246 @@
+== PLAN ==
+templateId       nextjs
+templateVersion  0.1.0
+mode             full
+targetDir        <TARGET_DIR>
+operationCount   20
+
+== ORDER ==
+write  .client-site.json
+copy   .gitattributes
+write  .gitignore
+write  app/layout.tsx
+write  app/not-found.tsx
+write  app/page.tsx
+write  app/robots.ts
+write  app/sitemap.ts
+write  components/providers/AppProviders.tsx
+write  components/StructuredData.tsx
+write  components/ui/Mark.tsx
+write  components/ui/Section.tsx
+write  lib/seo.ts
+write  lib/site.config.ts
+write  next.config.ts
+write  package.json
+write  public/favicon.svg
+write  README.md
+write  styles/globals.css
+write  tsconfig.json
+
+== FILES ==
+
+---- .client-site.json ----
+type    write
+origin  cli
+----
+{
+  "$schema": "https://create-clientkit.dev/schema/client-site.json",
+  "cliVersion": "9.9.9",
+  "template": {
+    "id": "nextjs",
+    "version": "0.1.0",
+    "framework": "nextjs",
+    "frameworkVersion": "16.3.5"
+  },
+  "stack": {
+    "framework": "nextjs",
+    "buildTool": "next",
+    "language": "ts",
+    "styling": "none",
+    "uiLibrary": "none",
+    "router": "file-based",
+    "architecture": "next-app"
+  },
+  "mode": "full",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "config": {
+    "projectName": "acme-site",
+    "siteName": "Acme Ltd",
+    "siteUrl": "https://acme.example",
+    "locale": "en",
+    "packageManager": "npm",
+    "features": [
+      "robots",
+      "seo",
+      "sitemap",
+      "structured-data"
+    ]
+  }
+}
+
+
+---- .gitattributes ----
+type    copy
+origin  base
+source  <TEMPLATES>/nextjs/base/_gitattributes
+(binary; copied byte-for-byte, never token-substituted)
+
+---- .gitignore ----
+type    write
+origin  base
+----
+node_modules
+.next
+out
+next-env.d.ts
+*.local
+
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+
+---- app/layout.tsx ----
+type    write
+origin  base + composed canonical
+----
+import type { Metadata } from 'next';
+
+import { Providers } from '../components/providers/AppProviders';
+import { SITE } from '../lib/site.config';
+import '../styles/globals.css';
+
+/**
+ * The origin of `SITE.url`, or null until it is an absolute http(s) address -
+ * the rule the rest of the site uses, so the canonical never disagrees with
+ * the sitemap, robots.txt or structured data.
+ */
+const siteBase = URL.canParse(SITE.url.trim()) ? new URL('/', SITE.url.trim()) : null;
+const metadataBase =
+  siteBase?.protocol === 'http:' || siteBase?.protocol === 'https:' ? siteBase : null;
+
+/**
+ * The root layout: the top of the tree, and the only place `<html>` exists.
+ *
+ * A server component, deliberately, and it stays one. Nothing here needs state,
+ * effects or browser APIs, so nothing here needs to reach the browser as
+ * JavaScript - and marking this file `'use client'` would pull every page under
+ * it into the client bundle to solve a problem it does not have.
+ *
+ * ## The provider boundary
+ *
+ * `Providers` is always here, whether or not anything fills it. A project
+ * with no UI library gets a pass-through that renders its children and nothing
+ * else; a project with one gets that library's providers instead, at the same
+ * place, without this file changing. Where the client boundary goes - if one is
+ * needed at all - is that component's decision, which is what keeps it out of
+ * this one.
+ *
+ * `metadata` starts as a title and a description taken from the one config
+ * file. A canonical address is declared here only when the project was
+ * generated with `--features seo`, and only once `SITE.url` is set. There is no
+ * Open Graph block and no social card: those need a considered decision per
+ * page, and inventing one would put claims in the head that nobody made.
+ */
+export const metadata: Metadata = {
+  metadataBase,
+  alternates: { canonical: metadataBase ? './' : null },
+  title: SITE.name,
+  description: SITE.description,
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang={SITE.locale || 'en'}>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+
+
+---- app/not-found.tsx ----
+type    write
+origin  base + composed canonical
+----
+import Link from 'next/link';
+
+import { Mark } from '../components/ui/Mark';
+import type { Metadata } from 'next';
+
+import { CONTACT, NAV, SITE } from '../lib/site.config';
+
+/** Declared by the document pipeline; this page states nothing else. */
+export const metadata: Metadata = {
+  alternates: { canonical: null },
+};
+
+/**
+ * The not-found page.
+ *
+ * Next renders this for any path that matches no route, at any depth and
+ * including paths under pages you add later - the framework resolves it, so
+ * there is no list of routes here and nothing to keep in step as the site
+ * grows.
+ *
+ * A server component with no interactivity, like every other page this template
+ * ships. The class names are the shared style contract, so this markup is
+ * identical whether the project was generated with plain CSS, Tailwind or
+ * Bootstrap.
+ *
+ * Every optional piece is omitted rather than filled in: an empty
+ * `CONTACT.email` renders no link, and an empty `NAV` renders no suggestions.
+ */
+export default function NotFound() {
+  const links = NAV.filter((item) => item.label !== '' && item.href !== '');
+  // One string, so a formatter cannot split it and lose the space.
+  const copyright = `© ${String(new Date().getFullYear())} ${SITE.name}`;
+
+  return (
+    <div className="app-shell">
+      <header className="site-header">
+        <div className="container-page site-header-inner">
+          <Link href="/" className="brand-link">
+            <Mark size="sm" />
+          </Link>
+        </div>
+      </header>
+
+      <main className="app-main">
+        <div className="notice">
+          <div className="container-page notice-body">
+            {/* Decorative: the heading below carries the meaning. */}
+            <p className="notice-code" aria-hidden="true">
+              404
+            </p>
+
+            <h1 className="notice-title">Page not found</h1>
+
+            <p className="notice-lead">
+              The page you&apos;re looking for may have moved, or the link may have been mistyped.
+            </p>
+
+            <div className="notice-actions">
+              <Link href="/" className="button-primary">
+                Back to home
+              </Link>
+              {CONTACT.email ? (
+                <a href={`mailto:${CONTACT.email}`} className="notice-link">
+                  Report a broken link
+                </a>
+              ) : null}
+            </div>
+
+            {links.length > 0 ? (
+              <nav className="notice-links" aria-label="Other pages">
+                <ul>
+                  {links.map((item) => (
+                    <li key={item.href}>
+                      <a href={item.href} className="notice-link">
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
+          </div>
+        </div>
+      </main>
+
+      <footer className="site-footer">
+        <div className="container-page site-footer-inner">
+          <p className="copyright">{copyright}</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+
+---- app/page.tsx ----
+type    write
+origin  modes/full + composed structured data
+----
+import { StructuredData } from '../components/StructuredData';
+import { Mark } from '../components/ui/Mark';
+import { Section } from '../components/ui/Section';
+import { CONTACT, SITE } from '../lib/site.config';
+
+/**
+ * Hero, sections, CTA and footer - all server-rendered.
+ *
+ * No `'use client'` anywhere. Nothing on this page has state, effects or event
+ * handlers, so nothing on it needs to become a client bundle. Adding an
+ * interactive piece later is one directive on one component, which is exactly
+ * why the boundary is worth not crossing by default.
+ *
+ * The copy is honest scaffolding: it says what the section is for rather than
+ * pretending to describe a business nobody has told us about. The class names
+ * are the shared style contract, so the same markup renders under plain CSS or
+ * Tailwind.
+ */
+
+const SECTIONS = [
+  {
+    id: 'about',
+    title: 'About',
+    body: 'Introduce the business here: who they are, who they serve, and what makes the work worth choosing.',
+  },
+  {
+    id: 'work',
+    title: 'Work',
+    body: 'Show the work. Case studies, projects or services - whichever tells the clearest story.',
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    body: 'Make the next step obvious. One clear way to get in touch beats five competing options.',
+  },
+];
+
+export default function HomePage() {
+  return (
+    <div className="app-shell">
+      <StructuredData />
+      <header className="site-header">
+        <div className="container-page site-header-inner">
+          <Mark size="sm" />
+        </div>
+      </header>
+
+      <main className="app-main">
+        <div className="container-page intro">
+          <div className="intro-inner">
+            <h1 className="page-title">{SITE.name}</h1>
+            {SITE.description ? <p className="lead">{SITE.description}</p> : null}
+            {CONTACT.email ? (
+              <a href={`mailto:${CONTACT.email}`} className="button-primary">
+                Get in touch
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="container-page sections">
+          {SECTIONS.map((entry) => (
+            <Section key={entry.id} id={entry.id} title={entry.title} body={entry.body} />
+          ))}
+        </div>
+      </main>
+
+      <footer className="site-footer">
+        <div className="container-page site-footer-inner">
+          <p className="copyright">
+            © {new Date().getFullYear()} {SITE.name}
+            {SITE.author ? ` · ${SITE.author}` : ''}
+          </p>
+          {CONTACT.email ? (
+            <div className="contact-links">
+              <a href={`mailto:${CONTACT.email}`} className="contact-link">
+                {CONTACT.email}
+              </a>
+            </div>
+          ) : null}
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+
+---- app/robots.ts ----
+type    write
+origin  feature:robots
+----
+import type { MetadataRoute } from 'next';
+
+import { SITE } from '../lib/site.config';
+import { absoluteUrl, siteOrigin } from '../lib/seo';
+
+/**
+ * `/robots.txt`, served by Next from this route module.
+ *
+ * Every crawler may index every page. The sitemap is advertised only once
+ * `SITE.url` is a real address, because a `Sitemap:` line has to be absolute
+ * and no domain is ever guessed. A missing URL does not block indexing either:
+ * a site without a domain yet is not a site that asked to be hidden.
+ */
+export default function robots(): MetadataRoute.Robots {
+  const origin = siteOrigin(SITE.url);
+
+  return {
+    rules: { userAgent: '*', allow: '/' },
+    ...(origin === '' ? {} : { sitemap: absoluteUrl(origin, '/sitemap.xml') }),
+  };
+}
+
+
+---- app/sitemap.ts ----
+type    write
+origin  feature:sitemap
+----
+import type { MetadataRoute } from 'next';
+
+import { SITE } from '../lib/site.config';
+import { absoluteUrl, siteOrigin } from '../lib/seo';
+
+/**
+ * Every page this sitemap lists, as site-relative paths.
+ *
+ * Next does not discover routes for a sitemap, so this list is the whole
+ * truth: add a path here when you add a page that should be crawled. The
+ * not-found page is deliberately absent - it is a status, not content.
+ */
+const ROUTES: readonly string[] = ['/'];
+
+/**
+ * `/sitemap.xml`, served by Next from this route module.
+ *
+ * Empty until `SITE.url` is a real address: a sitemap entry has to be an
+ * absolute URL, and no domain is ever guessed. No `lastModified` either - a
+ * date read from the clock at build time would claim every page changed on
+ * every deploy.
+ */
+export default function sitemap(): MetadataRoute.Sitemap {
+  const origin = siteOrigin(SITE.url);
+  if (origin === '') return [];
+
+  return ROUTES.map((route) => ({ url: absoluteUrl(origin, route) }));
+}
+
+
+---- components/providers/AppProviders.tsx ----
+type    write
+origin  composed from nothing
+----
+import type { ReactNode } from 'react';
+
+/**
+ * Everything that wraps the whole application.
+ *
+ * Nothing wraps the application yet. Selecting a UI library fills this
+ * in; until then it renders its children and adds no client bundle.
+ */
+export function Providers({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}
+
+
+---- components/StructuredData.tsx ----
+type    write
+origin  feature:structured-data
+----
+import { CONTACT, SITE } from '../lib/site.config';
+import { jsonLdScript, siteOrigin } from '../lib/seo';
+
+/**
+ * schema.org Organization data, built only from values configured in
+ * `lib/site.config.ts`.
+ *
+ * Search engines consume structured data automatically, so a fabricated field
+ * is worse than a missing one: every property below is omitted unless it has
+ * a real value. No logo, address, social profile, rating or founding date is
+ * invented.
+ *
+ * A server component, rendered into the page's markup so it is in the
+ * response a crawler reads. The home page renders it; the not-found page
+ * deliberately does not. Render `<StructuredData />` on any page you add that
+ * should describe the organisation.
+ */
+export function StructuredData() {
+  const origin = siteOrigin(SITE.url);
+  const description = SITE.description.trim();
+  const email = CONTACT.email.trim();
+  const phone = CONTACT.phone.trim();
+
+  const organization: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: SITE.name,
+  };
+
+  if (origin !== '') organization['url'] = origin;
+  if (description !== '') organization['description'] = description;
+  if (email !== '') organization['email'] = email;
+  if (phone !== '') organization['telephone'] = phone;
+
+  return (
+    <script
+      type="application/ld+json"
+      // Escaped for a script element: see jsonLdScript in lib/seo.ts.
+      dangerouslySetInnerHTML={{ __html: jsonLdScript(organization) }}
+    />
+  );
+}
+
+
+---- components/ui/Mark.tsx ----
+type    write
+origin  base
+----
+import { SITE } from '../../lib/site.config';
+
+/**
+ * A placeholder brand mark: the client's initials in a rounded square.
+ *
+ * Deliberately not an image. A generated project has no logo file, and shipping
+ * a stand-in graphic would be something to find and delete later; initials read
+ * as intentional until a real mark replaces them.
+ *
+ * The class names are the project's shared style contract - `brand`,
+ * `brand-lg`, `brand-mark`, `brand-name` - which every styling system
+ * implements. That is what lets this component render under plain CSS or
+ * Tailwind without knowing which was selected.
+ */
+export function Mark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
+  const initials = SITE.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <span className={`brand brand-${size}`}>
+      <span className="brand-mark" aria-hidden="true">
+        {initials || '—'}
+      </span>
+      <span className="brand-name">{SITE.name}</span>
+    </span>
+  );
+}
+
+
+---- components/ui/Section.tsx ----
+type    write
+origin  modes/full
+----
+/**
+ * One titled section of the home page.
+ *
+ * The heading is linked to its section with `aria-labelledby` rather than left
+ * to proximity, so the landmark has an accessible name a screen reader can
+ * announce. A server component, like everything else here.
+ */
+export function Section({ id, title, body }: { id: string; title: string; body: string }) {
+  return (
+    <section id={id} aria-labelledby={`${id}-heading`}>
+      <h2 id={`${id}-heading`} className="section-title">
+        {title}
+      </h2>
+      <p className="section-body">{body}</p>
+    </section>
+  );
+}
+
+
+---- lib/seo.ts ----
+type    write
+origin  feature:robots + feature:sitemap + feature:structured-data
+----
+/**
+ * The URL rules every search file in this project shares.
+ *
+ * `app/robots.ts`, `app/sitemap.ts` and the structured data all build absolute
+ * addresses from `SITE.url`, and they have to agree: a sitemap listing one
+ * domain while robots.txt advertises another is worse than either alone. So
+ * the arithmetic lives here once.
+ */
+
+/**
+ * The site's origin - scheme, host and port - or '' when no usable production
+ * URL is configured.
+ *
+ * Origin only, on purpose: a path, query or fragment in `SITE.url` is dropped
+ * rather than repeated in front of every address. Anything that is not an
+ * absolute http(s) URL counts as not configured, so nothing absolute is
+ * emitted until there is a real domain to point at.
+ */
+export function siteOrigin(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed === '') return '';
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return '';
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+
+  return parsed.origin;
+}
+
+/**
+ * Joins a site-relative path onto an origin, or '' when there is no origin -
+ * so a caller can omit the address entirely rather than invent one.
+ */
+export function absoluteUrl(origin: string, path: string): string {
+  if (origin === '') return '';
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return `${origin}${suffix}`.replace(/([^:]\/)\/+/g, '$1');
+}
+
+/**
+ * The three characters that can end a script element early or open a new tag,
+ * mapped to their JSON unicode escapes.
+ *
+ * Each value is six characters starting with a real backslash. Writing the
+ * character itself would make the replacement below a silent no-op.
+ */
+const JSON_LD_ESCAPES: Readonly<Record<string, string>> = {
+  '<': '\\u003c',
+  '>': '\\u003e',
+  '&': '\\u0026',
+};
+
+/**
+ * Serialises data for a `<script type="application/ld+json">` element.
+ *
+ * `JSON.stringify` alone is not enough: the HTML parser ends a script element
+ * at the first `</script`, whatever the JSON quoting says. Escaping `<`, `>`
+ * and `&` keeps the payload valid JSON - the escapes decode back to the
+ * original characters - while making it impossible to close the element.
+ */
+export function jsonLdScript(data: unknown): string {
+  return JSON.stringify(data).replace(/[<>&]/g, (char) => JSON_LD_ESCAPES[char] ?? char);
+}
+
+
+---- lib/site.config.ts ----
+type    write
+origin  base
+----
+/**
+ * Everything client-specific, in one file.
+ *
+ * An empty string means "not set", and the UI omits that piece rather than
+ * rendering a placeholder. Nothing here is ever invented for you.
+ */
+
+export interface NavItem {
+  label: string;
+  /** In-page anchor ('#services') or a route path. */
+  href: string;
+}
+
+export interface SiteIdentity {
+  name: string;
+  description: string;
+  /**
+   * Production URL. Empty is a supported state, not a broken one - nothing
+   * absolute is emitted until you fill it in, so no page ever points at a
+   * domain nobody owns.
+   */
+  url: string;
+  locale: string;
+  author: string;
+}
+
+export interface ContactDetails {
+  email: string;
+  phone: string;
+}
+
+export const SITE: SiteIdentity = {
+  name: 'Acme Ltd',
+  description: 'Bespoke widgets.',
+  url: 'https://acme.example',
+  locale: 'en',
+  author: '',
+};
+
+/** Header links. Empty means no menu is rendered at all. */
+export const NAV: NavItem[] = [];
+
+/** Each field is optional and hidden when empty. */
+export const CONTACT: ContactDetails = {
+  email: '',
+  phone: '',
+};
+
+
+---- next.config.ts ----
+type    write
+origin  base
+----
+import type { NextConfig } from 'next';
+
+/**
+ * Deliberately empty.
+ *
+ * Every option Next offers here is a decision about deployment, images or
+ * experimental behaviour, and none of those can be made correctly before the
+ * project has a host. An empty config is the honest starting point; add to it
+ * when there is something to add.
+ */
+const nextConfig: NextConfig = {};
+
+export default nextConfig;
+
+
+---- package.json ----
+type    write
+origin  base + modes/full
+----
+{
+  "name": "acme-site",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "keywords": [
+    "nextjs",
+    "client-site",
+    "website"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}
+
+
+---- public/favicon.svg ----
+type    write
+origin  base
+----
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a" />
+  <path d="M20 40V24h6.4c4.8 0 7.6 2.7 7.6 7s-2.8 7-7.6 7H20Zm4.4-3.4h1.9c2.6 0 4-1.4 4-3.6s-1.4-3.6-4-3.6h-1.9v7.2Z" fill="#f8fafc" />
+  <circle cx="42" cy="38" r="3" fill="#38bdf8" />
+</svg>
+
+
+---- README.md ----
+type    write
+origin  base
+----
+# Acme Ltd
+
+Bespoke widgets.
+
+Built with [Next.js](https://nextjs.org) (App Router), TypeScript and plain CSS.
+
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+The site runs at http://localhost:3000.
+
+## Scripts
+
+| Script              | What it does                          |
+| ------------------- | ------------------------------------- |
+| `npm run dev`       | Development server with hot reloading |
+| `npm run build`     | Production build                      |
+| `npm run start`     | Serves the production build           |
+| `npm run typecheck` | Type-checks without emitting          |
+
+There is no `lint` script. Next 16 removed the `next lint` command, and adding
+one would mean adding ESLint and its Next configuration - a choice better made
+by you than assumed here.
+
+## Where things live
+
+```
+app/
+  layout.tsx      the root layout: <html>, <body>, baseline metadata
+  page.tsx        the home page
+components/ui/    presentational pieces
+lib/
+  site.config.ts  everything client-specific, in one file
+public/           static assets served from /
+styles/
+  globals.css     the only stylesheet; custom properties are the design system
+```
+
+## First things to change
+
+- `lib/site.config.ts` — name, description, locale and contact all live there.
+- Set `SITE.url` once the domain is known. It is empty on purpose: nothing
+  absolute is emitted until it is filled in, so no page points at a domain
+  nobody owns.
+- Replace `public/favicon.svg` with the client mark.
+
+## What is deliberately not here
+
+No CSS framework, no component library, no client-side router, no analytics and
+no deployment configuration. Each of those is a decision with consequences, and
+a scaffold that makes them for you is one you have to undo first.
+
+
+---- styles/globals.css ----
+type    write
+origin  framework:nextjs
+----
+/*
+ * Plain CSS, implementing the project's shared style contract.
+ *
+ * The markup names what a thing *is* - `notice`, `page-title`, `button-primary` -
+ * and a stylesheet decides how it looks. This file is the plain-CSS
+ * implementation of that contract; `templates/styling/tailwind/` is the
+ * Tailwind one, and `templates/styling/bootstrap/` the Bootstrap one. Every one
+ * of them answers the same class names, which is what lets a component tree be
+ * rendered under a different styling system without the framework template
+ * knowing which was selected.
+ *
+ * Only one of them is ever shipped. Selecting a styling system hands that
+ * system ownership of the `styles.global` role, and this file is not composed
+ * at all.
+ *
+ * No framework, no preprocessor, no build step beyond the one Next already
+ * runs. Custom properties are the whole system: change a value here and the
+ * palette, rhythm and type scale follow everywhere.
+ */
+
+:root {
+  --color-ink: oklch(0.22 0.01 260);
+  --color-ink-muted: oklch(0.52 0.01 260);
+  --color-surface: oklch(1 0 0);
+  --color-line: oklch(0.92 0.005 260);
+  --color-line-strong: oklch(0.84 0.008 260);
+  --measure-page: 64rem;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+  text-rendering: optimizeLegibility;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+/* The shared style contract ------------------------------------------------ */
+
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.app-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--measure-page);
+  padding-inline: 1.5rem;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.site-header-inner,
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  padding-block: 1rem;
+}
+
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--color-line);
+}
+
+.copyright {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+}
+
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.contact-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.contact-link:hover {
+  color: var(--color-ink);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  color: var(--color-surface);
+  font-weight: 600;
+}
+
+.brand-sm .brand-mark {
+  height: 2rem;
+  width: 2rem;
+  font-size: 0.875rem;
+}
+
+.brand-lg .brand-mark {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.125rem;
+}
+
+.brand-lg .brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.intro {
+  padding-block: 5rem;
+}
+
+.intro-inner {
+  max-width: 42rem;
+}
+
+.page-title {
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 1.25rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+.button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-ink);
+  padding-inline: 1.25rem;
+  color: var(--color-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 160ms ease;
+}
+
+.button-primary:hover {
+  opacity: 0.85;
+}
+
+.sections {
+  display: grid;
+  gap: 2.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-block: 4rem;
+}
+
+@media (min-width: 640px) {
+  .sections {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.section-body {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  color: var(--color-ink-muted);
+}
+
+/* Notice pages: the launch page and the not-found page ---------------------
+ *
+ * One quiet column, centred in whatever height is left between the top of the
+ * page and the footer. Nothing here is fixed to the viewport, so a short
+ * screen scrolls rather than clipping, and a tall one does not leave the
+ * content stranded at the top.
+ */
+
+.notice {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.notice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-block: 1.25rem;
+}
+
+/* The status pill. The dot is decoration; the words carry the meaning. */
+.status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 0.3125rem 0.75rem;
+  color: var(--color-ink-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-label::before {
+  content: '';
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background-color: var(--color-ink);
+}
+
+.notice-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-block: clamp(3rem, 2rem + 6vw, 6rem);
+  text-align: center;
+}
+
+/* The one decorative detail on the launch page: a short accent rule. */
+.notice-rule {
+  display: block;
+  width: 2.5rem;
+  height: 2px;
+  margin-bottom: 2rem;
+  border-radius: 1px;
+  background-color: var(--color-ink);
+}
+
+/* Large and quiet. Hidden from assistive technology; the heading says it. */
+.notice-code {
+  margin: 0 0 1.25rem;
+  color: var(--color-line-strong);
+  font-size: clamp(4.5rem, 3rem + 8vw, 7.5rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  user-select: none;
+}
+
+.notice-title {
+  margin: 0;
+  max-width: 18ch;
+  font-size: clamp(2rem, 1.4rem + 3vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.notice-lead {
+  margin: 1.25rem 0 0;
+  max-width: 34rem;
+  color: var(--color-ink-muted);
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.125rem);
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1.5rem;
+  margin-top: 2.25rem;
+}
+
+.notice-actions .button-primary {
+  margin-top: 0;
+}
+
+.notice-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 0.25em;
+  transition:
+    color 160ms ease,
+    text-decoration-color 160ms ease;
+}
+
+.notice-link:hover {
+  color: var(--color-ink);
+  text-decoration-color: currentColor;
+}
+
+.notice-links {
+  width: 100%;
+  max-width: 24rem;
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1rem;
+}
+
+.notice-links ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A brand that links home looks like the brand, not like a link. */
+.brand-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* On the narrowest screens the action goes full width: an easy target. */
+@media (max-width: 30rem) {
+  .notice-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+}
+
+/* Respect the reader's preference; never animate for someone who asked not to. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+---- tsconfig.json ----
+type    write
+origin  base
+----
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+

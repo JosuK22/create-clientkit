@@ -194,15 +194,18 @@ describe('Next provides a client application root, and the architecture says so'
   });
 
   it('gained exactly two capabilities and nothing else', () => {
-    // `client-app-root` and `server-inserted-head`; the other seven are
-    // Stages 22 to 24R's, unchanged.
+    // `client-app-root` and `server-inserted-head`; `metadata-routes` and
+    // `composed-structured-data` are SEO Stage 2's; the rest are Stages 22 to
+    // 24R's, unchanged.
     expect([...NEXTJS_DECLARATION.provides].sort()).toEqual([
       'client-app-root',
       'composed-canonical',
+      'composed-structured-data',
       'composed-stylesheet',
       'document-metadata',
       'file-based-routing',
       'jsx',
+      'metadata-routes',
       'postcss',
       'react-runtime',
       'server-inserted-head',
@@ -431,8 +434,9 @@ describe('gaining the capability made nothing else compatible', () => {
 
   it('the head features are still refused', () => {
     // SEO left this list in Stage 51: it asks for the canonical surface Next
-    // has, not the whole metadata surface it does not.
-    for (const feature of ['structured-data', 'accessibility'] as const) {
+    // has, not the whole metadata surface it does not. Structured data left it
+    // in SEO Stage 2, when Next started rendering a contributed component.
+    for (const feature of ['accessibility'] as const) {
       const report = checkCompatibility(
         nextManifest({ uiLibrary: 'none', features: [feature] }),
         adapters,

@@ -4,8 +4,10 @@ import type { Contribution } from '../domain/contributions.js';
 import { emptyContribution } from '../domain/contributions.js';
 import type { ProjectManifest } from '../domain/manifest.js';
 import type { ResolvedProject } from '../domain/resolved.js';
-import { onPage } from '../domain/document-contribution.js';
+import { EVERY_PAGE, onPage } from '../domain/document-contribution.js';
+import type { DocumentContribution } from '../domain/document-contribution.js';
 import { resolveOrganization } from '../domain/structured-data.js';
+import { siteUrlHelpers, structuredDataComponent } from './search-files.js';
 
 /**
  * schema.org structured data, as a feature.
@@ -29,7 +31,7 @@ import { resolveOrganization } from '../domain/structured-data.js';
  * ## Why `document-metadata`
  *
  * The same requirement SEO has, and deliberately not a new capability. A
- * JSON-LD block is a `<script>` in the document head that has to be in the
+ * JSON-LD block is a `<script>` in the document that has to be in the
  * response a crawler reads; that is exactly what `document-metadata` already
  * means. Minting a second capability for the same requirement would fragment
  * the vocabulary and force every future framework to declare two things where
@@ -41,9 +43,22 @@ import { resolveOrganization } from '../domain/structured-data.js';
  * UI library, not a build tool, not TypeScript. Structured data is a JSON
  * document; none of those change what it says.
  *
- * It contributes no dependencies, no scripts, no configuration files and no
- * source files. A package to serialise one JSON object would be weight in every
- * generated project for something `JSON.stringify` already does.
+ * It contributes no dependencies, no scripts and no configuration files. A
+ * package to serialise one JSON object would be weight in every generated
+ * project for something `JSON.stringify` already does.
+ *
+ * ## Two ways to reach the document
+ *
+ * Where the shell already states the organisation (`composed-metadata`,
+ * Astro), this feature contributes no source: the template's component is the
+ * richer of the two and keeps the field.
+ *
+ * Where the architecture renders a contributed component instead
+ * (`composed-structured-data`, Next), there is nothing to keep, so the feature
+ * contributes the component and states the organisation for every page. The
+ * architecture's realization decides where that renders. The branch is on the
+ * capability, the way MUI branches on `server-inserted-head` - never on which
+ * framework it is.
  */
 
 const STRUCTURED_DATA_DECLARATION: AdapterDeclaration = {
@@ -65,17 +80,24 @@ const STRUCTURED_DATA_DECLARATION: AdapterDeclaration = {
        * generator writes into, and the difference only became visible with a
        * third framework: on Next this feature was accepted and then produced a
        * byte-identical project.
+       *
+       * One of two since SEO Stage 2. `composed-metadata` is a shell that
+       * already states the contract (Astro's `StructuredData.astro`);
+       * `composed-structured-data` is an architecture that renders a
+       * contributed component into its pages (Next). Either puts the JSON-LD
+       * in the response, and neither accepts the feature and then ignores it.
        */
-      kind: 'requires',
-      capability: 'composed-metadata',
-      because: 'it writes a JSON-LD script into the head',
+      kind: 'requiresOneOf',
+      capabilities: ['composed-metadata', 'composed-structured-data'],
+      because:
+        'the JSON-LD has to reach the document, through a shell that already states it or a component the architecture renders into its pages',
     },
   ],
 };
 
 const OWNER = adapterRef(STRUCTURED_DATA_DECLARATION);
 
-export function createStructuredDataAdapter(): Adapter {
+export function createStructuredDataAdapter(templatesRoot: string): Adapter {
   return {
     declaration: STRUCTURED_DATA_DECLARATION,
 
@@ -98,6 +120,28 @@ export function createStructuredDataAdapter(): Adapter {
       // site URL there is simply no `url` property - see the domain module for
       // why omission beats invention here in particular.
       const organization = resolveOrganization(project.manifest.site);
+      const rendersComponent = project.capabilities.has('composed-structured-data');
+
+      /*
+       * The positive statement, made only where it can be realized truthfully.
+       *
+       * Next's component reads the same configuration the template's would,
+       * so stating the contract here hands it to a component that renders at
+       * least what the contract says. On a shell that already states it, the
+       * statement would claim to replace something richer than itself - see
+       * below - and is not made.
+       */
+      const everyPage: readonly DocumentContribution[] = rendersComponent
+        ? [
+            {
+              kind: 'structured-data',
+              owner: OWNER,
+              reason: 'every page describes the organisation behind the site',
+              scope: EVERY_PAGE,
+              jsonLd: { state: 'stated', value: organization },
+            },
+          ]
+        : [];
 
       return {
         ...emptyContribution(OWNER),
@@ -105,27 +149,26 @@ export function createStructuredDataAdapter(): Adapter {
         /*
          * What the document should *not* say about the organisation.
          *
-         * The positive statement stays where it is. `OrganizationContract`
-         * carries five fields and the shipped component emits up to nine -
-         * email, telephone, sameAs and a location it does not model - so the
-         * template is the more capable of the two and keeps the field. Stating
-         * the contract as a document would be claiming to replace something
-         * richer than itself.
+         * On a shell that already states it, the positive statement stays
+         * where it is. Astro's `OrganizationContract` carries five fields and
+         * its shipped component emits up to nine - email, telephone, sameAs and
+         * a location it does not model - so the template is the more capable of
+         * the two and keeps the field. Stating the contract as a document there
+         * would be claiming to replace something richer than itself.
          *
          * The refusal is a different matter, and this feature does own it: a
          * not-found page is not a page about the organisation, so it says
          * nothing about one. That is a fact about what a 404 *is*, held by the
-         * feature that knows what organisation data means, and the generated
-         * project already agrees with it - the shipped 404 passes
-         * `structuredData={false}`.
+         * feature that knows what organisation data means. Astro's shipped 404
+         * already agrees (`structuredData={false}`); on Next the realization
+         * reads it and leaves the component off the not-found page.
          *
          * Suppression rather than an empty value, because they mean different
          * things and have since Stage 31: this page was decided against, not
-         * left unsaid. Nothing renders for it either way today, and when a
-         * later stage can realise organisation data truthfully, the refusal is
-         * already recorded rather than needing to be remembered.
+         * left unsaid.
          */
         documents: [
+          ...everyPage,
           {
             kind: 'structured-data',
             owner: OWNER,
@@ -137,6 +180,10 @@ export function createStructuredDataAdapter(): Adapter {
             },
           },
         ],
+
+        files: rendersComponent
+          ? [structuredDataComponent(OWNER, templatesRoot), siteUrlHelpers(OWNER, templatesRoot)]
+          : [],
 
         config: [
           {

@@ -94,6 +94,8 @@ describe('no case claims a contract its stack does not have', () => {
       entry.combination.features.includes('seo') && entry.url === 'url-less',
     'json-ld-present': (entry) => entry.combination.features.includes('structured-data'),
     'json-ld-absent-on-404': (entry) => entry.combination.features.includes('structured-data'),
+    'robots-served': (entry) => entry.combination.features.includes('robots'),
+    'sitemap-served': (entry) => entry.combination.features.includes('sitemap'),
     'accessibility-structure': (entry) => entry.combination.features.includes('accessibility'),
     'stylesheet-loads': (entry) => entry.combination.styling !== 'none',
     'mui-renders': (entry) => entry.combination.uiLibrary === 'mui',

@@ -507,6 +507,69 @@ async function examine(
     features['structured-data'] = `${count} Organization block`;
   }
 
+  // --- robots.txt and the sitemap -------------------------------------------
+  if (contracts.includes('robots-served')) {
+    const robots = await get('/robots.txt');
+    record(
+      'robots-served',
+      'GET /robots.txt',
+      '200 text/plain',
+      `${robots.status} ${robots.type.split(';')[0]}`,
+      robots.status === 200 && robots.type.includes('text/plain'),
+    );
+    record(
+      'robots-served',
+      'robots.txt lets every crawler index',
+      'User-Agent: * / Allow: /, no Disallow',
+      /disallow/i.test(robots.body) ? 'disallows something' : 'allows all',
+      /user-agent:\s*\*/i.test(robots.body) &&
+        /allow:\s*\//i.test(robots.body) &&
+        !/disallow/i.test(robots.body),
+    );
+    // A sitemap is advertised only when one is generated and the URL is real.
+    const expected =
+      contracts.includes('sitemap-served') && url === 'configured'
+        ? `${SITE_URL}/sitemap.xml`
+        : '(none)';
+    const advertised = /^sitemap:\s*(\S+)/im.exec(robots.body)?.[1] ?? '(none)';
+    record(
+      'robots-served',
+      'robots.txt Sitemap line',
+      expected,
+      advertised,
+      advertised === expected,
+    );
+    features['robots'] = `sitemap ${advertised}`;
+  }
+
+  if (contracts.includes('sitemap-served')) {
+    const sitemap = await get('/sitemap.xml');
+    record(
+      'sitemap-served',
+      'GET /sitemap.xml',
+      '200 xml',
+      `${sitemap.status} ${sitemap.type.split(';')[0]}`,
+      sitemap.status === 200 && sitemap.type.includes('xml'),
+    );
+    const locs = [...sitemap.body.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
+    const expected = url === 'configured' ? [`${SITE_URL}/`] : [];
+    record(
+      'sitemap-served',
+      'sitemap entries',
+      JSON.stringify(expected),
+      JSON.stringify(locs),
+      JSON.stringify(locs) === JSON.stringify(expected),
+    );
+    record(
+      'sitemap-served',
+      'no lastmod from the build clock',
+      'absent',
+      sitemap.body.includes('<lastmod>') ? 'present' : 'absent',
+      !sitemap.body.includes('<lastmod>'),
+    );
+    features['sitemap'] = `${locs.length} URL(s)`;
+  }
+
   // --- stylesheet -----------------------------------------------------------
   if (contracts.includes('stylesheet-loads')) {
     const href = /<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/.exec(home.body)?.[1];

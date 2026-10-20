@@ -105,6 +105,15 @@ export const FILE_ROLES = [
    */
   'app.document.metadata',
   /**
+   * The component that renders the site's Organization JSON-LD.
+   *
+   * A file a feature contributes, rendered by the pages the architecture's
+   * realization places it on. Mapped only where something can render it into
+   * the response; an architecture whose template ships its own (Astro's
+   * `StructuredData.astro`) does not map it.
+   */
+  'app.document.structuredData',
+  /**
    * The module holding the project's own URL helpers.
    *
    * Named because a realized document has to build an absolute address the same
@@ -120,6 +129,10 @@ export const FILE_ROLES = [
   'page.home',
   /** Not-found page. */
   'page.notFound',
+  /** The route module that answers `/robots.txt`: `app/robots.ts`. */
+  'route.robots',
+  /** The route module that answers `/sitemap.xml`: `app/sitemap.ts`. */
+  'route.sitemap',
   /** The single file a developer edits to configure the site. */
   'config.site',
   /** Framework configuration: `astro.config.mjs`, `next.config.ts`. */

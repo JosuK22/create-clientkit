@@ -241,14 +241,18 @@ describe('Next declares the capability it actually has', () => {
     // Two more since Stage 26 - `client-app-root` and `server-inserted-head` -
     // each earned by architecture rather than asserted. See next-mui.test.ts.
     // `composed-canonical` joined in Stage 51, earned by a realization that
-    // writes a canonical Next resolves per route.
+    // writes a canonical Next resolves per route. `metadata-routes` and
+    // `composed-structured-data` joined in SEO Stage 2, each earned by a role
+    // the architecture maps and a feature that fills it.
     expect([...NEXTJS_DECLARATION.provides].sort()).toEqual([
       'client-app-root',
       'composed-canonical',
+      'composed-structured-data',
       'composed-stylesheet',
       'document-metadata',
       'file-based-routing',
       'jsx',
+      'metadata-routes',
       'postcss',
       'react-runtime',
       'server-inserted-head',
@@ -408,7 +412,6 @@ describe('correcting one capability changed only what it should', () => {
       // missing capability to a conflict with the framework's own routing.
       ['react-router', { router: 'react-router' }, 'file-based-routing'],
       ['client-route-fallback', { features: ['client-route-fallback'] }, 'client-side-routing'],
-      ['structured-data', { features: ['structured-data'] }, 'composed-metadata'],
       ['accessibility', { features: ['accessibility'] }, 'composed-metadata'],
     ];
     for (const [label, over, capability] of refused) {

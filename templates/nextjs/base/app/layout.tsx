@@ -21,10 +21,11 @@ import '../styles/globals.css';
  * needed at all - is that component's decision, which is what keeps it out of
  * this one.
  *
- * `metadata` is baseline only - a title and a description taken from the one
- * config file. There is no canonical URL, no Open Graph block and no social
- * card, because those need a production URL and a considered decision per page,
- * and inventing either would put claims in the head that nobody made.
+ * `metadata` starts as a title and a description taken from the one config
+ * file. A canonical address is declared here only when the project was
+ * generated with `--features seo`, and only once `SITE.url` is set. There is no
+ * Open Graph block and no social card: those need a considered decision per
+ * page, and inventing one would put claims in the head that nobody made.
  */
 export const metadata: Metadata = {
   title: SITE.name,

@@ -976,7 +976,11 @@ describe('the number of starters is independent of every other dimension', () =>
     const byDimension: Record<string, readonly string[]> = {
       styling: STYLING_IDS,
       'ui-library': UI_LIBRARY_IDS,
-      feature: FEATURE_IDS,
+      // `shared` is the one exception, and it is not an option: the URL helpers
+      // `robots`, `sitemap` and `structured-data` each contribute identically.
+      // Copying the file into three option directories would be three chances
+      // for them to drift.
+      feature: [...FEATURE_IDS, 'shared'],
     };
     for (const [dimension, ids] of Object.entries(byDimension)) {
       for (const entry of directoriesUnder(path.join(TEMPLATES_ROOT, dimension))) {

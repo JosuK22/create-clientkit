@@ -65,30 +65,34 @@ rather than from this page.
 Each flag sets one part of the stack. Anything you leave out is asked for, or —
 when only one answer is possible — filled in from the framework.
 
-| Option                | Purpose                  | Accepted values                                                                       | Default                        | Example                         |
-| --------------------- | ------------------------ | ------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------- |
-| `--preset <id>`       | Start from a named stack | `astro-tailwind`, `react-tailwind`, `nextjs-tailwind`, `react-bootstrap`, `react-mui` | none                           | `--preset react-mui`            |
-| `--framework <id>`    | Framework                | `astro`, `react`, `nextjs`                                                            | `astro`                        | `--framework nextjs`            |
-| `--styling <id>`      | How CSS is built         | `tailwind`, `bootstrap`, `none`                                                       | `tailwind` (`none` on Next.js) | `--styling bootstrap`           |
-| `--ui-library <id>`   | Component library        | `mui`, `chakra`, `none`                                                               | `none`                         | `--ui-library chakra`           |
-| `--router <id>`       | Routing                  | `react-router`, `none`, `file-based`                                                  | the framework's                | `--router react-router`         |
-| `--features <a,b>`    | Optional site features   | `seo`, `structured-data`, `accessibility`, `not-found`, `client-route-fallback`       | none                           | `--features seo,not-found`      |
-| `--build-tool <id>`   | Bundler                  | `vite` (Astro and Next.js use their own)                                              | the framework's                | `--build-tool vite`             |
-| `--language <id>`     | Language                 | `ts` (or `typescript`)                                                                | `ts`                           | `--language ts`                 |
-| `--architecture <id>` | Folder layout            | defined by the framework                                                              | the framework's                | `--architecture react-standard` |
+| Option                | Purpose                  | Accepted values                                                                                      | Default                        | Example                         |
+| --------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------- |
+| `--preset <id>`       | Start from a named stack | `astro-tailwind`, `react-tailwind`, `nextjs-tailwind`, `react-bootstrap`, `react-mui`                | none                           | `--preset react-mui`            |
+| `--framework <id>`    | Framework                | `astro`, `react`, `nextjs`                                                                           | `astro`                        | `--framework nextjs`            |
+| `--styling <id>`      | How CSS is built         | `tailwind`, `bootstrap`, `none`                                                                      | `tailwind` (`none` on Next.js) | `--styling bootstrap`           |
+| `--ui-library <id>`   | Component library        | `mui`, `chakra`, `none`                                                                              | `none`                         | `--ui-library chakra`           |
+| `--router <id>`       | Routing                  | `react-router`, `none`, `file-based`                                                                 | the framework's                | `--router react-router`         |
+| `--features <a,b>`    | Optional site features   | `seo`, `robots`, `sitemap`, `structured-data`, `accessibility`, `not-found`, `client-route-fallback` | none                           | `--features seo,not-found`      |
+| `--build-tool <id>`   | Bundler                  | `vite` (Astro and Next.js use their own)                                                             | the framework's                | `--build-tool vite`             |
+| `--language <id>`     | Language                 | `ts` (or `typescript`)                                                                               | `ts`                           | `--language ts`                 |
+| `--architecture <id>` | Folder layout            | defined by the framework                                                                             | the framework's                | `--architecture react-standard` |
 
 Which values each framework accepts is in [stacks.md](./stacks.md). In short:
 
-| Framework | `--styling`                     | `--ui-library`          | `--router`             | `--features`                                           |
-| --------- | ------------------------------- | ----------------------- | ---------------------- | ------------------------------------------------------ |
-| `astro`   | `tailwind`                      | `none`                  | `file-based`           | `seo`, `structured-data`, `accessibility`, `not-found` |
-| `react`   | `tailwind`, `bootstrap`         | `none`, `mui`, `chakra` | `none`, `react-router` | `client-route-fallback` (with `react-router`)          |
-| `nextjs`  | `tailwind`, `bootstrap`, `none` | `none`, `mui`, `chakra` | `file-based`           | `seo`, `not-found`                                     |
+| Framework | `--styling`                     | `--ui-library`          | `--router`             | `--features`                                                                |
+| --------- | ------------------------------- | ----------------------- | ---------------------- | --------------------------------------------------------------------------- |
+| `astro`   | `tailwind`                      | `none`                  | `file-based`           | `seo`, `robots`, `sitemap`, `structured-data`, `accessibility`, `not-found` |
+| `react`   | `tailwind`, `bootstrap`         | `none`, `mui`, `chakra` | `none`, `react-router` | `client-route-fallback` (with `react-router`)                               |
+| `nextjs`  | `tailwind`, `bootstrap`, `none` | `none`, `mui`, `chakra` | `file-based`           | `seo`, `robots`, `sitemap`, `structured-data`, `not-found`                  |
 
 Notes:
 
 - `--features` takes a comma-separated list and can be repeated. An unknown id
   is an error, and so is the same id twice.
+- `robots`, `sitemap` and `structured-data` generate files only on Next.js,
+  and only when selected. Astro's template already serves `robots.txt`, a
+  sitemap and structured data on every project, so on Astro these are accepted
+  and change nothing. React refuses them.
 - `--build-tool`, `--language` and `--architecture` currently have only one
   valid value per framework, so they are never asked and rarely worth passing.
   Passing a value the framework does not offer is refused rather than ignored:

@@ -52,6 +52,9 @@ const ASTRO_DECLARATION: AdapterDeclaration = {
     // makes a head contribution land somewhere rather than vanish.
     'composed-metadata',
     'composed-canonical',
+    // The base layer ships `src/pages/robots.txt.ts` and the sitemap
+    // integration, so `robots` and `sitemap` are accepted and add nothing.
+    'template-crawler-files',
   ],
   requires: [
     {

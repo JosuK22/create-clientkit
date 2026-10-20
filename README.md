@@ -187,9 +187,12 @@ A single-page app with the same config-driven layout:
 - **Page titles and descriptions** set per page with a small `useDocumentMeta`
   hook.
 
-React renders in the browser, so there is no server-rendered SEO layer and no
-sitemap. If search visibility matters for the site, pick Astro or Next.js — the
-CLI will tell you the same thing if you ask for `--features seo` on React.
+ClientKit's React starter renders in the browser — it generates no server
+rendering or prerendering — so there is no server-rendered SEO layer, no
+`robots.txt` and no sitemap. `useDocumentMeta` sets the title and description
+after the page loads, which a crawler reading the initial HTML does not see. If
+search visibility matters for the site, pick Astro or Next.js — the CLI will
+tell you the same thing if you ask for `--features seo` on React.
 
 ### Next.js projects
 
@@ -198,20 +201,31 @@ App Router, React Server Components by default:
 - **Tailwind, Bootstrap or plain CSS**, optionally with **Material UI** or
   **Chakra UI** — including the server-side style handling those libraries need
   to avoid hydration errors.
-- **Title and description metadata** from the config, plus a **canonical URL**
-  with `--features seo` once the production URL is set.
+- **Title and description metadata** from the config.
 - **A custom `not-found` page.**
+- **Search features you opt into**, each generating only its own output:
+  - `seo` — a **canonical URL** in the root layout's metadata, once the
+    production URL is set.
+  - `robots` — `app/robots.ts`, allowing every crawler. It advertises the
+    sitemap only when `sitemap` is also selected and the URL is set.
+  - `sitemap` — `app/sitemap.ts`, listing the home page as an absolute URL.
+    Next.js does not discover routes for it: add each page you create to its
+    `ROUTES` list.
+  - `structured-data` — schema.org `Organization` JSON-LD, rendered on the
+    home page (not the 404) from the name, URL, description, email and phone
+    you have configured.
 
-Next.js projects do not currently include `robots.txt`, a sitemap or structured
-data. Those are Astro-only for now.
+  With no production URL, the canonical is omitted, the sitemap is empty and
+  `robots.txt` names no sitemap — nothing points at a guessed domain. There is
+  no `noindex` setting on Next.js yet: `robots.txt` always allows crawling.
 
 ## Supported stacks
 
-| Framework             | Styling                              | Component library | Routing                 | Optional features                                      |
-| --------------------- | ------------------------------------ | ----------------- | ----------------------- | ------------------------------------------------------ |
-| **Astro 7** (default) | Tailwind CSS 4                       | —                 | file-based              | `seo`, `structured-data`, `accessibility`, `not-found` |
-| **React 19 + Vite 8** | Tailwind CSS 4, Bootstrap            | none, MUI, Chakra | none, React Router      | `client-route-fallback` (needs React Router)           |
-| **Next.js 16**        | Tailwind CSS 4, Bootstrap, plain CSS | none, MUI, Chakra | file-based (App Router) | `seo`, `not-found`                                     |
+| Framework             | Styling                              | Component library | Routing                 | Optional features                                                           |
+| --------------------- | ------------------------------------ | ----------------- | ----------------------- | --------------------------------------------------------------------------- |
+| **Astro 7** (default) | Tailwind CSS 4                       | —                 | file-based              | `seo`, `robots`, `sitemap`, `structured-data`, `accessibility`, `not-found` |
+| **React 19 + Vite 8** | Tailwind CSS 4, Bootstrap            | none, MUI, Chakra | none, React Router      | `client-route-fallback` (needs React Router)                                |
+| **Next.js 16**        | Tailwind CSS 4, Bootstrap, plain CSS | none, MUI, Chakra | file-based (App Router) | `seo`, `robots`, `sitemap`, `structured-data`, `not-found`                  |
 
 All projects are TypeScript. Every row is a real choice: any styling in a row
 works with any component library in that row.
@@ -276,7 +290,7 @@ data generated into static HTML.
 ### A Next.js site with a component library
 
 ```sh
-npm create clientkit@latest acme-web -- --framework nextjs --styling tailwind --ui-library chakra --features seo,not-found
+npm create clientkit@latest acme-web -- --framework nextjs --styling tailwind --ui-library chakra --features seo,robots,sitemap,structured-data,not-found
 ```
 
 ### A React app with routing
@@ -487,8 +501,9 @@ Be honest with yourself about the fit:
   of those, deliberately.
 - **You already have a starter your team maintains.** Keep it — or compare what
   ClientKit generates and take what's useful.
-- **You need search-visible content on React.** Choose Astro or Next.js; a
-  client-rendered React app cannot put metadata in the initial HTML.
+- **You need search-visible content on React.** Choose Astro or Next.js;
+  ClientKit's React starter is client-rendered and does not put metadata in the
+  initial HTML.
 
 ## Documentation
 

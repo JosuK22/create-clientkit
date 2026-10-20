@@ -637,16 +637,19 @@ describe('composed-metadata', () => {
     /*
      * SEO left this list in Stage 51, when it stopped asking for the whole
      * metadata surface and started asking for the canonical one it actually
-     * composes. The two features that genuinely need the shell to cover their
-     * contracts - a knowledge-graph block, an accessibility guarantee on every
-     * page - are refused exactly as before, and for the same reason.
+     * composes. Structured data left it in SEO Stage 2, for the same kind of
+     * reason: it accepts `composed-structured-data`, which Next provides. The
+     * feature that genuinely needs the shell to cover its contract - an
+     * accessibility guarantee on every page - is refused exactly as before.
      */
-    for (const feature of ['structured-data', 'accessibility'] as const) {
-      const report = checkCompatibility(nextManifest({ features: [feature] }), adapters);
-      expect(report.compatible, feature).toBe(false);
-      expect(JSON.stringify(report.violations), feature).toContain('composed-metadata');
+    const report = checkCompatibility(nextManifest({ features: ['accessibility'] }), adapters);
+    expect(report.compatible).toBe(false);
+    expect(JSON.stringify(report.violations)).toContain('composed-metadata');
+    for (const feature of ['seo', 'structured-data'] as const) {
+      expect(checkCompatibility(nextManifest({ features: [feature] }), adapters).compatible).toBe(
+        true,
+      );
     }
-    expect(checkCompatibility(nextManifest({ features: ['seo'] }), adapters).compatible).toBe(true);
   });
 
   it('is not granted by mapping the layout', () => {
@@ -747,6 +750,12 @@ describe('the supported stacks are unchanged', () => {
     ['next + bootstrap', nextManifest({ styling: 'bootstrap' })],
     ['next + mui', nextManifest({ uiLibrary: 'mui' })],
     ['next + mui + tailwind', nextManifest({ uiLibrary: 'mui', styling: 'tailwind' })],
+    [
+      'next + robots + sitemap + structured-data + seo',
+      nextManifest({ features: ['robots', 'sitemap', 'structured-data', 'seo'] }),
+    ],
+    // Satisfied by the robots route and sitemap integration Astro's template ships.
+    ['astro + robots + sitemap', astroManifest({ features: ['robots', 'sitemap'] })],
     ['react + mui', reactManifest({ uiLibrary: 'mui' })],
     ['react + mui + tailwind', reactManifest({ uiLibrary: 'mui', styling: 'tailwind' })],
     ['react + mui + react-router', reactManifest({ uiLibrary: 'mui', router: 'react-router' })],
@@ -764,11 +773,6 @@ describe('the supported stacks are unchanged', () => {
 describe('the refusals are unchanged', () => {
   const refused: readonly (readonly [string, ProjectManifest, string])[] = [
     ['next + react-router', nextManifest({ router: 'react-router' }), 'file-based-routing'],
-    [
-      'next + structured-data',
-      nextManifest({ features: ['structured-data'] }),
-      'composed-metadata',
-    ],
     ['next + accessibility', nextManifest({ features: ['accessibility'] }), 'composed-metadata'],
     [
       'next + client-route-fallback',
@@ -776,6 +780,9 @@ describe('the refusals are unchanged', () => {
       'client-side-routing',
     ],
     ['astro + bootstrap', astroManifest({ styling: 'bootstrap' }), 'composed-stylesheet'],
+    // React serves neither, and its template ships neither.
+    ['react + robots', reactManifest({ features: ['robots'] }), 'metadata-routes'],
+    ['react + sitemap', reactManifest({ features: ['sitemap'] }), 'metadata-routes'],
   ];
 
   for (const [label, manifest, because] of refused) {

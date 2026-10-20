@@ -386,13 +386,13 @@ describe('--features', () => {
 
   it('accepts a known feature with no adapter, and lets selection refuse it', async () => {
     /*
-     * `sitemap` is real vocabulary, so it is not the CLI's to reject. The
+     * `social-metadata` is real vocabulary, so it is not the CLI's to reject. The
      * manifest is built and `selectAdapters` reports that nothing implements
      * it - which is exactly the boundary this stage is drawing, so the test
      * follows it through the pipeline rather than asserting at the wrong layer.
      */
-    const manifest = await manifestFor(['--features', 'sitemap']);
-    expect(manifest.features).toContain('sitemap');
+    const manifest = await manifestFor(['--features', 'social-metadata']);
+    expect(manifest.features).toContain('social-metadata');
     expect(planFailure(manifest)).toContain('no adapter implements it');
   });
 });

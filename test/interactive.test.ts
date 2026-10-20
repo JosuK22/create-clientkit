@@ -241,10 +241,14 @@ describe('impossible combinations are never offered', () => {
 
   it('offers Astro the features Astro can have', async () => {
     const { optionsFor } = await menus({ framework: 'astro' });
+    // `robots` and `sitemap` since SEO Stage 3: accepted, and satisfied by
+    // what the template already ships.
     expect(optionsFor('features')).toEqual([
       'accessibility',
       'not-found',
+      'robots',
       'seo',
+      'sitemap',
       'structured-data',
     ]);
   });
